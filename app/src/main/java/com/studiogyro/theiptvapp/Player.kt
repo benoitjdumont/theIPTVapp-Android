@@ -63,6 +63,7 @@ private data class Attempt(val url: String, val mime: String?)
 private fun attemptsFor(c: Channel): List<Attempt> {
     val out = ArrayList<Attempt>()
     out.add(Attempt(c.url, null))
+    if (c.kind != "live") return out
     // an address without a clear extension may be an HLS playlist: try it explicitly too
     if (!c.url.contains(".m3u8", ignoreCase = true)) out.add(Attempt(c.url, MimeTypes.APPLICATION_M3U8))
     for (a in c.alt) out.add(Attempt(a, null))
@@ -140,6 +141,20 @@ fun PlayerScreen(vm: MainVm) {
             .focusable()
             .onKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onKeyEvent false
+                val vod = ch.kind != "live"
+                if (vod) {
+                    return@onKeyEvent when (ev.key) {
+                        Key.DirectionRight -> { player.seekTo(player.currentPosition + 15_000); showUi = true; true }
+                        Key.DirectionLeft -> { player.seekTo((player.currentPosition - 15_000).coerceAtLeast(0)); showUi = true; true }
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause -> {
+                            player.playWhenReady = !player.playWhenReady
+                            showUi = true
+                            true
+                        }
+                        Key.DirectionDown, Key.DirectionUp -> { showUi = true; true }
+                        else -> false
+                    }
+                }
                 when (ev.key) {
                     Key.DirectionDown, Key.ChannelDown, Key.PageDown -> { vm.step(1); showUi = true; true }
                     Key.DirectionUp, Key.ChannelUp, Key.PageUp -> { vm.step(-1); showUi = true; true }
@@ -158,6 +173,7 @@ fun PlayerScreen(vm: MainVm) {
                     keepScreenOn = true
                 }
             },
+            update = { it.useController = ch.kind != "live" },
         )
 
         if (status.isNotEmpty()) {

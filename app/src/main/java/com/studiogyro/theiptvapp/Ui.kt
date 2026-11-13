@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -82,6 +86,8 @@ fun AppRoot(vm: MainVm) {
             var screen by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "settings" else "home") }
             if (vm.current != null) {
                 PlayerScreen(vm)
+            } else if (vm.seriesOpen != null) {
+                Box(Modifier.fillMaxSize().safeDrawingPadding()) { SeriesScreen(vm) }
             } else {
                 // keep clear of the status bar (battery, clock) and the navigation bar
                 Box(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -118,6 +124,7 @@ fun FocusRow(selected: Boolean, onClick: () -> Unit, content: @Composable RowSco
 
 @Composable
 fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
+    val sec = vm.section()
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(36.dp))
@@ -126,11 +133,16 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
             IconButton(onClick = { vm.reload() }) { Icon(Icons.Default.Refresh, "Actualiser", tint = Color.White) }
             IconButton(onClick = openSettings) { Icon(Icons.Default.Settings, "Sources", tint = Color.White) }
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+            listOf("En direct", "Films", "Séries").forEachIndexed { i, label ->
+                FilterChip(selected = vm.tab == i, onClick = { vm.selectTab(i) }, label = { Text(label) })
+            }
+        }
         OutlinedTextField(
             value = vm.query,
             onValueChange = { vm.query = it },
             singleLine = true,
-            placeholder = { Text("Rechercher une chaîne") },
+            placeholder = { Text("Rechercher") },
             leadingIcon = { Icon(Icons.Default.Search, null) },
             modifier = Modifier.fillMaxWidth(),
         )
@@ -138,28 +150,33 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
 
         when {
             vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
-            vm.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            sec.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator()
                     Spacer(Modifier.size(12.dp))
                     Text("Chargement de la liste…", color = Color.White)
                 }
             }
-            vm.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            sec.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Erreur : ${vm.error}", color = Color(0xFFFF8A8A))
+                    Text(if (vm.tab == 0) "Erreur : ${sec.error}" else "${sec.error}", color = Color(0xFFFF8A8A))
                     Spacer(Modifier.size(12.dp))
-                    Button(onClick = { vm.reload() }) { Text("Réessayer") }
+                    if (vm.tab == 0 || vm.sources.firstOrNull { it.id == vm.activeId }?.type == SourceType.XTREAM) {
+                        Button(onClick = { vm.reload() }) { Text("Réessayer") }
+                    }
                 }
             }
             else -> BoxWithConstraints(Modifier.fillMaxSize()) {
-                val list = remember(vm.channels, vm.top, vm.sub, vm.query, vm.favs) { vm.visible() }
-                val subs = vm.subs()
+                val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs) { vm.visible() }
+                val subs = sec.subs()
+                val content: @Composable (Modifier) -> Unit = { m ->
+                    if (vm.tab == 0) ChannelList(vm, list, m) else PosterGrid(vm, list, m)
+                }
                 if (maxWidth >= 700.dp) {
                     Row(Modifier.fillMaxSize()) {
                         LazyColumn(Modifier.width(200.dp).fillMaxSize()) {
-                            items(topEntries(vm), key = { it.first ?: "\u0001all" }) { (g, label) ->
-                                FocusRow(selected = vm.top == g, onClick = { vm.pickTop(g) }) {
+                            items(topEntries(sec, vm.tab == 0), key = { it.first ?: "\u0001all" }) { (g, label) ->
+                                FocusRow(selected = sec.top == g, onClick = { sec.pickTop(g) }) {
                                     Text(label, color = Color.White, maxLines = 1)
                                 }
                             }
@@ -168,40 +185,40 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
                             Spacer(Modifier.width(6.dp))
                             LazyColumn(Modifier.width(220.dp).fillMaxSize()) {
                                 item(key = "\u0001subAll") {
-                                    FocusRow(selected = vm.sub == null, onClick = { vm.pickSub(null) }) {
+                                    FocusRow(selected = sec.sub == null, onClick = { sec.pickSub(null) }) {
                                         Text("Tout", color = Color.White, maxLines = 1)
                                     }
                                 }
                                 items(subs, key = { it.first }) { (full, label) ->
-                                    FocusRow(selected = vm.sub == full, onClick = { vm.pickSub(full) }) {
+                                    FocusRow(selected = sec.sub == full, onClick = { sec.pickSub(full) }) {
                                         Text(label, color = Color.White, maxLines = 1)
                                     }
                                 }
                             }
                         }
                         Spacer(Modifier.width(8.dp))
-                        ChannelList(vm, list, Modifier.weight(1f))
+                        content(Modifier.weight(1f))
                     }
                 } else {
                     Column(Modifier.fillMaxSize()) {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            items(topEntries(vm), key = { it.first ?: "\u0001all" }) { (g, label) ->
-                                FilterChip(selected = vm.top == g, onClick = { vm.pickTop(g) }, label = { Text(label, maxLines = 1) })
+                            items(topEntries(sec, vm.tab == 0), key = { it.first ?: "\u0001all" }) { (g, label) ->
+                                FilterChip(selected = sec.top == g, onClick = { sec.pickTop(g) }, label = { Text(label, maxLines = 1) })
                             }
                         }
                         if (subs.isNotEmpty()) {
                             Spacer(Modifier.size(4.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 item(key = "\u0001subAll") {
-                                    FilterChip(selected = vm.sub == null, onClick = { vm.pickSub(null) }, label = { Text("Tout") })
+                                    FilterChip(selected = sec.sub == null, onClick = { sec.pickSub(null) }, label = { Text("Tout") })
                                 }
                                 items(subs, key = { it.first }) { (full, label) ->
-                                    FilterChip(selected = vm.sub == full, onClick = { vm.pickSub(full) }, label = { Text(label, maxLines = 1) })
+                                    FilterChip(selected = sec.sub == full, onClick = { sec.pickSub(full) }, label = { Text(label, maxLines = 1) })
                                 }
                             }
                         }
                         Spacer(Modifier.size(6.dp))
-                        ChannelList(vm, list, Modifier.weight(1f))
+                        content(Modifier.weight(1f))
                     }
                 }
             }
@@ -209,12 +226,92 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
     }
 }
 
-private fun topEntries(vm: MainVm): List<Pair<String?, String>> {
+private fun topEntries(sec: Section, live: Boolean): List<Pair<String?, String>> {
     val l = ArrayList<Pair<String?, String>>()
-    l.add(null to "Toutes (${vm.channels.size})")
-    l.add(GROUP_FAV to "★ Favoris")
-    vm.tops.forEach { l.add(it to it) }
+    l.add(null to "Toutes (${sec.items.size})")
+    if (live) l.add(GROUP_FAV to "★ Favoris")
+    sec.tops.forEach { l.add(it to it) }
     return l
+}
+
+/** Poster wall for movies and series. */
+@Composable
+private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier) {
+    if (list.isEmpty()) {
+        Box(modifier, contentAlignment = Alignment.Center) { Text("Rien à afficher.", color = Color.Gray) }
+        return
+    }
+    LazyVerticalGrid(columns = GridCells.Adaptive(120.dp), modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(list, key = { it.id }) { c ->
+            var focused by remember { mutableStateOf(false) }
+            val shape = RoundedCornerShape(10.dp)
+            Column(
+                Modifier
+                    .clip(shape)
+                    .background(if (focused) Accent.copy(alpha = 0.35f) else Panel)
+                    .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
+                    .onFocusChanged { focused = it.isFocused }
+                    .clickable { if (c.kind == "series") vm.openSeries(c) else vm.play(listOf(c), c) }
+                    .padding(6.dp),
+            ) {
+                Poster(c.logo, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+                Text(c.name, color = Color.White, fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun Poster(url: String, modifier: Modifier) {
+    if (url.isNotBlank()) {
+        AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier.clip(RoundedCornerShape(8.dp)))
+    } else {
+        Box(modifier.clip(RoundedCornerShape(8.dp)).background(Bg))
+    }
+}
+
+/** Episode list of a series: seasons as chips, episodes below. */
+@Composable
+fun SeriesScreen(vm: MainVm) {
+    val c = vm.seriesOpen ?: return
+    val data = vm.seriesData
+    BackHandler(true) { vm.closeSeries() }
+    var season by rememberSaveable(c.id) { mutableStateOf(-1) }
+    Column(Modifier.fillMaxSize().padding(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { vm.closeSeries() }) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
+            Text(c.name, fontSize = 20.sp, color = Color.White, maxLines = 2, modifier = Modifier.weight(1f))
+        }
+        if (data == null) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            return@Column
+        }
+        Row(Modifier.padding(vertical = 8.dp)) {
+            Poster(c.logo, Modifier.width(90.dp).aspectRatio(2f / 3f))
+            Spacer(Modifier.width(10.dp))
+            Text(data.plot.ifBlank { c.plot }.ifBlank { "Pas de résumé." }, color = Color(0xFFB8C4DA), fontSize = 13.sp, maxLines = 6)
+        }
+        if (data.seasons.isEmpty()) {
+            Message("Aucun épisode trouvé.")
+            return@Column
+        }
+        val keys = data.seasons.keys.toList()
+        val cur = if (season in keys) season else keys.first()
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(keys, key = { it }) { k ->
+                FilterChip(selected = k == cur, onClick = { season = k }, label = { Text("Saison $k") })
+            }
+        }
+        Spacer(Modifier.size(6.dp))
+        val eps = data.seasons[cur].orEmpty()
+        LazyColumn(Modifier.weight(1f)) {
+            items(eps, key = { it.id }) { e ->
+                FocusRow(selected = false, onClick = { vm.play(eps, e) }) {
+                    Text(e.name, color = Color.White, maxLines = 2, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
 }
 
 @Composable

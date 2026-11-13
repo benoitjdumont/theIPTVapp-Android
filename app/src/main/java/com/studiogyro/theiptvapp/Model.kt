@@ -42,7 +42,12 @@ data class Channel(
     val group: String = "",
     /** Xtream stream id, used to ask for the programme guide */
     val sid: String = "",
+    /** "live", "movie" (playable file) or "series" (opens the episode list) */
+    val kind: String = "live",
+    val plot: String = "",
 )
+
+data class SeriesData(val plot: String, val seasons: Map<Int, List<Channel>>)
 
 data class Prog(val title: String, val start: Long, val stop: Long)
 

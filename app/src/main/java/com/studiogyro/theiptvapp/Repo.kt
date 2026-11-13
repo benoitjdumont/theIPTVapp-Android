@@ -29,6 +29,104 @@ object Repo {
         }
     }
 
+    suspend fun loadVod(src: Source): List<Channel> = withContext(Dispatchers.IO) {
+        val base = normHost(src.host)
+        val u = java.net.URLEncoder.encode(src.user, "UTF-8")
+        val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
+        val api = "$base/player_api.php?username=$u&password=$p"
+        val cats = categoryMap("$api&action=get_vod_categories")
+        val a = readJsonArray("$api&action=get_vod_streams")
+        val out = ArrayList<Channel>(a.length())
+        for (i in 0 until a.length()) {
+            val o = a.getJSONObject(i)
+            val id = o.optString("stream_id")
+            if (id.isEmpty()) continue
+            val ext = o.optString("container_extension").ifEmpty { "mp4" }
+            out.add(
+                Channel(
+                    id = "v$id", name = o.optString("name").ifEmpty { "Film $id" },
+                    url = "$base/movie/$u/$p/$id.$ext", logo = o.optString("stream_icon"),
+                    group = cats[o.optString("category_id")] ?: "", kind = "movie",
+                ),
+            )
+        }
+        if (out.isEmpty()) throw RuntimeException("Aucun film trouvé")
+        out
+    }
+
+    suspend fun loadSeries(src: Source): List<Channel> = withContext(Dispatchers.IO) {
+        val base = normHost(src.host)
+        val u = java.net.URLEncoder.encode(src.user, "UTF-8")
+        val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
+        val api = "$base/player_api.php?username=$u&password=$p"
+        val cats = categoryMap("$api&action=get_series_categories")
+        val a = readJsonArray("$api&action=get_series")
+        val out = ArrayList<Channel>(a.length())
+        for (i in 0 until a.length()) {
+            val o = a.getJSONObject(i)
+            val id = o.optString("series_id")
+            if (id.isEmpty()) continue
+            out.add(
+                Channel(
+                    id = "s$id", name = o.optString("name").ifEmpty { "Série $id" }, url = "",
+                    logo = o.optString("cover"), group = cats[o.optString("category_id")] ?: "",
+                    sid = id, kind = "series", plot = o.optString("plot"),
+                ),
+            )
+        }
+        if (out.isEmpty()) throw RuntimeException("Aucune série trouvée")
+        out
+    }
+
+    suspend fun seriesInfo(src: Source, sid: String): SeriesData = withContext(Dispatchers.IO) {
+        val base = normHost(src.host)
+        val u = java.net.URLEncoder.encode(src.user, "UTF-8")
+        val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
+        var txt = ""
+        open("$base/player_api.php?username=$u&password=$p&action=get_series_info&series_id=$sid") { r -> txt = r.body?.string() ?: "" }
+        val root = org.json.JSONObject(txt.trim())
+        val plot = root.optJSONObject("info")?.optString("plot") ?: ""
+        val seasons = java.util.TreeMap<Int, MutableList<Channel>>()
+        fun addEp(season: Int, o: org.json.JSONObject) {
+            val id = o.optString("id")
+            if (id.isEmpty()) return
+            val ext = o.optString("container_extension").ifEmpty { "mp4" }
+            val num = o.optString("episode_num")
+            val title = o.optString("title")
+            val label = "S${season}E$num" + if (title.isNotBlank()) " · $title" else ""
+            val img = o.optJSONObject("info")?.optString("movie_image") ?: ""
+            seasons.getOrPut(season) { ArrayList() }.add(
+                Channel(id = "e$id", name = label, url = "$base/series/$u/$p/$id.$ext", logo = img, kind = "movie"),
+            )
+        }
+        val eps = root.opt("episodes")
+        if (eps is org.json.JSONObject) {
+            for (k in eps.keys()) {
+                val season = k.toIntOrNull() ?: continue
+                val arr = eps.optJSONArray(k) ?: continue
+                for (i in 0 until arr.length()) addEp(season, arr.getJSONObject(i))
+            }
+        } else if (eps is JSONArray) {
+            for (si in 0 until eps.length()) {
+                val arr = eps.optJSONArray(si) ?: continue
+                for (i in 0 until arr.length()) addEp(si + 1, arr.getJSONObject(i))
+            }
+        }
+        SeriesData(plot, seasons)
+    }
+
+    private fun categoryMap(url: String): Map<String, String> {
+        val m = HashMap<String, String>()
+        runCatching {
+            val a = readJsonArray(url)
+            for (i in 0 until a.length()) {
+                val o = a.getJSONObject(i)
+                m[o.optString("category_id")] = o.optString("category_name")
+            }
+        }
+        return m
+    }
+
     private val epgGate = Semaphore(4)
 
     /** Programme guide for one Xtream channel (now + next). Never throws: returns an empty guide on failure. */

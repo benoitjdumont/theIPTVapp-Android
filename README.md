@@ -12,6 +12,7 @@ Une seule application : tactile sur téléphone, télécommande (flèches, OK, R
 - Lecture : ↑/↓ (ou touches chaîne +/−) pour changer de chaîne, OK pour afficher/masquer les infos, Retour pour revenir à la liste.
 - **Sous-menus** de catégories (« FR | Sports » → préfixe FR, puis sous-catégorie).
 - **Guide EPG** (Xtream) : programme en cours et suivant, dans la liste et pendant la lecture.
+- **Films et séries** (compte Xtream) : murs d'affiches, mêmes sous-menus, saisons et épisodes ; flèches gauche/droite = ±15 s.
 - Contenu respectant les barres du téléphone (batterie, heure).
 - Essais automatiques : `.m3u8`, puis `.ts` (Xtream), puis HLS forcé.
 
