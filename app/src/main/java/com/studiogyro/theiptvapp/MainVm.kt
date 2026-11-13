@@ -38,7 +38,7 @@ class Section {
     private var subsOf: Map<String, List<Pair<String, String>>> = emptyMap()
     private var prefixOf: Map<String, String> = emptyMap()
 
-    fun setItems(l: List<Channel>) {
+    fun replaceItems(l: List<Channel>) {
         items = l
         top = null
         sub = null
@@ -115,7 +115,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     fun reload() {
         epg.clear()
-        for (s in listOf(live, movies, series)) { s.setItems(emptyList()); s.loaded = false; s.error = null; s.loading = false }
+        for (s in listOf(live, movies, series)) { s.replaceItems(emptyList()); s.loaded = false; s.error = null; s.loading = false }
         seriesOpen = null
         ensureLoaded()
     }
@@ -133,7 +133,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         val which = tab
         viewModelScope.launch {
             try {
-                sec.setItems(
+                sec.replaceItems(
                     when (which) {
                         0 -> Repo.load(s)
                         1 -> Repo.loadVod(s)
@@ -143,7 +143,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
                 sec.loaded = true
             } catch (e: Exception) {
                 sec.error = e.message ?: e.toString()
-                sec.setItems(emptyList())
+                sec.replaceItems(emptyList())
             }
             sec.loading = false
         }
