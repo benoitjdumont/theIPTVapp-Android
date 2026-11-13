@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,6 +45,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,11 +82,16 @@ fun AppRoot(vm: MainVm) {
             var screen by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "settings" else "home") }
             if (vm.current != null) {
                 PlayerScreen(vm)
-            } else if (screen == "settings") {
-                BackHandler(vm.sources.isNotEmpty()) { screen = "home" }
-                SettingsScreen(vm) { screen = "home" }
             } else {
-                HomeScreen(vm) { screen = "settings" }
+                // keep clear of the status bar (battery, clock) and the navigation bar
+                Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+                    if (screen == "settings") {
+                        BackHandler(vm.sources.isNotEmpty()) { screen = "home" }
+                        SettingsScreen(vm) { screen = "home" }
+                    } else {
+                        HomeScreen(vm) { screen = "settings" }
+                    }
+                }
             }
         }
     }
@@ -146,13 +153,29 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
                 }
             }
             else -> BoxWithConstraints(Modifier.fillMaxSize()) {
-                val list = remember(vm.channels, vm.group, vm.query, vm.favs) { vm.visible() }
+                val list = remember(vm.channels, vm.top, vm.sub, vm.query, vm.favs) { vm.visible() }
+                val subs = vm.subs()
                 if (maxWidth >= 700.dp) {
                     Row(Modifier.fillMaxSize()) {
-                        LazyColumn(Modifier.width(240.dp).fillMaxSize()) {
-                            items(categoryEntries(vm), key = { it.first ?: "\u0001all" }) { (g, label) ->
-                                FocusRow(selected = vm.group == g, onClick = { vm.group = g }) {
+                        LazyColumn(Modifier.width(200.dp).fillMaxSize()) {
+                            items(topEntries(vm), key = { it.first ?: "\u0001all" }) { (g, label) ->
+                                FocusRow(selected = vm.top == g, onClick = { vm.pickTop(g) }) {
                                     Text(label, color = Color.White, maxLines = 1)
+                                }
+                            }
+                        }
+                        if (subs.isNotEmpty()) {
+                            Spacer(Modifier.width(6.dp))
+                            LazyColumn(Modifier.width(220.dp).fillMaxSize()) {
+                                item(key = "\u0001subAll") {
+                                    FocusRow(selected = vm.sub == null, onClick = { vm.pickSub(null) }) {
+                                        Text("Tout", color = Color.White, maxLines = 1)
+                                    }
+                                }
+                                items(subs, key = { it.first }) { (full, label) ->
+                                    FocusRow(selected = vm.sub == full, onClick = { vm.pickSub(full) }) {
+                                        Text(label, color = Color.White, maxLines = 1)
+                                    }
                                 }
                             }
                         }
@@ -162,8 +185,19 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
                 } else {
                     Column(Modifier.fillMaxSize()) {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            items(categoryEntries(vm), key = { it.first ?: "\u0001all" }) { (g, label) ->
-                                FilterChip(selected = vm.group == g, onClick = { vm.group = g }, label = { Text(label, maxLines = 1) })
+                            items(topEntries(vm), key = { it.first ?: "\u0001all" }) { (g, label) ->
+                                FilterChip(selected = vm.top == g, onClick = { vm.pickTop(g) }, label = { Text(label, maxLines = 1) })
+                            }
+                        }
+                        if (subs.isNotEmpty()) {
+                            Spacer(Modifier.size(4.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                item(key = "\u0001subAll") {
+                                    FilterChip(selected = vm.sub == null, onClick = { vm.pickSub(null) }, label = { Text("Tout") })
+                                }
+                                items(subs, key = { it.first }) { (full, label) ->
+                                    FilterChip(selected = vm.sub == full, onClick = { vm.pickSub(full) }, label = { Text(label, maxLines = 1) })
+                                }
                             }
                         }
                         Spacer(Modifier.size(6.dp))
@@ -175,11 +209,11 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
     }
 }
 
-private fun categoryEntries(vm: MainVm): List<Pair<String?, String>> {
+private fun topEntries(vm: MainVm): List<Pair<String?, String>> {
     val l = ArrayList<Pair<String?, String>>()
     l.add(null to "Toutes (${vm.channels.size})")
     l.add(GROUP_FAV to "★ Favoris")
-    vm.groups.forEach { l.add(it to it) }
+    vm.tops.forEach { l.add(it to it) }
     return l
 }
 
@@ -208,7 +242,15 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                     Box(Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)).background(Panel))
                 }
                 Spacer(Modifier.width(10.dp))
-                Text(c.name, color = Color.White, maxLines = 1, modifier = Modifier.weight(1f))
+                LaunchedEffect(c.id) { vm.loadEpg(c) }
+                val e = vm.epg[c.id]
+                Column(Modifier.weight(1f)) {
+                    Text(c.name, color = Color.White, maxLines = 1)
+                    if (e?.now != null) {
+                        Text("${e.now.title}  ${hm(e.now.start)}–${hm(e.now.stop)}", color = Color(0xFF9DB4D8), fontSize = 12.sp, maxLines = 1)
+                        if (e.next != null) Text("Ensuite : ${e.next.title}", color = Color.Gray, fontSize = 11.sp, maxLines = 1)
+                    }
+                }
                 IconButton(onClick = { vm.toggleFav(c) }) {
                     Icon(
                         if (vm.isFav(c)) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -289,3 +331,5 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
         }
     }
 }
+
+fun hm(ms: Long): String = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(ms))

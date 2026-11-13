@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
@@ -110,6 +113,8 @@ fun PlayerScreen(vm: MainVm) {
         onDispose { player.removeListener(l) }
     }
 
+    LaunchedEffect(ch.id) { vm.loadEpg(ch) }
+
     LaunchedEffect(showUi, ch.id) {
         if (showUi) {
             delay(4000)
@@ -168,12 +173,20 @@ fun PlayerScreen(vm: MainVm) {
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .background(Color(0xAA000000))
+                    .statusBarsPadding()
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 IconButton(onClick = { vm.stop() }) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
-                Text(ch.name, color = Color.White, modifier = Modifier.weight(1f), maxLines = 1)
+                Column(Modifier.weight(1f)) {
+                    Text(ch.name, color = Color.White, maxLines = 1)
+                    val e = vm.epg[ch.id]
+                    if (e?.now != null) {
+                        Text("${e.now.title}  ${hm(e.now.start)}–${hm(e.now.stop)}", color = Color(0xFFCCDDFF), fontSize = 13.sp, maxLines = 1)
+                        if (e.next != null) Text("Ensuite : ${e.next.title}  ${hm(e.next.start)}", color = Color(0xFFAAAAAA), fontSize = 12.sp, maxLines = 1)
+                    }
+                }
                 val fav = vm.isFav(ch)
                 IconButton(onClick = { vm.toggleFav(ch) }) {
                     Icon(

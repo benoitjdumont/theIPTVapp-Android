@@ -40,7 +40,14 @@ data class Channel(
     val alt: List<String> = emptyList(),
     val logo: String = "",
     val group: String = "",
+    /** Xtream stream id, used to ask for the programme guide */
+    val sid: String = "",
 )
+
+data class Prog(val title: String, val start: Long, val stop: Long)
+
+/** Programme guide of one channel: what is on now and what comes next (times in ms). */
+data class Epg(val now: Prog?, val next: Prog?, val until: Long)
 
 fun List<Source>.toJsonString(): String = JSONArray().also { a -> forEach { a.put(it.toJson()) } }.toString()
 

@@ -1,6 +1,8 @@
 package com.studiogyro.theiptvapp
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -26,6 +28,42 @@ object Repo {
             SourceType.XTREAM -> loadXtream(src)
         }
     }
+
+    private val epgGate = Semaphore(4)
+
+    /** Programme guide for one Xtream channel (now + next). Never throws: returns an empty guide on failure. */
+    suspend fun shortEpg(src: Source, sid: String): Epg = withContext(Dispatchers.IO) {
+        val nowMs = System.currentTimeMillis()
+        val empty = Epg(null, null, nowMs + 10 * 60_000)
+        if (src.type != SourceType.XTREAM || sid.isEmpty()) return@withContext empty
+        epgGate.withPermit {
+            runCatching {
+                val base = normHost(src.host)
+                val u = java.net.URLEncoder.encode(src.user, "UTF-8")
+                val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
+                var txt = ""
+                open("$base/player_api.php?username=$u&password=$p&action=get_short_epg&stream_id=$sid&limit=4") { r -> txt = r.body?.string() ?: "" }
+                val arr = org.json.JSONObject(txt.trim()).optJSONArray("epg_listings") ?: return@runCatching empty
+                val nowSec = nowMs / 1000
+                val progs = ArrayList<Prog>()
+                for (i in 0 until arr.length()) {
+                    val o = arr.getJSONObject(i)
+                    val st = o.optString("start_timestamp").toLongOrNull() ?: continue
+                    val en = o.optString("stop_timestamp").toLongOrNull() ?: continue
+                    val title = decode(o.optString("title"))
+                    if (title.isBlank() || en <= nowSec) continue
+                    progs.add(Prog(title, st * 1000, en * 1000))
+                }
+                progs.sortBy { it.start }
+                val now = progs.firstOrNull { it.start <= nowMs }
+                val next = progs.firstOrNull { it.start > nowMs }
+                Epg(now, next, (now?.stop ?: next?.start ?: (nowMs + 10 * 60_000)).coerceAtLeast(nowMs + 30_000))
+            }.getOrDefault(empty)
+        }
+    }
+
+    private fun decode(s: String): String =
+        runCatching { String(android.util.Base64.decode(s, android.util.Base64.DEFAULT), Charsets.UTF_8) }.getOrDefault(s).trim()
 
     private fun open(url: String, block: (okhttp3.Response) -> Unit) {
         val req = Request.Builder().url(url).header("User-Agent", LIST_UA).build()
@@ -121,6 +159,7 @@ object Repo {
                     alt = listOf("$prefix.ts"),
                     logo = o.optString("stream_icon"),
                     group = cats[o.optString("category_id")] ?: "",
+                    sid = id,
                 ),
             )
         }
