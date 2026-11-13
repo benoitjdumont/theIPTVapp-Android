@@ -107,7 +107,7 @@ fun FocusRow(selected: Boolean, onClick: () -> Unit, content: @Composable RowSco
             .fillMaxWidth()
             .clip(shape)
             .background(if (focused) Accent.copy(alpha = 0.35f) else if (selected) Accent.copy(alpha = 0.18f) else Color.Transparent)
-            .border(if (focused) 2.dp else 0.dp, Accent, shape)
+            .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(8.dp),
