@@ -4,7 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -105,8 +107,9 @@ fun AppRoot(vm: MainVm) {
 }
 
 /** A row that is clearly highlighted when focused with a remote control. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FocusRow(selected: Boolean, onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
+fun FocusRow(selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, content: @Composable RowScope.() -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
     Row(
@@ -116,7 +119,7 @@ fun FocusRow(selected: Boolean, onClick: () -> Unit, content: @Composable RowSco
             .background(if (focused) Accent.copy(alpha = 0.35f) else if (selected) Accent.copy(alpha = 0.18f) else Color.Transparent)
             .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
             .onFocusChanged { focused = it.isFocused }
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
@@ -174,8 +177,13 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
                     Row(Modifier.fillMaxSize()) {
                         LazyColumn(Modifier.width(170.dp).fillMaxSize()) {
                             items(topEntries(sec, vm.tab == 0), key = { it.first ?: "\u0001all" }) { (g, label) ->
-                                FocusRow(selected = sec.top == g, onClick = { sec.pickTop(g) }) {
-                                    Text(label, color = Color.White, maxLines = 1)
+                                val lock = g != null && g != GROUP_FAV && vm.catLocked(label)
+                                FocusRow(
+                                    selected = sec.top == g,
+                                    onClick = { if (g == null || g == GROUP_FAV) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) } },
+                                    onLongClick = if (g != null && g != GROUP_FAV) ({ vm.toggleCatLock(label) }) else null,
+                                ) {
+                                    Text((if (lock) "🔒 " else "") + label, color = Color.White, maxLines = 1)
                                 }
                             }
                         }
@@ -188,8 +196,12 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
                                     }
                                 }
                                 items(subs, key = { it.first }) { (full, label) ->
-                                    FocusRow(selected = sec.sub == full, onClick = { sec.pickSub(full) }) {
-                                        Text(label, color = Color.White, maxLines = 1)
+                                    FocusRow(
+                                        selected = sec.sub == full,
+                                        onClick = { vm.guardCat(label, full) { sec.pickSub(full) } },
+                                        onLongClick = { vm.toggleCatLock(full) },
+                                    ) {
+                                        Text((if (vm.catLocked(label, full)) "🔒 " else "") + label, color = Color.White, maxLines = 1)
                                     }
                                 }
                             }
@@ -201,7 +213,7 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
                     Column(Modifier.fillMaxSize()) {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             items(topEntries(sec, vm.tab == 0), key = { it.first ?: "\u0001all" }) { (g, label) ->
-                                FilterChip(selected = sec.top == g, onClick = { sec.pickTop(g) }, label = { Text(label, maxLines = 1) })
+                                FilterChip(selected = sec.top == g, onClick = { if (g == null || g == GROUP_FAV) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) } }, label = { Text((if (g != null && g != GROUP_FAV && vm.catLocked(label)) "🔒 " else "") + label, maxLines = 1) })
                             }
                         }
                         if (subs.isNotEmpty()) {
@@ -211,7 +223,7 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
                                     FilterChip(selected = sec.sub == null, onClick = { sec.pickSub(null) }, label = { Text("Tout") })
                                 }
                                 items(subs, key = { it.first }) { (full, label) ->
-                                    FilterChip(selected = sec.sub == full, onClick = { sec.pickSub(full) }, label = { Text(label, maxLines = 1) })
+                                    FilterChip(selected = sec.sub == full, onClick = { vm.guardCat(label, full) { sec.pickSub(full) } }, label = { Text((if (vm.catLocked(label, full)) "🔒 " else "") + label, maxLines = 1) })
                                 }
                             }
                         }
@@ -253,7 +265,7 @@ private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                     .padding(6.dp),
             ) {
                 Poster(c.logo, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-                Text(c.name, color = Color.White, fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
+                Text((if (vm.isLocked(c)) "🔒 " else "") + c.name, color = Color.White, fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
             }
         }
     }
@@ -482,6 +494,7 @@ private fun ParentalSection(vm: MainVm) {
             OutlinedButton(onClick = { vm.lockNow() }, enabled = vm.unlocked) { Text("Verrouiller maintenant") }
             OutlinedButton(onClick = { vm.disableParental() }, enabled = vm.unlocked) { Text("Désactiver") }
         }
+        Text("Appui long sur une catégorie (colonne de gauche) pour la verrouiller ou la déverrouiller.", color = Color.Gray, fontSize = 12.sp)
         if (!vm.unlocked) Text("Ouvre un élément verrouillé et entre le code pour modifier ces réglages.", color = Color.Gray, fontSize = 12.sp)
     } else {
         OutlinedTextField(kw, { kw = it }, label = { Text("Mots à verrouiller (séparés par des virgules)") }, modifier = Modifier.fillMaxWidth())

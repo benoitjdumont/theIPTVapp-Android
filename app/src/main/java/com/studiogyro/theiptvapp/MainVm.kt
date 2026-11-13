@@ -225,10 +225,44 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         return keywords.any { n.contains(it) || g.contains(it) }
     }
 
-    fun isLocked(c: Channel): Boolean = parentalOn() && !unlocked && matchesKeyword(c)
+    /** categories (first or second level) locked by hand with a long press */
+    var lockedCats by mutableStateOf(store.lockedCats()); private set
+
+    private fun groupLockedByHand(c: Channel): Boolean {
+        if (lockedCats.isEmpty() || c.group.isBlank()) return false
+        return c.group in lockedCats || splitGroup(c.group).let { (p, l) -> p in lockedCats || (l != null && l in lockedCats) }
+    }
+
+    fun isLocked(c: Channel): Boolean = parentalOn() && !unlocked && (matchesKeyword(c) || groupLockedByHand(c))
+
+    /** is a category entry locked? (its name matches a watched word, or it was locked by hand) */
+    fun catLocked(label: String, full: String = label): Boolean {
+        if (!parentalOn() || unlocked) return false
+        val l = label.lowercase()
+        val f = full.lowercase()
+        return keywords.any { l.contains(it) || f.contains(it) } || label in lockedCats || full in lockedCats
+    }
+
+    fun guardCat(label: String, full: String = label, action: () -> Unit) {
+        if (catLocked(label, full)) pendingAction = action else action()
+    }
+
+    /** long press on a category: lock or unlock it by hand (needs the parental code to be active) */
+    fun toggleCatLock(label: String) {
+        if (!parentalOn()) {
+            android.widget.Toast.makeText(getApplication(), "Active d'abord le contrôle parental dans les réglages.", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        val doIt = {
+            lockedCats = if (label in lockedCats) lockedCats - label else lockedCats + label
+            store.saveLockedCats(lockedCats)
+            android.widget.Toast.makeText(getApplication(), if (label in lockedCats) "« $label » verrouillée" else "« $label » déverrouillée", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        if (unlocked) doIt() else pendingAction = doIt
+    }
 
     /** how many items of the loaded lists match the watched words (shown in the settings) */
-    fun watchedCount(): Int = if (!parentalOn()) 0 else (live.items + movies.items + series.items).count { matchesKeyword(it) }
+    fun watchedCount(): Int = if (!parentalOn()) 0 else (live.items + movies.items + series.items).count { matchesKeyword(it) || groupLockedByHand(it) }
 
     /** Runs the action now, or after the code has been entered if the item is locked. */
     fun guard(c: Channel, action: () -> Unit) {
@@ -257,6 +291,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     fun disableParental() {
         pinHash = null
         keywords = emptyList()
+        lockedCats = emptySet()
+        store.saveLockedCats(emptySet())
         store.saveParental(null, emptyList())
         unlocked = false
     }

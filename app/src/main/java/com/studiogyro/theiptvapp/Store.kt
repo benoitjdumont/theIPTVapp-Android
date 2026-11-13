@@ -26,4 +26,7 @@ class Store(ctx: Context) {
     fun keywords(): List<String> = (sp.getString("kw", "") ?: "").split(',').map { it.trim() }.filter { it.isNotEmpty() }
     fun saveParental(pinHash: String?, kws: List<String>) =
         sp.edit().putString("pin", pinHash).putString("kw", kws.joinToString(",")).apply()
+
+    fun lockedCats(): Set<String> = sp.getStringSet("lockedcats", emptySet())?.toSet() ?: emptySet()
+    fun saveLockedCats(s: Set<String>) = sp.edit().putStringSet("lockedcats", s).apply()
 }
