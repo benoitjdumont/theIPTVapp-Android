@@ -82,6 +82,7 @@ fun AppRoot(vm: MainVm) {
         onBackground = Color.White,
     )
     MaterialTheme(colorScheme = scheme) {
+        PinDialog(vm)
         Surface(Modifier.fillMaxSize(), color = Bg) {
             var screen by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "settings" else "home") }
             if (vm.current != null) {
@@ -126,26 +127,23 @@ fun FocusRow(selected: Boolean, onClick: () -> Unit, content: @Composable RowSco
 fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
     val sec = vm.section()
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // une seule rangée : l'écran est toujours à l'horizontale
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(36.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("theIPTVapp", fontSize = 20.sp, color = Color.White, modifier = Modifier.weight(1f))
+            listOf("Direct", "Films", "Séries").forEachIndexed { i, label ->
+                FilterChip(selected = vm.tab == i, onClick = { vm.selectTab(i) }, label = { Text(label) })
+            }
+            OutlinedTextField(
+                value = vm.query,
+                onValueChange = { vm.query = it },
+                singleLine = true,
+                placeholder = { Text("Rechercher") },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
+                modifier = Modifier.weight(1f),
+            )
             IconButton(onClick = { vm.reload() }) { Icon(Icons.Default.Refresh, "Actualiser", tint = Color.White) }
             IconButton(onClick = openSettings) { Icon(Icons.Default.Settings, "Sources", tint = Color.White) }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 6.dp)) {
-            listOf("En direct", "Films", "Séries").forEachIndexed { i, label ->
-                FilterChip(selected = vm.tab == i, onClick = { vm.selectTab(i) }, label = { Text(label) })
-            }
-        }
-        OutlinedTextField(
-            value = vm.query,
-            onValueChange = { vm.query = it },
-            singleLine = true,
-            placeholder = { Text("Rechercher") },
-            leadingIcon = { Icon(Icons.Default.Search, null) },
-            modifier = Modifier.fillMaxWidth(),
-        )
         Spacer(Modifier.size(8.dp))
 
         when {
@@ -251,7 +249,7 @@ private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                     .background(if (focused) Accent.copy(alpha = 0.35f) else Panel)
                     .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
                     .onFocusChanged { focused = it.isFocused }
-                    .clickable { if (c.kind == "series") vm.openSeries(c) else vm.play(listOf(c), c) }
+                    .clickable { vm.guard(c) { if (c.kind == "series") vm.openSeries(c) else vm.play(listOf(c), c) } }
                     .padding(6.dp),
             ) {
                 Poster(c.logo, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
@@ -327,7 +325,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
     }
     LazyColumn(modifier) {
         items(list, key = { it.id }) { c ->
-            FocusRow(selected = false, onClick = { vm.play(list, c) }) {
+            FocusRow(selected = false, onClick = { vm.guard(c) { vm.play(list, c) } }) {
                 if (c.logo.isNotBlank()) {
                     AsyncImage(
                         model = c.logo,
@@ -342,7 +340,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                 LaunchedEffect(c.id) { vm.loadEpg(c) }
                 val e = vm.epg[c.id]
                 Column(Modifier.weight(1f)) {
-                    Text(c.name, color = Color.White, maxLines = 1)
+                    Text((if (vm.isLocked(c)) "🔒 " else "") + c.name, color = Color.White, maxLines = 1)
                     if (e?.now != null) {
                         Text("${e.now.title}  ${hm(e.now.start)}–${hm(e.now.stop)}", color = Color(0xFF9DB4D8), fontSize = 12.sp, maxLines = 1)
                         if (e.next != null) Text("Ensuite : ${e.next.title}", color = Color.Gray, fontSize = 11.sp, maxLines = 1)
@@ -426,7 +424,67 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
             ) { Text("Ajouter") }
             if (vm.sources.isNotEmpty()) OutlinedButton(onClick = back) { Text("Annuler") }
         }
+        ParentalSection(vm)
     }
 }
 
 fun hm(ms: Long): String = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(ms))
+
+@Composable
+fun PinDialog(vm: MainVm) {
+    if (vm.pendingAction == null) return
+    var pin by remember { mutableStateOf("") }
+    var bad by remember { mutableStateOf(false) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { vm.cancelPin() },
+        title = { Text("Code parental") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { pin = it.filter(Char::isDigit); bad = false },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    isError = bad,
+                )
+                if (bad) Text("Code incorrect.", color = Color(0xFFFF8A8A))
+            }
+        },
+        confirmButton = { Button(onClick = { if (!vm.tryPin(pin)) { bad = true; pin = "" } }) { Text("OK") } },
+        dismissButton = { OutlinedButton(onClick = { vm.cancelPin() }) { Text("Annuler") } },
+    )
+}
+
+@Composable
+private fun ParentalSection(vm: MainVm) {
+    var pin by rememberSaveable { mutableStateOf("") }
+    var kw by rememberSaveable { mutableStateOf(vm.keywords.joinToString(", ")) }
+    Spacer(Modifier.size(24.dp))
+    Text("Contrôle parental", fontSize = 18.sp, color = Color.White)
+    Text(
+        "Verrouille par un code les chaînes, films et séries dont le nom ou la catégorie contient un des mots ci-dessous.",
+        color = Color.Gray, fontSize = 12.sp,
+    )
+    Spacer(Modifier.size(8.dp))
+    if (vm.parentalOn()) {
+        Text("Actif : ${vm.keywords.size} mot(s) surveillé(s)." + if (vm.unlocked) " (déverrouillé pour l'instant)" else "", color = Color.White)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            OutlinedButton(onClick = { vm.lockNow() }, enabled = vm.unlocked) { Text("Verrouiller maintenant") }
+            OutlinedButton(onClick = { vm.disableParental() }, enabled = vm.unlocked) { Text("Désactiver") }
+        }
+        if (!vm.unlocked) Text("Ouvre un élément verrouillé et entre le code pour modifier ces réglages.", color = Color.Gray, fontSize = 12.sp)
+    } else {
+        OutlinedTextField(kw, { kw = it }, label = { Text("Mots à verrouiller (séparés par des virgules)") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            pin, { pin = it.filter(Char::isDigit) }, label = { Text("Nouveau code (4 chiffres ou plus)") }, singleLine = true,
+            visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Button(
+            enabled = pin.length >= 4 && kw.isNotBlank(),
+            onClick = { vm.setParental(pin, kw.split(',')); pin = "" },
+            modifier = Modifier.padding(top = 8.dp),
+        ) { Text("Activer") }
+    }
+}

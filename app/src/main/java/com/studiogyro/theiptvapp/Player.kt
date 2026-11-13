@@ -90,7 +90,8 @@ fun PlayerScreen(vm: MainVm) {
     LaunchedEffect(ch.id, idx) {
         val a = tries[idx]
         val item = MediaItem.Builder().setUri(a.url).apply { if (a.mime != null) setMimeType(a.mime) }.build()
-        player.setMediaItem(item)
+        val resume = if (ch.kind != "live" && idx == 0) vm.pos(ch.id) else 0L
+        if (resume > 0) player.setMediaItem(item, resume) else player.setMediaItem(item)
         player.prepare()
         player.playWhenReady = true
     }
@@ -119,6 +120,19 @@ fun PlayerScreen(vm: MainVm) {
     }
 
     LaunchedEffect(ch.id) { vm.loadEpg(ch) }
+
+    // reprise de lecture : on mémorise la position des films et épisodes
+    DisposableEffect(ch.id) {
+        onDispose {
+            if (ch.kind != "live") runCatching { vm.savePos(ch.id, player.currentPosition, player.duration.coerceAtLeast(0)) }
+        }
+    }
+    LaunchedEffect(ch.id) {
+        if (ch.kind != "live") while (true) {
+            delay(5000)
+            if (player.isPlaying) vm.savePos(ch.id, player.currentPosition, player.duration.coerceAtLeast(0))
+        }
+    }
 
     LaunchedEffect(showUi, ch.id) {
         if (showUi) {

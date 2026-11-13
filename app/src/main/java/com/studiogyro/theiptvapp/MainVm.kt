@@ -205,6 +205,61 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         seriesData = null
     }
 
+    // ---- reprise de lecture
+    fun savePos(id: String, ms: Long, durationMs: Long) {
+        if (ms < 15_000 || (durationMs > 0 && ms > durationMs - 45_000)) store.clearPos(id) else store.savePos(id, ms)
+    }
+    fun pos(id: String): Long = store.pos(id)
+
+    // ---- contrôle parental
+    var pinHash by mutableStateOf(store.pinHash()); private set
+    var keywords by mutableStateOf(store.keywords()); private set
+    var unlocked by mutableStateOf(false); private set
+    var pendingAction by mutableStateOf<(() -> Unit)?>(null); private set
+
+    fun parentalOn() = pinHash != null && keywords.isNotEmpty()
+
+    fun isLocked(c: Channel): Boolean {
+        if (!parentalOn() || unlocked) return false
+        val n = c.name.lowercase()
+        val g = c.group.lowercase()
+        return keywords.any { n.contains(it) || g.contains(it) }
+    }
+
+    /** Runs the action now, or after the code has been entered if the item is locked. */
+    fun guard(c: Channel, action: () -> Unit) {
+        if (isLocked(c)) pendingAction = action else action()
+    }
+
+    fun tryPin(pin: String): Boolean {
+        if (hashPin(pin) != pinHash) return false
+        unlocked = true
+        val a = pendingAction
+        pendingAction = null
+        a?.invoke()
+        return true
+    }
+
+    fun cancelPin() { pendingAction = null }
+    fun lockNow() { unlocked = false }
+
+    fun setParental(pin: String, kws: List<String>) {
+        pinHash = hashPin(pin)
+        keywords = kws.map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+        store.saveParental(pinHash, keywords)
+        unlocked = false
+    }
+
+    fun disableParental() {
+        pinHash = null
+        keywords = emptyList()
+        store.saveParental(null, emptyList())
+        unlocked = false
+    }
+
+    private fun hashPin(p: String): String =
+        java.security.MessageDigest.getInstance("SHA-256").digest(("theiptvapp:" + p).toByteArray()).joinToString("") { "%02x".format(it) }
+
     fun play(list: List<Channel>, c: Channel) {
         playlist = list
         playIndex = list.indexOf(c).coerceAtLeast(0)

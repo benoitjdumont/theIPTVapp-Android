@@ -17,4 +17,13 @@ class Store(ctx: Context) {
 
     fun lastChannel(): String? = sp.getString("last", null)
     fun saveLast(id: String?) = sp.edit().putString("last", id).apply()
+
+    fun savePos(id: String, ms: Long) = sp.edit().putLong("pos_$id", ms).apply()
+    fun pos(id: String): Long = sp.getLong("pos_$id", 0L)
+    fun clearPos(id: String) = sp.edit().remove("pos_$id").apply()
+
+    fun pinHash(): String? = sp.getString("pin", null)
+    fun keywords(): List<String> = (sp.getString("kw", "") ?: "").split(',').map { it.trim() }.filter { it.isNotEmpty() }
+    fun saveParental(pinHash: String?, kws: List<String>) =
+        sp.edit().putString("pin", pinHash).putString("kw", kws.joinToString(",")).apply()
 }

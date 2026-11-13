@@ -13,11 +13,14 @@ Une seule application : tactile sur téléphone, télécommande (flèches, OK, R
 - **Sous-menus** de catégories (« FR | Sports » → préfixe FR, puis sous-catégorie).
 - **Guide EPG** (Xtream) : programme en cours et suivant, dans la liste et pendant la lecture.
 - **Films et séries** (compte Xtream) : murs d'affiches, mêmes sous-menus, saisons et épisodes ; flèches gauche/droite = ±15 s.
+- **Reprise de lecture** des films et épisodes (position mémorisée).
+- **Contrôle parental** : code + mots à verrouiller (nom ou catégorie), déverrouillage par code.
+- Écran toujours à l'horizontale (téléphone et TV).
 - Contenu respectant les barres du téléphone (batterie, heure).
 - Essais automatiques : `.m3u8`, puis `.ts` (Xtream), puis HLS forcé.
 
 ## À venir
-Guide EPG pour les listes M3U (XMLTV), films et séries avec affiches, reprise de lecture, enregistrements, contrôle parental, sous-menus de catégories (« FR | … »).
+Guide EPG pour les listes M3U (XMLTV), enregistrements, films et séries avec affiches, reprise de lecture, enregistrements, contrôle parental, sous-menus de catégories (« FR | … »).
 
 ## Installer
 Onglet **Actions** → dernière exécution verte → artefact **theIPTVapp-android-apk** → décompresser → installer `app-debug.apk`
