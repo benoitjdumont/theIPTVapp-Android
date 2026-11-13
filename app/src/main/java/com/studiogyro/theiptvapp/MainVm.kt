@@ -219,12 +219,16 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     fun parentalOn() = pinHash != null && keywords.isNotEmpty()
 
-    fun isLocked(c: Channel): Boolean {
-        if (!parentalOn() || unlocked) return false
+    fun matchesKeyword(c: Channel): Boolean {
         val n = c.name.lowercase()
         val g = c.group.lowercase()
         return keywords.any { n.contains(it) || g.contains(it) }
     }
+
+    fun isLocked(c: Channel): Boolean = parentalOn() && !unlocked && matchesKeyword(c)
+
+    /** how many items of the loaded lists match the watched words (shown in the settings) */
+    fun watchedCount(): Int = if (!parentalOn()) 0 else (live.items + movies.items + series.items).count { matchesKeyword(it) }
 
     /** Runs the action now, or after the code has been entered if the item is locked. */
     fun guard(c: Channel, action: () -> Unit) {

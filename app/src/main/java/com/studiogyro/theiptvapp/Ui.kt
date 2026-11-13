@@ -117,7 +117,7 @@ fun FocusRow(selected: Boolean, onClick: () -> Unit, content: @Composable RowSco
             .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
-            .padding(8.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
     )
@@ -170,9 +170,9 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
                 val content: @Composable (Modifier) -> Unit = { m ->
                     if (vm.tab == 0) ChannelList(vm, list, m) else PosterGrid(vm, list, m)
                 }
-                if (maxWidth >= 700.dp) {
+                if (maxWidth >= 480.dp) {
                     Row(Modifier.fillMaxSize()) {
-                        LazyColumn(Modifier.width(200.dp).fillMaxSize()) {
+                        LazyColumn(Modifier.width(170.dp).fillMaxSize()) {
                             items(topEntries(sec, vm.tab == 0), key = { it.first ?: "\u0001all" }) { (g, label) ->
                                 FocusRow(selected = sec.top == g, onClick = { sec.pickTop(g) }) {
                                     Text(label, color = Color.White, maxLines = 1)
@@ -181,7 +181,7 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
                         }
                         if (subs.isNotEmpty()) {
                             Spacer(Modifier.width(6.dp))
-                            LazyColumn(Modifier.width(220.dp).fillMaxSize()) {
+                            LazyColumn(Modifier.width(190.dp).fillMaxSize()) {
                                 item(key = "\u0001subAll") {
                                     FocusRow(selected = sec.sub == null, onClick = { sec.pickSub(null) }) {
                                         Text("Tout", color = Color.White, maxLines = 1)
@@ -338,10 +338,10 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                         model = c.logo,
                         contentDescription = null,
                         contentScale = ContentScale.Fit,
-                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)),
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)),
                     )
                 } else {
-                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)).background(Panel))
+                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)).background(Panel))
                 }
                 Spacer(Modifier.width(10.dp))
                 LaunchedEffect(c.id) { vm.loadEpg(c) }
@@ -475,7 +475,9 @@ private fun ParentalSection(vm: MainVm) {
     )
     Spacer(Modifier.size(8.dp))
     if (vm.parentalOn()) {
-        Text("Actif : ${vm.keywords.size} mot(s) surveillé(s)." + if (vm.unlocked) " (déverrouillé pour l'instant)" else "", color = Color.White)
+        val watched = remember(vm.keywords, vm.live.items, vm.movies.items, vm.series.items) { vm.watchedCount() }
+        Text("Actif — mots : ${vm.keywords.joinToString(", ")}", color = Color.White)
+        Text("$watched élément(s) verrouillé(s) parmi les listes chargées." + if (vm.unlocked) " (déverrouillé pour l'instant)" else "", color = Color.Gray, fontSize = 12.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
             OutlinedButton(onClick = { vm.lockNow() }, enabled = vm.unlocked) { Text("Verrouiller maintenant") }
             OutlinedButton(onClick = { vm.disableParental() }, enabled = vm.unlocked) { Text("Désactiver") }
