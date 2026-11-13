@@ -92,7 +92,9 @@ object Repo {
             if (id.isEmpty()) return
             val ext = o.optString("container_extension").ifEmpty { "mp4" }
             val num = o.optString("episode_num")
-            val title = o.optString("title")
+            val raw = o.optString("title")
+            // « 9-1-1: Lone Star - S03E01 - The Big Chill » → « The Big Chill »
+            val title = raw.replace(Regex("""^.*?[Ss]\d{1,2}[Ee]\d{1,3}\s*[-–:]?\s*"""), "").ifBlank { raw }
             val label = "S${season}E$num" + if (title.isNotBlank()) " · $title" else ""
             val img = o.optJSONObject("info")?.optString("movie_image") ?: ""
             seasons.getOrPut(season) { ArrayList() }.add(
