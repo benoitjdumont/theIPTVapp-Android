@@ -99,10 +99,48 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     var seriesOpen by mutableStateOf<Channel?>(null); private set
     var seriesData by mutableStateOf<SeriesData?>(null); private set
 
+    // ---- mise à jour de l'application
+    var update by mutableStateOf<Updater.Update?>(null); private set
+    var updateInfo by mutableStateOf(""); private set
+    var updateProgress by mutableStateOf(-1); private set
+    var updateDismissed by mutableStateOf(false)
+
+    fun checkUpdate(silent: Boolean) {
+        if (!silent) updateInfo = "Vérification…"
+        viewModelScope.launch {
+            try {
+                val u = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Updater.check() }
+                update = u
+                updateDismissed = false
+                if (!silent) updateInfo = if (u == null) "Tu as la dernière version (${BuildConfig.VERSION_NAME})." else "Nouvelle version disponible."
+            } catch (e: Exception) {
+                if (!silent) updateInfo = "Vérification impossible : ${e.message}"
+            }
+        }
+    }
+
+    fun installUpdate(ctx: android.content.Context) {
+        val u = update ?: return
+        updateProgress = 0
+        viewModelScope.launch {
+            try {
+                val f = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    Updater.download(ctx, u.url) { updateProgress = it }
+                }
+                updateProgress = -1
+                Updater.install(ctx, f)
+            } catch (e: Exception) {
+                updateProgress = -1
+                updateInfo = "Téléchargement impossible : ${e.message}"
+            }
+        }
+    }
+
     private val activeSource: Source? get() = sources.firstOrNull { it.id == activeId }
 
     init {
         reload()
+        checkUpdate(silent = true)
     }
 
     fun section(): Section = when (tab) { 0 -> live; 1 -> movies; else -> series }

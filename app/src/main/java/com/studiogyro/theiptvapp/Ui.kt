@@ -85,6 +85,7 @@ fun AppRoot(vm: MainVm) {
     )
     MaterialTheme(colorScheme = scheme) {
         PinDialog(vm)
+        UpdateDialog(vm)
         Surface(Modifier.fillMaxSize(), color = Bg) {
             var screen by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "settings" else "home") }
             if (vm.current != null) {
@@ -444,6 +445,7 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
             if (vm.sources.isNotEmpty()) OutlinedButton(onClick = back) { Text("Annuler") }
         }
         ParentalSection(vm)
+        UpdateSection(vm)
     }
 }
 
@@ -509,4 +511,39 @@ private fun ParentalSection(vm: MainVm) {
             modifier = Modifier.padding(top = 8.dp),
         ) { Text("Activer") }
     }
+}
+
+@Composable
+fun UpdateDialog(vm: MainVm) {
+    val up = vm.update ?: return
+    if (vm.updateDismissed) return
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { if (vm.updateProgress < 0) vm.updateDismissed = true },
+        title = { Text("Mise à jour disponible") },
+        text = {
+            Column {
+                Text("Version 0.1.${up.code} (tu as la ${BuildConfig.VERSION_NAME}).")
+                if (vm.updateProgress >= 0) {
+                    Spacer(Modifier.size(8.dp))
+                    androidx.compose.material3.LinearProgressIndicator(progress = { vm.updateProgress / 100f }, modifier = Modifier.fillMaxWidth())
+                    Text("Téléchargement… ${vm.updateProgress} %", fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = { Button(enabled = vm.updateProgress < 0, onClick = { vm.installUpdate(ctx) }) { Text("Installer") } },
+        dismissButton = { OutlinedButton(enabled = vm.updateProgress < 0, onClick = { vm.updateDismissed = true }) { Text("Plus tard") } },
+    )
+}
+
+@Composable
+private fun UpdateSection(vm: MainVm) {
+    Spacer(Modifier.size(24.dp))
+    Text("Mises à jour", fontSize = 18.sp, color = Color.White)
+    Text("Version installée : ${BuildConfig.VERSION_NAME}", color = Color.Gray, fontSize = 12.sp)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+        OutlinedButton(onClick = { vm.checkUpdate(silent = false) }) { Text("Vérifier maintenant") }
+        if (vm.update != null) Button(onClick = { vm.updateDismissed = false }) { Text("Installer la nouvelle version") }
+    }
+    if (vm.updateInfo.isNotBlank()) Text(vm.updateInfo, color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
 }

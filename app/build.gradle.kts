@@ -12,13 +12,29 @@ android {
         applicationId = "com.studiogyro.theiptvapp"
         minSdk = 23
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // le numéro de version vient de la compilation en ligne (-PvCode=<numéro>) : il augmente à chaque version
+        val vCode = (project.findProperty("vCode") as String?)?.toIntOrNull() ?: 1
+        versionCode = vCode
+        versionName = "0.1.$vCode"
+    }
+
+    // clé de signature fixe : sans elle, Android refuse d'installer une version par-dessus la précédente
+    signingConfigs {
+        create("fixed") {
+            storeFile = file("theiptvapp.jks")
+            storePassword = "theiptvapp-sideload"
+            keyAlias = "theiptvapp"
+            keyPassword = "theiptvapp-sideload"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("fixed")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("fixed")
         }
     }
     compileOptions {
@@ -30,6 +46,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
