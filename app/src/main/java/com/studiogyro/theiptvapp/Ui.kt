@@ -268,44 +268,51 @@ private fun Poster(url: String, modifier: Modifier) {
     }
 }
 
-/** Episode list of a series: seasons as chips, episodes below. */
+/** Series page, laid out for a landscape screen: poster and summary on the left, seasons and episodes on the right. */
 @Composable
 fun SeriesScreen(vm: MainVm) {
     val c = vm.seriesOpen ?: return
     val data = vm.seriesData
     BackHandler(true) { vm.closeSeries() }
     var season by rememberSaveable(c.id) { mutableStateOf(-1) }
-    Column(Modifier.fillMaxSize().padding(12.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { vm.closeSeries() }) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
-            Text(c.name, fontSize = 20.sp, color = Color.White, maxLines = 2, modifier = Modifier.weight(1f))
+            Text(c.name, fontSize = 18.sp, color = Color.White, maxLines = 1, modifier = Modifier.weight(1f))
         }
         if (data == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             return@Column
         }
-        Row(Modifier.padding(vertical = 8.dp)) {
-            Poster(c.logo, Modifier.width(90.dp).aspectRatio(2f / 3f))
-            Spacer(Modifier.width(10.dp))
-            Text(data.plot.ifBlank { c.plot }.ifBlank { "Pas de résumé." }, color = Color(0xFFB8C4DA), fontSize = 13.sp, maxLines = 6)
-        }
-        if (data.seasons.isEmpty()) {
-            Message("Aucun épisode trouvé.")
-            return@Column
-        }
-        val keys = data.seasons.keys.toList()
-        val cur = if (season in keys) season else keys.first()
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(keys, key = { it }) { k ->
-                FilterChip(selected = k == cur, onClick = { season = k }, label = { Text("Saison $k") })
+        Row(Modifier.fillMaxSize()) {
+            Column(Modifier.width(220.dp).fillMaxSize().verticalScroll(rememberScrollState())) {
+                Poster(c.logo, Modifier.width(130.dp).aspectRatio(2f / 3f))
+                Text(
+                    data.plot.ifBlank { c.plot }.ifBlank { "Pas de résumé." },
+                    color = Color(0xFFB8C4DA), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp),
+                )
             }
-        }
-        Spacer(Modifier.size(6.dp))
-        val eps = data.seasons[cur].orEmpty()
-        LazyColumn(Modifier.weight(1f)) {
-            items(eps, key = { it.id }) { e ->
-                FocusRow(selected = false, onClick = { vm.play(eps, e) }) {
-                    Text(e.name, color = Color.White, maxLines = 2, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(12.dp))
+            if (data.seasons.isEmpty()) {
+                Message("Aucun épisode trouvé.")
+            } else {
+                val keys = data.seasons.keys.toList()
+                val cur = if (season in keys) season else keys.first()
+                val eps = data.seasons[cur].orEmpty()
+                Column(Modifier.weight(1f).fillMaxSize()) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(keys, key = { it }) { k ->
+                            FilterChip(selected = k == cur, onClick = { season = k }, label = { Text("Saison $k") })
+                        }
+                    }
+                    Spacer(Modifier.size(6.dp))
+                    LazyColumn(Modifier.weight(1f)) {
+                        items(eps, key = { it.id }) { e ->
+                            FocusRow(selected = false, onClick = { vm.play(eps, e) }) {
+                                Text(e.name, color = Color.White, maxLines = 2, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
                 }
             }
         }
