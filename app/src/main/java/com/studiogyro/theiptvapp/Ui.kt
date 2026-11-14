@@ -578,7 +578,17 @@ fun SeriesScreen(vm: MainVm) {
     val data = vm.seriesData
     BackHandler(true) { vm.closeSeries() }
     var season by rememberSaveable(c.id) { mutableStateOf(-1) }
-    Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
+    Box(Modifier.fillMaxSize()) {
+        val backgroundImage = c.logo.ifBlank { data?.cover.orEmpty() }
+        if (backgroundImage.isNotBlank()) {
+            AsyncImage(
+                model = backgroundImage,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().alpha(0.25f),
+            )
+        }
+        Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { vm.closeSeries() }) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
             Text(c.name, fontSize = 18.sp, color = Color.White, maxLines = 1, modifier = Modifier.weight(1f))
@@ -626,6 +636,7 @@ fun SeriesScreen(vm: MainVm) {
                 }
             }
         }
+    }
     }
 }
 
@@ -912,7 +923,6 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                         else -> {
                             PanelLabel("theIPTVapp pour Android")
                             Text("Version ${BuildConfig.VERSION_NAME}", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 18.dp))
-                            Text("Studio Gyro", color = Color(0xFFB8C4EE), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp))
                         }
                     }
                 }
