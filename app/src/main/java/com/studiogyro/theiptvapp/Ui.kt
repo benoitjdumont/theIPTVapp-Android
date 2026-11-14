@@ -471,7 +471,7 @@ private fun PosterWall(vm: MainVm, list: List<Channel>, modifier: Modifier) {
     val d = vm.details[cur.id]
     Column(modifier) {
         Box(Modifier.fillMaxWidth().height(112.dp).background(GroupBg).clipToBounds()) {
-            if (cur.logo.isNotBlank()) AsyncImage(model = cur.logo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(24.dp).alpha(0.25f))
+            if (cur.logo.isNotBlank()) AsyncImage(model = cur.logo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.2f))
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
             Text(cur.name, color = Color.White, fontSize = 19.sp, maxLines = 1)
             val meta = d?.meta?.ifBlank { null } ?: cur.meta
@@ -532,7 +532,7 @@ fun MovieScreen(vm: MainVm) {
     val fr = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(c.id) { runCatching { fr.requestFocus() } }
     Box(Modifier.fillMaxSize()) {
-    if (c.logo.isNotBlank()) AsyncImage(model = c.logo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(28.dp).alpha(0.3f))
+    if (c.logo.isNotBlank()) AsyncImage(model = c.logo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.25f))
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { vm.closeMovie() }) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }

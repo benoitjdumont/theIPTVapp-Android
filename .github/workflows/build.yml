@@ -18,12 +18,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Build debug APK
-        run: gradle --no-daemon assembleDebug -PvCode=${{ github.run_number }}
+      - name: Build release APK
+        run: gradle --no-daemon assembleRelease -PvCode=${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: theIPTVapp-android-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 3
       - name: Publish a release (used by the in-app updater)
@@ -31,5 +31,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           MSG: ${{ github.event.head_commit.message }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk theIPTVapp.apk
+          cp app/build/outputs/apk/release/app-release.apk theIPTVapp.apk
           gh release create "v${{ github.run_number }}" theIPTVapp.apk --title "theIPTVapp 0.1.${{ github.run_number }}" --notes "$MSG" --latest

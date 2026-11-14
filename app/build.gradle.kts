@@ -33,7 +33,10 @@ android {
             signingConfig = signingConfigs.getByName("fixed")
         }
         release {
-            isMinifyEnabled = false
+            // version « release » : code optimisé (R8), beaucoup plus fluide que la version de débogage
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("fixed")
         }
     }

@@ -31,7 +31,9 @@ fun PreviewBox(ch: Channel, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val player = remember {
         val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.STREAM_UA)
-        ExoPlayer.Builder(ctx).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build()
+        ExoPlayer.Builder(ctx)
+            .setLoadControl(androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(2000, 6000, 800, 1500).build())
+            .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build()
     }
     DisposableEffect(Unit) { onDispose { player.release() } }
     val tries = remember(ch.id) { attemptsFor(ch) }
