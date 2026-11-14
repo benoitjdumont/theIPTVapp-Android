@@ -55,7 +55,7 @@ data class Channel(
 
 data class Detail(val plot: String, val meta: String, val cast: String, val trailer: String = "")
 
-data class SeriesData(val plot: String, val seasons: Map<Int, List<Channel>>)
+data class SeriesData(val plot: String, val seasons: Map<Int, List<Channel>>, val cover: String = "")
 
 data class Prog(val title: String, val start: Long, val stop: Long)
 

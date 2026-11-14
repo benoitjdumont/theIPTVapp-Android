@@ -72,7 +72,8 @@ object Repo {
             out.add(
                 Channel(
                     id = "s$id", name = o.optString("name").ifEmpty { "Série $id" }, url = "",
-                    logo = o.optString("cover"), group = cats[o.optString("category_id")] ?: "",
+                    logo = o.optString("cover").ifBlank { o.optJSONArray("backdrop_path")?.optString(0) ?: "" },
+                    group = cats[o.optString("category_id")] ?: "",
                     sid = id, kind = "series", plot = o.optString("plot"),
                     meta = metaOf(o.optString("rating"), o.optString("releaseDate").take(4), o.optString("genre")),
                 ),
@@ -143,7 +144,9 @@ object Repo {
                 for (i in 0 until arr.length()) addEp(si + 1, arr.getJSONObject(i))
             }
         }
-        SeriesData(plot, seasons)
+        val info = root.optJSONObject("info")
+        val cover = info?.optString("cover").orEmpty().ifBlank { info?.optJSONArray("backdrop_path")?.optString(0) ?: "" }
+        SeriesData(plot, seasons, cover)
     }
 
     private fun categoryMap(url: String): Map<String, String> {

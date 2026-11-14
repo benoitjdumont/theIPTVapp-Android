@@ -110,7 +110,7 @@ fun AppRoot(vm: MainVm) {
             android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     }
     // sur une télé, les bords de l'écran sont souvent rognés : marge de sécurité
-    val safe = if (tv) Modifier.padding(horizontal = 48.dp, vertical = 27.dp) else Modifier
+    val safe = if (tv) Modifier.padding(horizontal = 20.dp, vertical = 10.dp) else Modifier
     val dens = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(dens.density, dens.fontScale * TEXT_SIZES[vm.textSizeIdx].second),
@@ -194,7 +194,60 @@ private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClic
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(44.dp), contentAlignment = Alignment.Center) { icon() }
-        if (expanded) Text(label, color = Color.White, fontSize = 14.sp, maxLines = 1)
+        if (expanded) Text(label, color = Color.White, fontSize = 14.sp, maxLines = 1, softWrap = false)
+    }
+}
+
+@Composable
+private fun TvIcon() = androidx.compose.foundation.Canvas(Modifier.size(24.dp)) {
+    val c = Color.White
+    val sw = 2.dp.toPx()
+    drawRoundRect(c, androidx.compose.ui.geometry.Offset(sw / 2, 3.dp.toPx()), androidx.compose.ui.geometry.Size(size.width - sw, size.height - 9.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()), style = androidx.compose.ui.graphics.drawscope.Stroke(sw))
+    drawLine(c, androidx.compose.ui.geometry.Offset(size.width * 0.3f, size.height - 2.dp.toPx()), androidx.compose.ui.geometry.Offset(size.width * 0.7f, size.height - 2.dp.toPx()), sw, androidx.compose.ui.graphics.StrokeCap.Round)
+}
+
+@Composable
+private fun FilmIcon() = androidx.compose.foundation.Canvas(Modifier.size(24.dp)) {
+    val c = Color.White
+    val sw = 2.dp.toPx()
+    val st = androidx.compose.ui.graphics.drawscope.Stroke(sw)
+    drawRoundRect(c, androidx.compose.ui.geometry.Offset(sw / 2, 9.dp.toPx()), androidx.compose.ui.geometry.Size(size.width - sw, size.height - 12.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()), style = st)
+    drawRoundRect(c, androidx.compose.ui.geometry.Offset(sw / 2, 3.dp.toPx()), androidx.compose.ui.geometry.Size(size.width - sw, 5.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(1.dp.toPx()), style = st)
+    for (x in listOf(0.3f, 0.55f, 0.8f)) drawLine(c, androidx.compose.ui.geometry.Offset(size.width * x - 2.dp.toPx(), 8.dp.toPx()), androidx.compose.ui.geometry.Offset(size.width * x + 1.dp.toPx(), 3.dp.toPx()), sw * 0.8f)
+}
+
+@Composable
+private fun SeriesIcon() = androidx.compose.foundation.Canvas(Modifier.size(24.dp)) {
+    val c = Color.White
+    val sw = 2.dp.toPx()
+    val st = androidx.compose.ui.graphics.drawscope.Stroke(sw)
+    drawRoundRect(c, androidx.compose.ui.geometry.Offset(5.dp.toPx(), sw / 2), androidx.compose.ui.geometry.Size(size.width - 6.dp.toPx(), size.height - 8.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()), style = st)
+    drawRoundRect(c, androidx.compose.ui.geometry.Offset(sw / 2, 5.dp.toPx()), androidx.compose.ui.geometry.Size(size.width - 6.dp.toPx(), size.height - 7.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()), style = st)
+    val path = androidx.compose.ui.graphics.Path().apply {
+        moveTo(9.dp.toPx(), 10.dp.toPx())
+        lineTo(9.dp.toPx(), 18.dp.toPx())
+        lineTo(15.dp.toPx(), 14.dp.toPx())
+        close()
+    }
+    drawPath(path, c)
+}
+
+/** Rail de gauche : fin au repos, il se déploie par-dessus la liste quand on navigue dessus. */
+@Composable
+private fun Rail(vm: MainVm, searchOpen: Boolean, onSearch: () -> Unit, openSettings: () -> Unit) {
+    var focus by remember { mutableStateOf(false) }
+    Column(
+        Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(if (focus) Color(0xF2080C24) else RailBg).padding(vertical = 6.dp).onFocusChanged { focus = it.hasFocus },
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(Modifier.width(56.dp), contentAlignment = Alignment.Center) { Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(30.dp)) }
+        RailItem(searchOpen, focus, "Rechercher", onSearch) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
+        RailItem(vm.tab == 0, focus, "TV", { vm.selectTab(0) }) { TvIcon() }
+        RailItem(vm.tab == 1, focus, "Films", { vm.selectTab(1) }) { FilmIcon() }
+        RailItem(vm.tab == 2, focus, "Séries", { vm.selectTab(2) }) { SeriesIcon() }
+        Spacer(Modifier.weight(1f))
+        RailItem(false, focus, "Actualiser", { vm.reload() }) { Icon(Icons.Default.Refresh, "Actualiser", tint = Color.White) }
+        RailItem(false, focus, "Paramètres", openSettings) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
     }
 }
 
@@ -203,22 +256,9 @@ private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClic
 private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     val sec = vm.section()
     var searchOpen by rememberSaveable { mutableStateOf(vm.query.isNotEmpty()) }
+    Box(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxSize()) {
-        var railFocus by remember { mutableStateOf(false) }
-        val railW by androidx.compose.animation.core.animateDpAsState(if (railFocus) 170.dp else 56.dp, label = "rail")
-        Column(
-            Modifier.width(railW).fillMaxHeight().background(RailBg).padding(vertical = 6.dp).onFocusChanged { railFocus = it.hasFocus },
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Box(Modifier.width(56.dp), contentAlignment = Alignment.Center) { Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(30.dp)) }
-            RailItem(searchOpen, railFocus, "Rechercher", { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
-            RailItem(vm.tab == 0, railFocus, "TV", { vm.selectTab(0) }) { Text("📺", fontSize = 20.sp) }
-            RailItem(vm.tab == 1, railFocus, "Films", { vm.selectTab(1) }) { Text("🎬", fontSize = 20.sp) }
-            RailItem(vm.tab == 2, railFocus, "Séries", { vm.selectTab(2) }) { Text("🎞", fontSize = 20.sp) }
-            Spacer(Modifier.weight(1f))
-            RailItem(false, railFocus, "Actualiser", { vm.reload() }) { Icon(Icons.Default.Refresh, "Actualiser", tint = Color.White) }
-            RailItem(false, railFocus, "Paramètres", openSettings) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
-        }
+        Spacer(Modifier.width(56.dp))
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when {
                 vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
@@ -291,6 +331,8 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                 }
             }
         }
+    }
+    Rail(vm, searchOpen, { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }, openSettings)
     }
 }
 
@@ -464,7 +506,7 @@ private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, onFo
                     .combinedClickable(onClick = { vm.guard(c) { if (c.kind == "series") vm.openSeries(c) else vm.openMovie(c) } }, onLongClick = { vm.toggleFav(c) })
                     .padding(6.dp),
             ) {
-                Poster(c.logo, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+                Poster(c.logo, Modifier.fillMaxWidth().aspectRatio(2f / 3f), c.name)
                 Text((if (vm.isLocked(c)) "🔒 " else "") + (if (vm.isFav(c)) "★ " else "") + c.name, color = Color.White, fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
             }
         }
@@ -472,11 +514,10 @@ private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, onFo
 }
 
 @Composable
-private fun Poster(url: String, modifier: Modifier) {
-    if (url.isNotBlank()) {
-        AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier.clip(RoundedCornerShape(8.dp)))
-    } else {
-        Box(modifier.clip(RoundedCornerShape(8.dp)).background(Bg))
+private fun Poster(url: String, modifier: Modifier, title: String = "") {
+    Box(modifier.clip(RoundedCornerShape(8.dp)).background(Color(0x55202A66)), contentAlignment = Alignment.Center) {
+        Text(title.ifBlank { "🎞" }, color = Color(0xFF8A97C0), fontSize = 11.sp, maxLines = 4, modifier = Modifier.padding(6.dp))
+        if (url.isNotBlank()) AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
     }
 }
 
@@ -498,7 +539,7 @@ fun MovieScreen(vm: MainVm) {
             Text("Film", fontSize = 14.sp, color = Color(0xFFB8C4DA))
         }
         Row(Modifier.fillMaxSize()) {
-            Poster(c.logo, Modifier.width(140.dp).aspectRatio(2f / 3f))
+            Poster(c.logo, Modifier.width(140.dp).aspectRatio(2f / 3f), c.name)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f).fillMaxSize()) {
                 Text(c.name, color = Color.White, fontSize = 22.sp, maxLines = 2)
@@ -549,7 +590,7 @@ fun SeriesScreen(vm: MainVm) {
         }
         Row(Modifier.fillMaxSize()) {
             Column(Modifier.width(220.dp).fillMaxSize().verticalScroll(rememberScrollState())) {
-                Poster(c.logo, Modifier.width(130.dp).aspectRatio(2f / 3f))
+                Poster(c.logo.ifBlank { data.cover }, Modifier.width(130.dp).aspectRatio(2f / 3f), c.name)
                 Text(
                     data.plot.ifBlank { c.plot }.ifBlank { "Pas de résumé." },
                     color = Color(0xFFB8C4DA), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp),
@@ -572,6 +613,12 @@ fun SeriesScreen(vm: MainVm) {
                     LazyColumn(Modifier.weight(1f)) {
                         items(eps, key = { it.id }) { e ->
                             FocusRow(selected = false, onClick = { vm.play(eps, e) }) {
+                                Box(Modifier.width(96.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(5.dp)).background(Color(0x55202A66)), contentAlignment = Alignment.Center) {
+                                    Text("▶", color = Color(0xFF8A97C0), fontSize = 16.sp)
+                                    val img = e.logo.ifBlank { c.logo.ifBlank { data.cover } }
+                                    if (img.isNotBlank()) AsyncImage(model = img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                }
+                                Spacer(Modifier.width(10.dp))
                                 Text(e.name, color = Color.White, maxLines = 2, modifier = Modifier.weight(1f))
                             }
                         }
@@ -590,44 +637,51 @@ private fun Message(text: String) {
 @Composable
 private fun PreviewHeader(vm: MainVm, pv: Channel) {
     val e = vm.epg[pv.id]
-    Row(Modifier.fillMaxWidth().height(118.dp).background(GroupBg).padding(8.dp)) {
+    var replay by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().height(132.dp).background(GroupBg).padding(8.dp)) {
         Box(Modifier.fillMaxHeight().aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)).background(Color.Black)) { PreviewBox(pv) }
         Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(pv.name, color = Color.White, fontSize = 18.sp, maxLines = 1)
+        Column(Modifier.weight(1f).fillMaxHeight()) {
+            Text(pv.name, color = Color.White, fontSize = 17.sp, maxLines = 1)
             val now = e?.now
             if (now != null) {
-                Text("${now.title}  ${hm(now.start)} – ${hm(now.stop)}", color = Color(0xFF9DB4D8), fontSize = 12.sp, maxLines = 2)
+                Text("${now.title}  ${hm(now.start)} – ${hm(now.stop)}", color = Color(0xFF9DB4D8), fontSize = 12.sp, maxLines = 1)
                 val span = (now.stop - now.start).coerceAtLeast(1)
                 val frac = ((System.currentTimeMillis() - now.start).toFloat() / span).coerceIn(0f, 1f)
-                Box(Modifier.padding(top = 4.dp).fillMaxWidth(0.6f).height(3.dp).background(Color(0x33FFFFFF))) {
+                Box(Modifier.padding(top = 3.dp).fillMaxWidth(0.6f).height(3.dp).background(Color(0x33FFFFFF))) {
                     Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(Accent))
                 }
-                if (e.next != null) Text("Ensuite : ${e.next.title}", color = Color(0xFF8A97A6), fontSize = 11.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+                if (e.next != null) Text("Ensuite : ${e.next.title}", color = Color(0xFF8A97A6), fontSize = 11.sp, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
             }
             Spacer(Modifier.weight(1f))
-            var replay by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-            val past = (e?.list ?: emptyList()).filter { it.stop < System.currentTimeMillis() }.sortedByDescending { it.start }
-            if (pv.archive > 0 && past.isNotEmpty()) {
-                Text("⏪ Revoir une émission", color = Color(0xFF8FB8FF), fontSize = 12.sp, modifier = Modifier.clickable { replay = true }.padding(vertical = 2.dp))
+            if (pv.archive > 0) {
+                Button(
+                    onClick = { replay = true; vm.loadPast(pv) },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 2.dp),
+                    modifier = Modifier.height(34.dp),
+                ) { Text("⏪  Revoir une émission", fontSize = 13.sp) }
             }
-            Text("Appuie encore sur la chaîne pour le plein écran", color = Color(0xFF8FB8FF), fontSize = 11.sp)
-            if (replay) androidx.compose.material3.AlertDialog(
-                onDismissRequest = { replay = false },
-                title = { Text("Revoir sur ${pv.name}") },
-                text = {
-                    LazyColumn(Modifier.heightIn(max = 260.dp)) {
-                        items(past, key = { it.start }) { p ->
-                            FocusRow(selected = false, onClick = { replay = false; vm.playReplay(pv, p) }) {
-                                Text("${hm(p.start)}  ${p.title}", maxLines = 2, modifier = Modifier.padding(vertical = 6.dp))
-                            }
-                        }
-                    }
-                },
-                confirmButton = { OutlinedButton(onClick = { replay = false }) { Text("Fermer") } },
-            )
         }
     }
+    if (replay) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { replay = false },
+        title = { Text("Revoir sur ${pv.name}") },
+        text = {
+            val past = vm.past
+            when {
+                past == null -> Text("Chargement…")
+                past.isEmpty() -> Text("Aucune émission disponible pour le rattrapage.")
+                else -> LazyColumn(Modifier.heightIn(max = 260.dp)) {
+                    items(past, key = { it.start }) { p ->
+                        FocusRow(selected = false, onClick = { replay = false; vm.playReplay(pv, p) }) {
+                            Text("${hm(p.start)}  ${p.title}", maxLines = 2, modifier = Modifier.padding(vertical = 6.dp))
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { OutlinedButton(onClick = { replay = false }) { Text("Fermer") } },
+    )
 }
 
 @Composable

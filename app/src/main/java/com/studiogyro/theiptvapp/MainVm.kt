@@ -207,6 +207,19 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     var guideShiftMin by mutableStateOf(0)
     fun shiftGuide(delta: Int) { guideShiftMin = if (delta == 0) 0 else (guideShiftMin + delta).coerceIn(-12 * 60, 12 * 60) }
 
+    var past by mutableStateOf<List<Prog>?>(null)
+
+    /** charge la liste des émissions passées d'une chaîne avec rattrapage (à la demande) */
+    fun loadPast(c: Channel) {
+        past = null
+        val s = activeSource ?: return
+        viewModelScope.launch {
+            val e = runCatching { Repo.shortEpg(s, c.sid, true) }.getOrNull()
+            val now = System.currentTimeMillis()
+            past = e?.list?.filter { it.stop < now }?.sortedByDescending { it.start } ?: emptyList()
+        }
+    }
+
     /** revoir une émission passée d'une chaîne qui propose le rattrapage */
     fun playReplay(c: Channel, p: Prog) {
         val s = activeSource ?: return
@@ -373,7 +386,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         if (cached != null && System.currentTimeMillis() < cached.until) return
         val s = activeSource ?: return
         epg[c.id] = Epg(cached?.now, cached?.next, System.currentTimeMillis() + 60_000, cached?.list ?: emptyList())
-        viewModelScope.launch { epg[c.id] = Repo.shortEpg(s, c.sid, c.archive > 0) }
+        viewModelScope.launch { epg[c.id] = Repo.shortEpg(s, c.sid, false) }
     }
 
     /** fiches (film : résumé, distribution) chargées à la demande quand on survole une affiche */
