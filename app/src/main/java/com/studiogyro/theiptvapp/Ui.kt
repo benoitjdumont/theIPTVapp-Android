@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -63,7 +64,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -424,13 +428,16 @@ private fun PosterWall(vm: MainVm, list: List<Channel>, modifier: Modifier) {
     }
     val d = vm.details[cur.id]
     Column(modifier) {
-        Column(Modifier.fillMaxWidth().height(112.dp).background(GroupBg).padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Box(Modifier.fillMaxWidth().height(112.dp).background(GroupBg).clipToBounds()) {
+            if (cur.logo.isNotBlank()) AsyncImage(model = cur.logo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(24.dp).alpha(0.25f))
+        Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
             Text(cur.name, color = Color.White, fontSize = 19.sp, maxLines = 1)
             val meta = d?.meta?.ifBlank { null } ?: cur.meta
             if (meta.isNotBlank()) Text(meta, color = Color(0xFF9DB4D8), fontSize = 12.sp, maxLines = 1)
             if (d != null && d.cast.isNotBlank()) Text("Acteurs : " + d.cast, color = Color(0xFF8A97A6), fontSize = 11.sp, maxLines = 1)
             val plot = (d?.plot?.ifBlank { null } ?: cur.plot).ifBlank { if (d == null) "…" else "" }
             Text(plot, color = Color(0xFFB8C4DA), fontSize = 12.sp, maxLines = 3, modifier = Modifier.padding(top = 3.dp))
+        }
         }
         PosterGrid(vm, list, Modifier.weight(1f).padding(6.dp)) { sel = it }
     }
@@ -483,6 +490,8 @@ fun MovieScreen(vm: MainVm) {
     val pos = vm.pos(c.id)
     val fr = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(c.id) { runCatching { fr.requestFocus() } }
+    Box(Modifier.fillMaxSize()) {
+    if (c.logo.isNotBlank()) AsyncImage(model = c.logo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(28.dp).alpha(0.3f))
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { vm.closeMovie() }) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
@@ -517,6 +526,7 @@ fun MovieScreen(vm: MainVm) {
                 }
             }
         }
+    }
     }
 }
 
@@ -596,7 +606,26 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
                 if (e.next != null) Text("Ensuite : ${e.next.title}", color = Color(0xFF8A97A6), fontSize = 11.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
             }
             Spacer(Modifier.weight(1f))
+            var replay by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+            val past = (e?.list ?: emptyList()).filter { it.stop < System.currentTimeMillis() }.sortedByDescending { it.start }
+            if (pv.archive > 0 && past.isNotEmpty()) {
+                Text("⏪ Revoir une émission", color = Color(0xFF8FB8FF), fontSize = 12.sp, modifier = Modifier.clickable { replay = true }.padding(vertical = 2.dp))
+            }
             Text("Appuie encore sur la chaîne pour le plein écran", color = Color(0xFF8FB8FF), fontSize = 11.sp)
+            if (replay) androidx.compose.material3.AlertDialog(
+                onDismissRequest = { replay = false },
+                title = { Text("Revoir sur ${pv.name}") },
+                text = {
+                    LazyColumn(Modifier.heightIn(max = 260.dp)) {
+                        items(past, key = { it.start }) { p ->
+                            FocusRow(selected = false, onClick = { replay = false; vm.playReplay(pv, p) }) {
+                                Text("${hm(p.start)}  ${p.title}", maxLines = 2, modifier = Modifier.padding(vertical = 6.dp))
+                            }
+                        }
+                    }
+                },
+                confirmButton = { OutlinedButton(onClick = { replay = false }) { Text("Fermer") } },
+            )
         }
     }
 }
@@ -626,14 +655,19 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
         val gridW = (maxWidth - leftW - 18.dp).coerceAtLeast(80.dp)
         val winMin = if (gridW < 300.dp) 90 else if (gridW < 460.dp) 120 else 180
         val nowMs = vm.clock
-        val ws = nowMs - nowMs % (30 * 60_000L)
+        val ws = nowMs - nowMs % (30 * 60_000L) + vm.guideShiftMin * 60_000L
         val dpPerMs = gridW.value / (winMin * 60_000f)
         fun xOf(t: Long) = (((t - ws).coerceIn(0L, winMin * 60_000L)) * dpPerMs).dp
         Column(Modifier.fillMaxSize()) {
             // en-tête : date à gauche, repères horaires au-dessus de la grille
             Row(Modifier.fillMaxWidth().background(Color(0x552B3A8F)).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                val today = remember { java.text.SimpleDateFormat("EEE d MMM  HH:mm", java.util.Locale.getDefault()).format(java.util.Date()) }
-                Text(today, color = Color(0xFF8FB8FF), fontSize = 11.sp, maxLines = 1, modifier = Modifier.width(leftW))
+                Row(Modifier.width(leftW), verticalAlignment = Alignment.CenterVertically) {
+                    val label = java.text.SimpleDateFormat("EEE d MMM  HH:mm", java.util.Locale.getDefault()).format(java.util.Date(ws))
+                    Text(label, color = Color(0xFF8FB8FF), fontSize = 11.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                    Text("◀", color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { vm.shiftGuide(-60) }.padding(horizontal = 8.dp, vertical = 2.dp))
+                    Text(if (vm.guideShiftMin == 0) "▶" else "⟲", color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { vm.shiftGuide(if (vm.guideShiftMin == 0) 60 else 0) }.padding(horizontal = 4.dp, vertical = 2.dp))
+                    if (vm.guideShiftMin != 0) Text("▶", color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { vm.shiftGuide(60) }.padding(horizontal = 4.dp, vertical = 2.dp))
+                }
                 Box(Modifier.width(gridW).height(16.dp)) {
                     for (k in 0..(winMin / 30)) {
                         val t = ws + k * 30 * 60_000L
@@ -680,7 +714,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                                 }
                             }
                             // trait de l'heure actuelle
-                            Box(Modifier.offset(x = xOf(nowMs)).width(1.dp).fillMaxHeight().background(Accent.copy(alpha = 0.8f)))
+                            if (nowMs in ws..(ws + winMin * 60_000L)) Box(Modifier.offset(x = xOf(nowMs)).width(1.dp).fillMaxHeight().background(Accent.copy(alpha = 0.8f)))
                         }
                     }
                 }

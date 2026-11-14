@@ -217,7 +217,10 @@ object Repo {
     private val epgGate = Semaphore(4)
 
     /** Programme guide for one Xtream channel (now + next). Never throws: returns an empty guide on failure. */
-    suspend fun shortEpg(src: Source, sid: String): Epg = withContext(Dispatchers.IO) {
+    /** écart entre l'heure du serveur du fournisseur et l'heure UTC, appris des guides (pour le replay) */
+    @Volatile var serverOffsetMs = 0L
+
+    suspend fun shortEpg(src: Source, sid: String, archive: Boolean = false): Epg = withContext(Dispatchers.IO) {
         val nowMs = System.currentTimeMillis()
         val empty = Epg(null, null, nowMs + 10 * 60_000)
         if (src.type != SourceType.XTREAM || sid.isEmpty()) return@withContext empty
@@ -227,7 +230,7 @@ object Repo {
                 val u = java.net.URLEncoder.encode(src.user, "UTF-8")
                 val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
                 var txt = ""
-                open("$base/player_api.php?username=$u&password=$p&action=get_short_epg&stream_id=$sid&limit=8") { r -> txt = r.body?.string() ?: "" }
+                open("$base/player_api.php?username=$u&password=$p&action=${if (archive) "get_simple_data_table" else "get_short_epg"}&stream_id=$sid${if (archive) "" else "&limit=8"}") { r -> txt = r.body?.string() ?: "" }
                 val arr = org.json.JSONObject(txt.trim()).optJSONArray("epg_listings") ?: return@runCatching empty
                 val nowSec = nowMs / 1000
                 val progs = ArrayList<Prog>()
@@ -236,7 +239,15 @@ object Repo {
                     val st = o.optString("start_timestamp").toLongOrNull() ?: continue
                     val en = o.optString("stop_timestamp").toLongOrNull() ?: continue
                     val title = decode(o.optString("title"))
-                    if (title.isBlank() || en <= nowSec) continue
+                    val txtStart = o.optString("start")
+                    if (txtStart.length >= 19) runCatching {
+                        val f = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+                        f.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                        val off = f.parse(txtStart.take(19))!!.time - st * 1000
+                        if (kotlin.math.abs(off) <= 24 * 3600_000L) serverOffsetMs = (off / 900_000L) * 900_000L
+                    }
+                    val minStop = if (archive) nowSec - 12 * 3600 else nowSec
+                    if (title.isBlank() || en <= minStop || (archive && st > nowSec + 12 * 3600)) continue
                     progs.add(Prog(title, st * 1000, en * 1000))
                 }
                 progs.sortBy { it.start }
@@ -245,6 +256,17 @@ object Repo {
                 Epg(now, next, (now?.stop ?: next?.start ?: (nowMs + 10 * 60_000)).coerceAtLeast(nowMs + 30_000), progs)
             }.getOrDefault(empty)
         }
+    }
+
+    /** adresse de rattrapage Xtream pour revoir une émission passée */
+    fun timeshiftUrl(src: Source, sid: String, p: Prog): String {
+        val base = normHost(src.host)
+        val u = java.net.URLEncoder.encode(src.user, "UTF-8")
+        val pw = java.net.URLEncoder.encode(src.pass, "UTF-8")
+        val minutes = ((p.stop - p.start) / 60_000L).coerceAtLeast(1)
+        val f = java.text.SimpleDateFormat("yyyy-MM-dd:HH-mm", java.util.Locale.US)
+        f.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        return "$base/timeshift/$u/$pw/$minutes/${f.format(java.util.Date(p.start + serverOffsetMs))}/$sid.ts"
     }
 
     private fun decode(s: String): String =
@@ -351,6 +373,7 @@ object Repo {
                     logo = o.optString("stream_icon"),
                     group = cats[o.optString("category_id")] ?: "",
                     sid = id,
+                    archive = o.optString("tv_archive").toIntOrNull() ?: 0,
                 ),
             )
         }

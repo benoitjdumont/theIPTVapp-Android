@@ -203,6 +203,17 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     /** heure courante, rafraîchie chaque minute pour la grille du guide */
     var clock by mutableStateOf(System.currentTimeMillis()); private set
 
+    /** décalage du guide en minutes (0 = maintenant) */
+    var guideShiftMin by mutableStateOf(0)
+    fun shiftGuide(delta: Int) { guideShiftMin = if (delta == 0) 0 else (guideShiftMin + delta).coerceIn(-12 * 60, 12 * 60) }
+
+    /** revoir une émission passée d'une chaîne qui propose le rattrapage */
+    fun playReplay(c: Channel, p: Prog) {
+        val s = activeSource ?: return
+        val ch = Channel(id = "rp${c.id}_${p.start}", name = "${c.name} · ${p.title}", url = Repo.timeshiftUrl(s, c.sid, p), kind = "movie")
+        play(listOf(ch), ch)
+    }
+
     var previewMode by mutableStateOf(store.previewMode()); private set
     fun changePreviewMode(b: Boolean) { previewMode = b; store.savePreviewMode(b); if (!b) preview = null }
     /** chaîne en aperçu sur l'accueil (premier clic) ; un second clic ouvre le plein écran */
@@ -362,7 +373,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         if (cached != null && System.currentTimeMillis() < cached.until) return
         val s = activeSource ?: return
         epg[c.id] = Epg(cached?.now, cached?.next, System.currentTimeMillis() + 60_000, cached?.list ?: emptyList())
-        viewModelScope.launch { epg[c.id] = Repo.shortEpg(s, c.sid) }
+        viewModelScope.launch { epg[c.id] = Repo.shortEpg(s, c.sid, c.archive > 0) }
     }
 
     /** fiches (film : résumé, distribution) chargées à la demande quand on survole une affiche */

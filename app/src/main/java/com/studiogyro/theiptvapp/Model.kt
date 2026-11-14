@@ -45,6 +45,8 @@ data class Channel(
     /** "live", "movie" (playable file) or "series" (opens the episode list) */
     val kind: String = "live",
     val plot: String = "",
+    /** jours de rattrapage (replay) proposés par le fournisseur, 0 = aucun */
+    val archive: Int = 0,
     /** ligne d'infos courte : note · année · genre */
     val meta: String = "",
     /** tvg-id of an M3U channel, used to find it in the XMLTV guide */
