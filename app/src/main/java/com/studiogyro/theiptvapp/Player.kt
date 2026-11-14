@@ -5,14 +5,14 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.media.AudioManager
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.material3.TextButton
 import androidx.media3.datasource.DefaultDataSource
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -213,52 +213,62 @@ fun PlayerScreen(vm: MainVm) {
         )
 
         // couche tactile par-dessus la vidéo : gestes + toucher pour afficher/masquer
+        // (sur un film, seulement le haut de l'écran, pour ne pas couvrir les boutons du lecteur)
         Box(
             Modifier
-                .then(if (ch.kind == "live") Modifier.fillMaxSize() else Modifier.fillMaxWidth().fillMaxHeight(0.7f))
-                .pointerInput(Unit) { detectTapGestures { showUi = !showUi } }
+                .then(if (ch.kind == "live") Modifier.fillMaxSize() else Modifier.fillMaxWidth().fillMaxHeight(0.38f))
                 .pointerInput(ch.id) {
-                    // glisser : côté gauche = luminosité, côté droit = volume, centre = changer de chaîne (en direct)
-                    var total = 0f
-                    var zone = 0
-                    var vol = 0f
                     val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    detectVerticalDragGestures(
-                        onDragStart = { off ->
-                            total = 0f
-                            zone = when {
-                                off.x < size.width * 0.3f -> 1
-                                off.x > size.width * 0.7f -> 2
-                                else -> 0
+                    val slop = viewConfiguration.touchSlop
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val zone = when {
+                            down.position.x < size.width * 0.35f -> 1
+                            down.position.x > size.width * 0.65f -> 2
+                            else -> 0
+                        }
+                        var lastY = down.position.y
+                        var total = 0f
+                        var dragging = false
+                        var vol = am.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
+                        var bright = activity?.window?.attributes?.screenBrightness?.takeIf { it >= 0f }
+                            ?: (android.provider.Settings.System.getInt(ctx.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS, 128) / 255f)
+                        while (true) {
+                            val ev = awaitPointerEvent()
+                            val c = ev.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!c.pressed) {
+                                if (!dragging) showUi = !showUi
+                                else if (zone == 0 && ch.kind == "live" && abs(total) > 100f) {
+                                    vm.step(if (total < 0) 1 else -1)
+                                    showUi = true
+                                }
+                                break
                             }
-                            vol = am.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
-                        },
-                        onDragEnd = {
-                            if (zone == 0 && abs(total) > 140f && ch.kind == "live") {
-                                vm.step(if (total < 0) 1 else -1)
-                                showUi = true
-                            }
-                        },
-                        onVerticalDrag = { _, dy ->
+                            val dy = c.position.y - lastY
+                            lastY = c.position.y
                             total += dy
-                            when (zone) {
-                                1 -> activity?.let { a ->
-                                    val lp = a.window.attributes
-                                    val cur = if (lp.screenBrightness < 0f) 0.5f else lp.screenBrightness
-                                    val nv = (cur - dy / size.height * 1.2f).coerceIn(0.02f, 1f)
-                                    lp.screenBrightness = nv
-                                    a.window.attributes = lp
-                                    hud = "Luminosité ${(nv * 100).roundToInt()} %"
-                                }
-                                2 -> {
-                                    val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                    vol = (vol - dy / size.height * max * 1.2f).coerceIn(0f, max.toFloat())
-                                    am.setStreamVolume(AudioManager.STREAM_MUSIC, vol.roundToInt(), 0)
-                                    hud = "Volume ${(vol / max * 100).roundToInt()} %"
+                            if (!dragging && abs(total) > slop) dragging = true
+                            if (dragging) {
+                                c.consume()
+                                val frac = -dy / size.height * 2.2f
+                                when (zone) {
+                                    1 -> activity?.let { a ->
+                                        bright = (bright + frac).coerceIn(0.02f, 1f)
+                                        val lp = a.window.attributes
+                                        lp.screenBrightness = bright
+                                        a.window.attributes = lp
+                                        hud = "Luminosité ${(bright * 100).roundToInt()} %"
+                                    }
+                                    2 -> {
+                                        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                        vol = (vol + frac * max).coerceIn(0f, max.toFloat())
+                                        am.setStreamVolume(AudioManager.STREAM_MUSIC, vol.roundToInt(), 0)
+                                        hud = "Volume ${(vol / max * 100).roundToInt()} %"
+                                    }
                                 }
                             }
-                        },
-                    )
+                        }
+                    }
                 }
         )
 
