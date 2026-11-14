@@ -556,7 +556,7 @@ private fun PlaybackSection(vm: MainVm) {
     Text("Lecture", fontSize = 18.sp, color = Color.White)
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
         Text("Reprendre la dernière chaîne au démarrage", color = Color.White, modifier = Modifier.weight(1f))
-        androidx.compose.material3.Switch(checked = vm.autoResume, onCheckedChange = { vm.setAutoResume(it) })
+        androidx.compose.material3.Switch(checked = vm.autoResume, onCheckedChange = { vm.changeAutoResume(it) })
     }
 }
 

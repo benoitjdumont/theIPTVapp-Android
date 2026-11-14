@@ -194,7 +194,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     private var xmltv: Map<String, List<Prog>> = emptyMap()
     var xmltvReady by mutableStateOf(false); private set
 
-    fun setAutoResume(b: Boolean) { autoResume = b; store.saveAutoResume(b) }
+    fun changeAutoResume(b: Boolean) { autoResume = b; store.saveAutoResume(b) }
 
     private fun afterLiveLoaded(s: Source) {
         if (!resumed) {
