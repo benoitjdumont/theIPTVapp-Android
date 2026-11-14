@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -601,8 +602,8 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
 }
 
 @Composable
-private fun EpgCell(title: String?, sub: String?, progress: Float?, modifier: Modifier) {
-    Box(modifier.padding(horizontal = 2.dp).clip(RoundedCornerShape(5.dp)).background(CellBg)) {
+private fun EpgCell(title: String?, sub: String?, progress: Float?, modifier: Modifier, highlight: Boolean = false) {
+    Box(modifier.padding(horizontal = 1.dp).clip(RoundedCornerShape(4.dp)).background(if (highlight) Accent.copy(alpha = 0.35f) else CellBg)) {
         Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
             Text(title ?: "Pas d'information", color = if (title == null) Color(0xFF7D8A96) else Color.White, fontSize = 12.sp, maxLines = 1)
             if (sub != null) Text(sub, color = Color(0xFF9DB4D8), fontSize = 10.sp, maxLines = 1)
@@ -621,14 +622,24 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
         return
     }
     BoxWithConstraints(modifier) {
-        val showNext = maxWidth >= 430.dp
+        val leftW = 200.dp
+        val gridW = (maxWidth - leftW - 18.dp).coerceAtLeast(80.dp)
+        val winMin = if (gridW < 300.dp) 90 else if (gridW < 460.dp) 120 else 180
+        val nowMs = vm.clock
+        val ws = nowMs - nowMs % (30 * 60_000L)
+        val dpPerMs = gridW.value / (winMin * 60_000f)
+        fun xOf(t: Long) = (((t - ws).coerceIn(0L, winMin * 60_000L)) * dpPerMs).dp
         Column(Modifier.fillMaxSize()) {
-            // en-tête façon guide : date à gauche, « maintenant » / « ensuite » au-dessus des cases
-            Row(Modifier.fillMaxWidth().background(Color(0xFF2B3944)).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            // en-tête : date à gauche, repères horaires au-dessus de la grille
+            Row(Modifier.fillMaxWidth().background(Color(0x552B3A8F)).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 val today = remember { java.text.SimpleDateFormat("EEE d MMM  HH:mm", java.util.Locale.getDefault()).format(java.util.Date()) }
-                Text(today, color = Color(0xFF8FB8FF), fontSize = 11.sp, maxLines = 1, modifier = Modifier.width(200.dp))
-                Text("Maintenant", color = Color(0xFFB8C4DA), fontSize = 11.sp, modifier = Modifier.weight(1f).padding(start = 6.dp))
-                if (showNext) Text("Ensuite", color = Color(0xFFB8C4DA), fontSize = 11.sp, modifier = Modifier.weight(0.8f).padding(start = 6.dp))
+                Text(today, color = Color(0xFF8FB8FF), fontSize = 11.sp, maxLines = 1, modifier = Modifier.width(leftW))
+                Box(Modifier.width(gridW).height(16.dp)) {
+                    for (k in 0..(winMin / 30)) {
+                        val t = ws + k * 30 * 60_000L
+                        if (k < winMin / 30 || winMin % 30 == 0) Text(hm(t), color = Color(0xFFB8C4DA), fontSize = 11.sp, maxLines = 1, softWrap = false, modifier = Modifier.offset(x = xOf(t)))
+                    }
+                }
             }
             LazyColumn(Modifier.weight(1f)) {
                 itemsIndexed(list, key = { _, c -> c.id }) { i, c ->
@@ -656,11 +667,21 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                             color = Color.White, fontSize = 13.sp, maxLines = 1,
                             modifier = Modifier.width(128.dp),
                         )
-                        val now = e?.now
-                        val span = if (now != null) (now.stop - now.start).coerceAtLeast(1) else 1L
-                        val frac = if (now != null) ((System.currentTimeMillis() - now.start).toFloat() / span) else null
-                        EpgCell(now?.title, now?.let { "${hm(it.start)} – ${hm(it.stop)}" }, frac, Modifier.weight(1f))
-                        if (showNext) EpgCell(e?.next?.title, e?.next?.let { hm(it.start) }, null, Modifier.weight(0.8f))
+                        val progs = (e?.list ?: emptyList()).filter { it.stop > ws && it.start < ws + winMin * 60_000L }
+                        Box(Modifier.width(gridW).height(36.dp).clip(RoundedCornerShape(4.dp))) {
+                            if (progs.isEmpty()) {
+                                EpgCell(e?.now?.title, null, null, Modifier.fillMaxSize())
+                            } else {
+                                progs.forEach { p ->
+                                    val x0 = xOf(p.start)
+                                    val w = (xOf(p.stop) - x0).coerceAtLeast(6.dp)
+                                    val isNow = p.start <= nowMs && p.stop > nowMs
+                                    EpgCell(p.title, null, null, Modifier.offset(x = x0).width(w).fillMaxHeight(), highlight = isNow)
+                                }
+                            }
+                            // trait de l'heure actuelle
+                            Box(Modifier.offset(x = xOf(nowMs)).width(1.dp).fillMaxHeight().background(Accent.copy(alpha = 0.8f)))
+                        }
                     }
                 }
             }

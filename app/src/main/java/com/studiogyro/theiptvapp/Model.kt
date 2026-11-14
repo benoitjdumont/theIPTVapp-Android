@@ -58,7 +58,7 @@ data class SeriesData(val plot: String, val seasons: Map<Int, List<Channel>>)
 data class Prog(val title: String, val start: Long, val stop: Long)
 
 /** Programme guide of one channel: what is on now and what comes next (times in ms). */
-data class Epg(val now: Prog?, val next: Prog?, val until: Long)
+data class Epg(val now: Prog?, val next: Prog?, val until: Long, val list: List<Prog> = emptyList())
 
 fun List<Source>.toJsonString(): String = JSONArray().also { a -> forEach { a.put(it.toJson()) } }.toString()
 

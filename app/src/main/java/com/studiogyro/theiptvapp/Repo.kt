@@ -227,7 +227,7 @@ object Repo {
                 val u = java.net.URLEncoder.encode(src.user, "UTF-8")
                 val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
                 var txt = ""
-                open("$base/player_api.php?username=$u&password=$p&action=get_short_epg&stream_id=$sid&limit=4") { r -> txt = r.body?.string() ?: "" }
+                open("$base/player_api.php?username=$u&password=$p&action=get_short_epg&stream_id=$sid&limit=8") { r -> txt = r.body?.string() ?: "" }
                 val arr = org.json.JSONObject(txt.trim()).optJSONArray("epg_listings") ?: return@runCatching empty
                 val nowSec = nowMs / 1000
                 val progs = ArrayList<Prog>()
@@ -242,7 +242,7 @@ object Repo {
                 progs.sortBy { it.start }
                 val now = progs.firstOrNull { it.start <= nowMs }
                 val next = progs.firstOrNull { it.start > nowMs }
-                Epg(now, next, (now?.stop ?: next?.start ?: (nowMs + 10 * 60_000)).coerceAtLeast(nowMs + 30_000))
+                Epg(now, next, (now?.stop ?: next?.start ?: (nowMs + 10 * 60_000)).coerceAtLeast(nowMs + 30_000), progs)
             }.getOrDefault(empty)
         }
     }

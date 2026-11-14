@@ -141,6 +141,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     private val activeSource: Source? get() = sources.firstOrNull { it.id == activeId }
 
     init {
+        viewModelScope.launch { while (true) { kotlinx.coroutines.delay(60_000); clock = System.currentTimeMillis() } }
         Accent = ACCENTS[store.accent().coerceIn(0, ACCENTS.lastIndex)].second
         UiAlpha = TRANSPS[store.transp().coerceIn(0, TRANSPS.lastIndex)].second
         reload()
@@ -199,6 +200,9 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     fun changeTextSize(i: Int) { textSizeIdx = i; store.saveTextSize(i) }
     var transpIdx by mutableStateOf(store.transp().coerceIn(0, TRANSPS.lastIndex)); private set
     fun changeTransp(i: Int) { transpIdx = i; UiAlpha = TRANSPS[i].second; store.saveTransp(i) }
+    /** heure courante, rafraîchie chaque minute pour la grille du guide */
+    var clock by mutableStateOf(System.currentTimeMillis()); private set
+
     var previewMode by mutableStateOf(store.previewMode()); private set
     fun changePreviewMode(b: Boolean) { previewMode = b; store.savePreviewMode(b); if (!b) preview = null }
     /** chaîne en aperçu sur l'accueil (premier clic) ; un second clic ouvre le plein écran */
@@ -351,13 +355,13 @@ class MainVm(app: Application) : AndroidViewModel(app) {
             val nowMs = System.currentTimeMillis()
             val now = list.firstOrNull { it.start <= nowMs && it.stop > nowMs }
             val next = list.firstOrNull { it.start > nowMs }
-            epg[c.id] = Epg(now, next, (now?.stop ?: (nowMs + 300_000)).coerceAtLeast(nowMs + 30_000))
+            epg[c.id] = Epg(now, next, (now?.stop ?: (nowMs + 300_000)).coerceAtLeast(nowMs + 30_000), list)
             return
         }
         val cached = epg[c.id]
         if (cached != null && System.currentTimeMillis() < cached.until) return
         val s = activeSource ?: return
-        epg[c.id] = Epg(cached?.now, cached?.next, System.currentTimeMillis() + 60_000)
+        epg[c.id] = Epg(cached?.now, cached?.next, System.currentTimeMillis() + 60_000, cached?.list ?: emptyList())
         viewModelScope.launch { epg[c.id] = Repo.shortEpg(s, c.sid) }
     }
 
