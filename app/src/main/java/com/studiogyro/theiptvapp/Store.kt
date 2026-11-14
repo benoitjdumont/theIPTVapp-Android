@@ -36,6 +36,8 @@ class Store(ctx: Context) {
     fun saveLastLive(id: String?) = sp.edit().putString("lastlive", id).apply()
     fun previewMode(): Boolean = sp.getBoolean("preview", true)
     fun savePreviewMode(b: Boolean) = sp.edit().putBoolean("preview", b).apply()
+    fun history(): List<String> = (sp.getString("history", "") ?: "").split("\n").filter { it.isNotBlank() }
+    fun saveHistory(l: List<String>) = sp.edit().putString("history", l.joinToString("\n")).apply()
     fun accent(): Int = sp.getInt("accent", 0)
     fun saveAccent(i: Int) = sp.edit().putInt("accent", i).apply()
     fun autoResume(): Boolean = sp.getBoolean("autoresume", true)

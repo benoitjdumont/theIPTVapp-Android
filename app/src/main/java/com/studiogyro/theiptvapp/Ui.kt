@@ -227,12 +227,12 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                     val subs = sec.subs()
                     Row(Modifier.fillMaxSize()) {
                         LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp)) {
-                            items(topEntries(sec, vm.tab == 0).filter { it.first == null || it.first == GROUP_FAV || it.first !in vm.hiddenCats }, key = { it.first ?: "\u0001all" }) { (g, label) ->
-                                val lock = g != null && g != GROUP_FAV && vm.catLocked(label)
+                            items(topEntries(sec, vm.tab == 0).filter { it.first == null || (it.first == GROUP_FAV || it.first == GROUP_HIST) || it.first !in vm.hiddenCats }, key = { it.first ?: "\u0001all" }) { (g, label) ->
+                                val lock = g != null && (g != GROUP_FAV && g != GROUP_HIST) && vm.catLocked(label)
                                 FocusRow(
                                     selected = sec.top == g,
-                                    onClick = { if (g == null || g == GROUP_FAV) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) } },
-                                    onLongClick = if (g != null && g != GROUP_FAV) ({ vm.toggleCatLock(label) }) else null,
+                                    onClick = { if (g == null || (g == GROUP_FAV || g == GROUP_HIST)) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) } },
+                                    onLongClick = if (g != null && (g != GROUP_FAV && g != GROUP_HIST)) ({ vm.toggleCatLock(label) }) else null,
                                 ) {
                                     Text((if (lock) "🔒 " else "") + label, color = if (sec.top == g) Accent else Color.White, maxLines = 1)
                                 }
@@ -329,11 +329,11 @@ private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
                     Row(Modifier.fillMaxSize()) {
                         LazyColumn(Modifier.width(170.dp).fillMaxSize()) {
                             items(topEntries(sec, vm.tab == 0), key = { it.first ?: "\u0001all" }) { (g, label) ->
-                                val lock = g != null && g != GROUP_FAV && vm.catLocked(label)
+                                val lock = g != null && (g != GROUP_FAV && g != GROUP_HIST) && vm.catLocked(label)
                                 FocusRow(
                                     selected = sec.top == g,
-                                    onClick = { if (g == null || g == GROUP_FAV) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) } },
-                                    onLongClick = if (g != null && g != GROUP_FAV) ({ vm.toggleCatLock(label) }) else null,
+                                    onClick = { if (g == null || (g == GROUP_FAV || g == GROUP_HIST)) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) } },
+                                    onLongClick = if (g != null && (g != GROUP_FAV && g != GROUP_HIST)) ({ vm.toggleCatLock(label) }) else null,
                                 ) {
                                     Text((if (lock) "🔒 " else "") + label, color = Color.White, maxLines = 1)
                                 }
@@ -365,7 +365,7 @@ private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
                     Column(Modifier.fillMaxSize()) {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             items(topEntries(sec, vm.tab == 0), key = { it.first ?: "\u0001all" }) { (g, label) ->
-                                FilterChip(selected = sec.top == g, onClick = { if (g == null || g == GROUP_FAV) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) } }, label = { Text((if (g != null && g != GROUP_FAV && vm.catLocked(label)) "🔒 " else "") + label, maxLines = 1) })
+                                FilterChip(selected = sec.top == g, onClick = { if (g == null || (g == GROUP_FAV || g == GROUP_HIST)) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) } }, label = { Text((if (g != null && (g != GROUP_FAV && g != GROUP_HIST) && vm.catLocked(label)) "🔒 " else "") + label, maxLines = 1) })
                             }
                         }
                         if (subs.isNotEmpty()) {
@@ -391,7 +391,8 @@ private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
 private fun topEntries(sec: Section, live: Boolean): List<Pair<String?, String>> {
     val l = ArrayList<Pair<String?, String>>()
     l.add(null to "Toutes (${sec.items.size})")
-    if (live) l.add(GROUP_FAV to "★ Favoris")
+    l.add(GROUP_FAV to (if (live) "★ Favoris" else "★ Ma liste"))
+    if (!live) l.add(GROUP_HIST to "🕘 Historique")
     sec.tops.forEach { l.add(it to it) }
     return l
 }
@@ -424,6 +425,7 @@ private fun PosterWall(vm: MainVm, list: List<Channel>, modifier: Modifier) {
 }
 
 /** Poster wall for movies and series. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, onFocus: (Channel) -> Unit = {}) {
     if (list.isEmpty()) {
@@ -440,11 +442,11 @@ private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, onFo
                     .background(if (focused) Accent.copy(alpha = 0.35f) else Panel)
                     .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
                     .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus(c) }
-                    .clickable { vm.guard(c) { if (c.kind == "series") vm.openSeries(c) else vm.play(listOf(c), c) } }
+                    .combinedClickable(onClick = { vm.guard(c) { if (c.kind == "series") vm.openSeries(c) else vm.play(listOf(c), c) } }, onLongClick = { vm.toggleFav(c) })
                     .padding(6.dp),
             ) {
                 Poster(c.logo, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-                Text((if (vm.isLocked(c)) "🔒 " else "") + c.name, color = Color.White, fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
+                Text((if (vm.isLocked(c)) "🔒 " else "") + (if (vm.isFav(c)) "★ " else "") + c.name, color = Color.White, fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
             }
         }
     }

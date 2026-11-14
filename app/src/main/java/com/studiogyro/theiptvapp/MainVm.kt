@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 const val GROUP_FAV = "\u0000fav"
+const val GROUP_HIST = "\u0000hist"
 
 /** Splits "FR | SPORTS", "|FR| SPORTS" or "FR| SPORTS" into ("FR", "SPORTS"); a name without a bar has no prefix. */
 fun splitGroup(g: String): Pair<String, String?> {
@@ -60,7 +61,7 @@ class Section {
     fun pickTop(t: String?) { top = t; sub = null }
     fun pickSub(g: String?) { sub = g }
 
-    fun visible(query: String, isFav: (Channel) -> Boolean): List<Channel> {
+    fun visible(query: String, isFav: (Channel) -> Boolean, inHist: (Channel) -> Boolean = { false }): List<Channel> {
         val q = query.trim().lowercase()
         val t = top
         val sb = sub
@@ -68,6 +69,7 @@ class Section {
             val inGroup = when (t) {
                 null -> true
                 GROUP_FAV -> isFav(c)
+                GROUP_HIST -> inHist(c)
                 else -> (prefixOf[c.group] ?: c.group.trim()) == t && (sb == null || c.group == sb)
             }
             inGroup && (q.isEmpty() || c.name.lowercase().contains(q))
@@ -291,6 +293,14 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     fun newId(): String = UUID.randomUUID().toString()
 
+    /** films et séries ouverts récemment (le plus récent en premier) */
+    var history by mutableStateOf(store.history()); private set
+
+    fun addHistory(id: String) {
+        history = (listOf(id) + history.filter { it != id }).take(40)
+        store.saveHistory(history)
+    }
+
     fun toggleFav(c: Channel) {
         val key = favKey(c)
         favs = if (key in favs) favs - key else favs + key
@@ -302,7 +312,9 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     private fun favKey(c: Channel) = "${activeId}|${c.id}|${c.name}"
 
     fun visible(): List<Channel> {
-        val l = section().visible(query) { isFav(it) }
+        val sec = section()
+        var l = sec.visible(query, { isFav(it) }, { it.id in history })
+        if (sec.top == GROUP_HIST) l = l.sortedBy { history.indexOf(it.id) }
         return if (hiddenCats.isEmpty()) l else l.filterNot { groupHidden(it) }
     }
 
@@ -358,6 +370,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     }
 
     fun openSeries(c: Channel) {
+        addHistory(c.id)
         val s = activeSource ?: return
         seriesOpen = c
         seriesData = null
@@ -468,6 +481,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     fun play(list: List<Channel>, c: Channel) {
         preview = null
+        if (c.kind == "movie" && !c.id.startsWith("r")) addHistory(c.id)
         playlist = list
         playIndex = list.indexOf(c).coerceAtLeast(0)
         store.saveLast(c.id)
