@@ -17,6 +17,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -96,6 +99,7 @@ fun PlayerScreen(vm: MainVm) {
     var status by remember(ch.id) { mutableStateOf("Chargement…") }
     var showUi by remember { mutableStateOf(true) }
     var hud by remember { mutableStateOf("") }
+    var playing by remember { mutableStateOf(true) }
     val activity = remember(ctx) {
         var c: Context = ctx
         while (c is ContextWrapper && c !is Activity) c = c.baseContext
@@ -124,6 +128,8 @@ fun PlayerScreen(vm: MainVm) {
                     status = "Impossible de lire cette chaîne.\n(${error.errorCodeName})"
                 }
             }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) { playing = playWhenReady }
 
             override fun onPlaybackStateChanged(state: Int) {
                 when (state) {
@@ -190,54 +196,11 @@ fun PlayerScreen(vm: MainVm) {
                 when (ev.key) {
                     Key.DirectionDown, Key.ChannelDown, Key.PageDown -> { vm.step(1); showUi = true; true }
                     Key.DirectionUp, Key.ChannelUp, Key.PageUp -> { vm.step(-1); showUi = true; true }
+                    Key.MediaPlayPause -> { player.playWhenReady = !player.playWhenReady; showUi = true; true }
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { showUi = !showUi; true }
                     else -> false
                 }
             }
-            .pointerInput(Unit) { detectTapGestures { showUi = !showUi } }
-            .pointerInput(ch.id) {
-                // glisser : côté gauche = luminosité, côté droit = volume, centre = changer de chaîne (en direct)
-                var total = 0f
-                var zone = 0
-                var vol = 0f
-                val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                detectVerticalDragGestures(
-                    onDragStart = { off ->
-                        total = 0f
-                        zone = when {
-                            off.x < size.width * 0.3f -> 1
-                            off.x > size.width * 0.7f -> 2
-                            else -> 0
-                        }
-                        vol = am.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
-                    },
-                    onDragEnd = {
-                        if (zone == 0 && abs(total) > 140f && ch.kind == "live") {
-                            vm.step(if (total < 0) 1 else -1)
-                            showUi = true
-                        }
-                    },
-                    onVerticalDrag = { _, dy ->
-                        total += dy
-                        when (zone) {
-                            1 -> activity?.let { a ->
-                                val lp = a.window.attributes
-                                val cur = if (lp.screenBrightness < 0f) 0.5f else lp.screenBrightness
-                                val nv = (cur - dy / size.height * 1.2f).coerceIn(0.02f, 1f)
-                                lp.screenBrightness = nv
-                                a.window.attributes = lp
-                                hud = "Luminosité ${(nv * 100).roundToInt()} %"
-                            }
-                            2 -> {
-                                val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                vol = (vol - dy / size.height * max * 1.2f).coerceIn(0f, max.toFloat())
-                                am.setStreamVolume(AudioManager.STREAM_MUSIC, vol.roundToInt(), 0)
-                                hud = "Volume ${(vol / max * 100).roundToInt()} %"
-                            }
-                        }
-                    },
-                )
-            },
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -249,6 +212,56 @@ fun PlayerScreen(vm: MainVm) {
                 }
             },
             update = { it.useController = ch.kind != "live" },
+        )
+
+        // couche tactile par-dessus la vidéo : gestes + toucher pour afficher/masquer
+        Box(
+            Modifier
+                .then(if (ch.kind == "live") Modifier.fillMaxSize() else Modifier.fillMaxWidth().fillMaxHeight(0.7f))
+                .pointerInput(Unit) { detectTapGestures { showUi = !showUi } }
+                .pointerInput(ch.id) {
+                    // glisser : côté gauche = luminosité, côté droit = volume, centre = changer de chaîne (en direct)
+                    var total = 0f
+                    var zone = 0
+                    var vol = 0f
+                    val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    detectVerticalDragGestures(
+                        onDragStart = { off ->
+                            total = 0f
+                            zone = when {
+                                off.x < size.width * 0.3f -> 1
+                                off.x > size.width * 0.7f -> 2
+                                else -> 0
+                            }
+                            vol = am.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
+                        },
+                        onDragEnd = {
+                            if (zone == 0 && abs(total) > 140f && ch.kind == "live") {
+                                vm.step(if (total < 0) 1 else -1)
+                                showUi = true
+                            }
+                        },
+                        onVerticalDrag = { _, dy ->
+                            total += dy
+                            when (zone) {
+                                1 -> activity?.let { a ->
+                                    val lp = a.window.attributes
+                                    val cur = if (lp.screenBrightness < 0f) 0.5f else lp.screenBrightness
+                                    val nv = (cur - dy / size.height * 1.2f).coerceIn(0.02f, 1f)
+                                    lp.screenBrightness = nv
+                                    a.window.attributes = lp
+                                    hud = "Luminosité ${(nv * 100).roundToInt()} %"
+                                }
+                                2 -> {
+                                    val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                    vol = (vol - dy / size.height * max * 1.2f).coerceIn(0f, max.toFloat())
+                                    am.setStreamVolume(AudioManager.STREAM_MUSIC, vol.roundToInt(), 0)
+                                    hud = "Volume ${(vol / max * 100).roundToInt()} %"
+                                }
+                            }
+                        },
+                    )
+                }
         )
 
         if (status.isNotEmpty()) {
@@ -290,6 +303,9 @@ fun PlayerScreen(vm: MainVm) {
                     }
                 }
                 if (ch.kind == "live") {
+                    IconButton(onClick = { player.playWhenReady = !player.playWhenReady }) {
+                        Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (playing) "Pause" else "Lecture", tint = Color.White)
+                    }
                     val rec = vm.recording
                     TextButton(onClick = { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }) {
                         val secs = if (rec != null) ((now - rec.startMs) / 1000).coerceAtLeast(0) else 0
