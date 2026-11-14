@@ -29,6 +29,8 @@ class Store(ctx: Context) {
 
     fun lockedCats(): Set<String> = sp.getStringSet("lockedcats", emptySet())?.toSet() ?: emptySet()
     fun saveLockedCats(s: Set<String>) = sp.edit().putStringSet("lockedcats", s).apply()
+    fun hiddenCats(): Set<String> = sp.getStringSet("hiddencats", emptySet())?.toSet() ?: emptySet()
+    fun saveHiddenCats(s: Set<String>) = sp.edit().putStringSet("hiddencats", s).apply()
 
     fun lastLive(): String? = sp.getString("lastlive", null)
     fun saveLastLive(id: String?) = sp.edit().putString("lastlive", id).apply()

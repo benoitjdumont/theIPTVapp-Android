@@ -292,7 +292,28 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     private fun favKey(c: Channel) = "${activeId}|${c.id}|${c.name}"
 
-    fun visible(): List<Channel> = section().visible(query) { isFav(it) }
+    fun visible(): List<Channel> {
+        val l = section().visible(query) { isFav(it) }
+        return if (hiddenCats.isEmpty()) l else l.filterNot { groupHidden(it) }
+    }
+
+    /** groupes masqués (par leur nom de premier niveau ou de groupe complet) */
+    var hiddenCats by mutableStateOf(store.hiddenCats()); private set
+
+    private fun groupHidden(c: Channel): Boolean {
+        if (c.group.isBlank()) return false
+        return c.group in hiddenCats || splitGroup(c.group).let { (p, l) -> p in hiddenCats || (l != null && l in hiddenCats) }
+    }
+
+    fun toggleHidden(name: String) {
+        hiddenCats = if (name in hiddenCats) hiddenCats - name else hiddenCats + name
+        store.saveHiddenCats(hiddenCats)
+    }
+
+    fun setHidden(names: Collection<String>, hide: Boolean) {
+        hiddenCats = if (hide) hiddenCats + names else hiddenCats - names.toSet()
+        store.saveHiddenCats(hiddenCats)
+    }
 
     /** Asks for the guide of a channel once; refreshed when the programme that was on has ended. */
     fun loadEpg(c: Channel) {

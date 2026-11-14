@@ -63,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -106,7 +107,7 @@ fun AppRoot(vm: MainVm) {
                 // keep clear of the status bar (battery, clock) and the navigation bar
                 Box(Modifier.fillMaxSize().safeDrawingPadding().then(safe)) {
                     if (screen == "settings") {
-                        BackHandler(vm.sources.isNotEmpty()) { screen = "home" }
+                        if (vm.sources.isNotEmpty()) HomeScreen(vm) { }
                         SettingsScreen(vm) { screen = "home" }
                     } else {
                         HomeScreen(vm) { screen = "settings" }
@@ -208,7 +209,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                     val subs = sec.subs()
                     Row(Modifier.fillMaxSize()) {
                         LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp)) {
-                            items(topEntries(sec, vm.tab == 0), key = { it.first ?: "\u0001all" }) { (g, label) ->
+                            items(topEntries(sec, vm.tab == 0).filter { it.first == null || it.first == GROUP_FAV || it.first !in vm.hiddenCats }, key = { it.first ?: "\u0001all" }) { (g, label) ->
                                 val lock = g != null && g != GROUP_FAV && vm.catLocked(label)
                                 FocusRow(
                                     selected = sec.top == g,
@@ -535,46 +536,153 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
     }
 }
 
+val PanelHead = Color(0xFF32409A)
+val PanelBody = Color(0xFF232C6B)
+
+/** Une ligne d'un panneau de réglages : titre, petit texte, élément à droite (interrupteur, valeur…). */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PanelItem(
+    title: String,
+    sub: String? = null,
+    first: Boolean = false,
+    onLong: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+    if (first) LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
+    val shape = RoundedCornerShape(6.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 1.dp)
+            .clip(shape)
+            .background(if (focused) Accent else Color.Transparent)
+            .androidx_focusRequester(fr)
+            .onFocusChanged { focused = it.isFocused }
+            .combinedClickable(onClick = onClick, onLongClick = onLong)
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 14.sp)
+            if (!sub.isNullOrBlank()) Text(sub, color = Color(0xFFB8C4EE), fontSize = 11.sp)
+        }
+        if (trailing != null) trailing()
+    }
+}
+
+private fun Modifier.androidx_focusRequester(fr: androidx.compose.ui.focus.FocusRequester): Modifier =
+    this.then(Modifier.focusRequester(fr))
+
+@Composable
+private fun PanelSwitch(on: Boolean) {
+    androidx.compose.material3.Switch(checked = on, onCheckedChange = null)
+}
+
+@Composable
+private fun PanelLabel(text: String) {
+    Text(text, color = Color(0xFF8FB8FF), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+}
+
+/** Panneau de réglages qui glisse par-dessus l'accueil, côté droit. */
 @Composable
 fun SettingsScreen(vm: MainVm, back: () -> Unit) {
+    var page by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "add" else "root") }
+    val canClose = vm.sources.isNotEmpty()
+    BackHandler(true) {
+        when {
+            page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
+            page == "lists" || page == "groups" || page == "playback" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
+            canClose -> back()
+        }
+    }
+
+    val title = when {
+        page == "root" -> "Paramètres"
+        page == "lists" -> "Listes de lecture"
+        page == "add" -> "Ajouter une liste"
+        page.startsWith("src:") -> vm.sources.firstOrNull { it.id == page.removePrefix("src:") }?.name?.ifBlank { "Liste" } ?: "Liste"
+        page == "groups" -> "Groupes"
+        page == "playback" -> "Lecture"
+        page == "rec" -> "Enregistrements"
+        page == "parental" -> "Contrôle parental"
+        page == "update" -> "Mises à jour"
+        else -> "À propos"
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val w = if (maxWidth > 400.dp) 360.dp else maxWidth * 0.92f
+        Row(Modifier.fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).clickable(enabled = canClose, onClick = back))
+            Column(Modifier.width(w).fillMaxHeight().background(PanelBody)) {
+                Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.fillMaxWidth().background(PanelHead).padding(horizontal = 18.dp, vertical = 14.dp))
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
+                    when {
+                        page == "root" -> {
+                            PanelItem("Listes de lecture", first = true) { page = "lists" }
+                            PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
+                            PanelItem("Lecture") { page = "playback" }
+                            PanelItem("Enregistrements") { page = "rec" }
+                            PanelItem("Contrôle parental") { page = "parental" }
+                            PanelItem("Mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
+                            PanelItem("À propos") { page = "about" }
+                        }
+                        page == "lists" -> {
+                            vm.sources.forEachIndexed { i, s ->
+                                PanelItem(
+                                    s.name.ifBlank { "Liste" },
+                                    if (s.type == SourceType.M3U) "M3U" else "Xtream Codes",
+                                    first = i == 0,
+                                    trailing = { if (s.id == vm.activeId) Text("✔", color = Color.White) },
+                                ) { page = "src:" + s.id }
+                            }
+                            PanelItem("Ajouter une liste", first = vm.sources.isEmpty()) { page = "add" }
+                        }
+                        page.startsWith("src:") -> {
+                            val id = page.removePrefix("src:")
+                            PanelItem("Utiliser cette liste", first = true) { vm.select(id); back() }
+                            PanelItem("Supprimer cette liste", "Efface la liste de l'appli") {
+                                vm.deleteSource(id)
+                                if (vm.sources.isEmpty()) page = "add" else page = "lists"
+                            }
+                        }
+                        page == "add" -> AddSourceForm(vm, canClose) { page = "lists"; back() }
+                        page == "groups" -> GroupsPage(vm)
+                        page == "playback" -> {
+                            PanelItem("Reprendre la dernière chaîne", "Au démarrage de l'appli", first = true, trailing = { PanelSwitch(vm.autoResume) }) { vm.changeAutoResume(!vm.autoResume) }
+                        }
+                        page == "rec" -> Column(Modifier.padding(horizontal = 12.dp)) { RecordingsSection(vm) }
+                        page == "parental" -> Column(Modifier.padding(horizontal = 12.dp)) { ParentalSection(vm) }
+                        page == "update" -> Column(Modifier.padding(horizontal = 12.dp)) { UpdateSection(vm) }
+                        else -> {
+                            PanelLabel("theIPTVapp pour Android")
+                            Text("Version ${BuildConfig.VERSION_NAME}", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 18.dp))
+                            Text("Studio Gyro", color = Color(0xFFB8C4EE), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddSourceForm(vm: MainVm, canCancel: Boolean, done: () -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
     var type by rememberSaveable { mutableStateOf(SourceType.M3U) }
     var url by rememberSaveable { mutableStateOf("") }
     var host by rememberSaveable { mutableStateOf("") }
     var user by rememberSaveable { mutableStateOf("") }
     var pass by rememberSaveable { mutableStateOf("") }
-
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (vm.sources.isNotEmpty()) {
-                IconButton(onClick = back) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
-            }
-            Text("Sources", fontSize = 22.sp, color = Color.White)
-        }
-        Spacer(Modifier.size(8.dp))
-        vm.sources.forEach { s ->
-            FocusRow(selected = s.id == vm.activeId, onClick = { vm.select(s.id); back() }) {
-                Column(Modifier.weight(1f)) {
-                    Text(s.name.ifBlank { "Source" }, color = Color.White)
-                    Text(if (s.type == SourceType.M3U) "M3U" else "Xtream", color = Color.Gray, fontSize = 12.sp)
-                }
-                IconButton(onClick = { vm.deleteSource(s.id) }) { Icon(Icons.Default.Delete, "Supprimer", tint = Color(0xFFFF8A8A)) }
-            }
-        }
-
-        Spacer(Modifier.size(16.dp))
-        Text("Ajouter une source", fontSize = 18.sp, color = Color.White)
-        Spacer(Modifier.size(8.dp))
-        Text("Type de liste", color = Color(0xFFB8C4DA), fontSize = 13.sp)
-        FocusRow(selected = type == SourceType.M3U, onClick = { type = SourceType.M3U }) {
-            Text(if (type == SourceType.M3U) "●  Liste M3U" else "○  Liste M3U", color = Color.White, modifier = Modifier.padding(vertical = 8.dp))
-        }
-        FocusRow(selected = type == SourceType.XTREAM, onClick = { type = SourceType.XTREAM }) {
-            Text(if (type == SourceType.XTREAM) "●  Xtream Codes" else "○  Xtream Codes", color = Color.White, modifier = Modifier.padding(vertical = 8.dp))
-        }
-        Spacer(Modifier.size(8.dp))
+    PanelLabel("Type de liste")
+    PanelItem("Liste M3U", first = true, trailing = { PanelSwitch(type == SourceType.M3U) }) { type = SourceType.M3U }
+    PanelItem("Xtream Codes", trailing = { PanelSwitch(type == SourceType.XTREAM) }) { type = SourceType.XTREAM }
+    Column(Modifier.padding(horizontal = 12.dp)) {
+        Spacer(Modifier.size(6.dp))
         OutlinedTextField(name, { name = it }, label = { Text("Nom") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.size(4.dp))
         if (type == SourceType.M3U) {
             OutlinedTextField(
                 url, { url = it }, label = { Text("Adresse de la liste (http…)") }, singleLine = true,
@@ -591,7 +699,7 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                 visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(),
             )
         }
-        Spacer(Modifier.size(12.dp))
+        Spacer(Modifier.size(10.dp))
         val ok = if (type == SourceType.M3U) url.isNotBlank() else host.isNotBlank() && user.isNotBlank() && pass.isNotBlank()
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
@@ -601,15 +709,28 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                         Source(vm.newId(), name.ifBlank { if (type == SourceType.M3U) "Ma liste" else "Mon Xtream" }, type, url.trim(), host.trim(), user.trim(), pass),
                     )
                     name = ""; url = ""; host = ""; user = ""; pass = ""
-                    back()
+                    done()
                 },
             ) { Text("Ajouter") }
-            if (vm.sources.isNotEmpty()) OutlinedButton(onClick = back) { Text("Annuler") }
         }
-        PlaybackSection(vm)
-        RecordingsSection(vm)
-        ParentalSection(vm)
-        UpdateSection(vm)
+    }
+}
+
+@Composable
+private fun GroupsPage(vm: MainVm) {
+    val sec = vm.section()
+    val kind = when (vm.tab) { 0 -> "Direct"; 1 -> "Films"; else -> "Séries" }
+    val names = sec.tops
+    PanelLabel("$kind — interrupteur : afficher ou masquer. Appui long : verrouiller (code).")
+    PanelItem("Tout afficher", first = true) { vm.setHidden(names, false) }
+    PanelItem("Tout masquer") { vm.setHidden(names, true) }
+    if (names.isEmpty()) Text("Aucun groupe chargé pour l'instant.", color = Color(0xFFB8C4EE), fontSize = 12.sp, modifier = Modifier.padding(18.dp))
+    names.forEach { n ->
+        PanelItem(
+            (if (vm.catLocked(n)) "🔒 " else "") + n,
+            onLong = { vm.toggleCatLock(n) },
+            trailing = { PanelSwitch(n !in vm.hiddenCats) },
+        ) { vm.toggleHidden(n) }
     }
 }
 
