@@ -76,7 +76,19 @@ import coil.compose.AsyncImage
 
 val Bg = Color(0xFF0B1220)
 val Panel = Color(0xFF111A2E)
-val Accent = Color(0xFF2F7BFF)
+var Accent by mutableStateOf(Color(0xFF2F7BFF))
+
+val ACCENTS = listOf(
+    "Bleu" to Color(0xFF2F7BFF),
+    "Indigo" to Color(0xFF6C7BE0),
+    "Turquoise" to Color(0xFF00ACC1),
+    "Vert" to Color(0xFF2EAD6B),
+    "Orange" to Color(0xFFF57C00),
+    "Rouge" to Color(0xFFE53935),
+    "Rose" to Color(0xFFE91E8C),
+)
+
+val BgBrush = androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF16205E), Color(0xFF0B1230), Color(0xFF0E1A4A)))
 
 @Composable
 fun AppRoot(vm: MainVm) {
@@ -97,7 +109,7 @@ fun AppRoot(vm: MainVm) {
     MaterialTheme(colorScheme = scheme) {
         PinDialog(vm)
         UpdateDialog(vm)
-        Surface(Modifier.fillMaxSize(), color = Bg) {
+        Surface(Modifier.fillMaxSize().background(BgBrush), color = Color.Transparent) {
             var screen by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "settings" else "home") }
             if (vm.current != null) {
                 PlayerScreen(vm)
@@ -145,24 +157,29 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
     }
 }
 
-val RailBg = Color(0xFF151E26)
-val GroupBg = Color(0xFF1C2730)
-val ListBg = Color(0xFF222E37)
-val CellBg = Color(0xFF2E3B46)
+val RailBg = Color(0xB3080C24)
+val GroupBg = Color(0x66101850)
+val ListBg = Color(0x33000000)
+val CellBg = Color(0x553A4A9A)
 
 @Composable
-private fun RailItem(selected: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
+private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
-    Box(
+    Row(
         Modifier
-            .size(44.dp)
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp)
+            .height(44.dp)
             .clip(shape)
-            .background(if (focused) Accent.copy(alpha = 0.45f) else if (selected) Accent.copy(alpha = 0.9f) else Color.Transparent)
+            .background(if (focused) Accent.copy(alpha = 0.55f) else if (selected) Accent.copy(alpha = 0.9f) else Color.Transparent)
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) { content() }
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.width(44.dp), contentAlignment = Alignment.Center) { icon() }
+        if (expanded) Text(label, color = Color.White, fontSize = 14.sp, maxLines = 1)
+    }
 }
 
 /** Écran principal façon TiviMate : rail d'icônes, groupes, puis la liste (ou les affiches). */
@@ -171,19 +188,20 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     val sec = vm.section()
     var searchOpen by rememberSaveable { mutableStateOf(vm.query.isNotEmpty()) }
     Row(Modifier.fillMaxSize()) {
+        var railFocus by remember { mutableStateOf(false) }
+        val railW by androidx.compose.animation.core.animateDpAsState(if (railFocus) 170.dp else 56.dp, label = "rail")
         Column(
-            Modifier.width(56.dp).fillMaxHeight().background(RailBg).padding(vertical = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            Modifier.width(railW).fillMaxHeight().background(RailBg).padding(vertical = 6.dp).onFocusChanged { railFocus = it.hasFocus },
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(30.dp))
-            RailItem(searchOpen, { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
-            RailItem(vm.tab == 0, { vm.selectTab(0) }) { Text("📺", fontSize = 20.sp) }
-            RailItem(vm.tab == 1, { vm.selectTab(1) }) { Text("🎬", fontSize = 20.sp) }
-            RailItem(vm.tab == 2, { vm.selectTab(2) }) { Text("🎞", fontSize = 20.sp) }
+            Box(Modifier.width(56.dp), contentAlignment = Alignment.Center) { Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(30.dp)) }
+            RailItem(searchOpen, railFocus, "Rechercher", { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
+            RailItem(vm.tab == 0, railFocus, "TV", { vm.selectTab(0) }) { Text("📺", fontSize = 20.sp) }
+            RailItem(vm.tab == 1, railFocus, "Films", { vm.selectTab(1) }) { Text("🎬", fontSize = 20.sp) }
+            RailItem(vm.tab == 2, railFocus, "Séries", { vm.selectTab(2) }) { Text("🎞", fontSize = 20.sp) }
             Spacer(Modifier.weight(1f))
-            RailItem(false, { vm.reload() }) { Icon(Icons.Default.Refresh, "Actualiser", tint = Color.White) }
-            RailItem(false, openSettings) { Icon(Icons.Default.Settings, "Réglages", tint = Color.White) }
+            RailItem(false, railFocus, "Actualiser", { vm.reload() }) { Icon(Icons.Default.Refresh, "Actualiser", tint = Color.White) }
+            RailItem(false, railFocus, "Paramètres", openSettings) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
         }
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when {
@@ -622,7 +640,7 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
     BackHandler(true) {
         when {
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
-            page == "lists" || page == "groups" || page == "playback" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
+            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
             canClose -> back()
         }
     }
@@ -634,6 +652,7 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
         page.startsWith("src:") -> vm.sources.firstOrNull { it.id == page.removePrefix("src:") }?.name?.ifBlank { "Liste" } ?: "Liste"
         page == "groups" -> "Groupes"
         page == "playback" -> "Lecture"
+        page == "look" -> "Apparence"
         page == "rec" -> "Enregistrements"
         page == "parental" -> "Contrôle parental"
         page == "update" -> "Mises à jour"
@@ -651,6 +670,7 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                         page == "root" -> {
                             PanelItem("Listes de lecture", first = true) { page = "lists" }
                             PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
+                            PanelItem("Apparence", "Couleur : ${ACCENTS[vm.accentIdx].first}") { page = "look" }
                             PanelItem("Lecture") { page = "playback" }
                             PanelItem("Enregistrements") { page = "rec" }
                             PanelItem("Contrôle parental") { page = "parental" }
@@ -678,6 +698,12 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                         }
                         page == "add" -> AddSourceForm(vm, canClose) { page = "lists"; back() }
                         page == "groups" -> GroupsPage(vm)
+                        page == "look" -> {
+                            PanelLabel("Couleur de l'interface")
+                            ACCENTS.forEachIndexed { i, (n, c) ->
+                                PanelItem(n, first = i == 0, trailing = { if (i == vm.accentIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeAccent(i) }
+                            }
+                        }
                         page == "playback" -> {
                             PanelItem("Reprendre la dernière chaîne", "Au démarrage de l'appli", first = true, trailing = { PanelSwitch(vm.autoResume) }) { vm.changeAutoResume(!vm.autoResume) }
                         }

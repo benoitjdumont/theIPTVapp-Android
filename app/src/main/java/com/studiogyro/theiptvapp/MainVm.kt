@@ -139,6 +139,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     private val activeSource: Source? get() = sources.firstOrNull { it.id == activeId }
 
     init {
+        Accent = ACCENTS[accentIdx].second
         reload()
         checkUpdate(silent = true)
     }
@@ -190,6 +191,9 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     // ---- reprise de la dernière chaîne, guide XMLTV (listes M3U)
     var autoResume by mutableStateOf(store.autoResume()); private set
+    var accentIdx by mutableStateOf(store.accent().coerceIn(0, ACCENTS.lastIndex)); private set
+
+    fun changeAccent(i: Int) { accentIdx = i; Accent = ACCENTS[i].second; store.saveAccent(i) }
     private var resumed = false
     private var xmltv: Map<String, List<Prog>> = emptyMap()
     var xmltvReady by mutableStateOf(false); private set
