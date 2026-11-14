@@ -1,6 +1,8 @@
 package com.studiogyro.theiptvapp
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -36,8 +38,11 @@ object Repo {
         val u = java.net.URLEncoder.encode(src.user, "UTF-8")
         val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
         val api = "$base/player_api.php?username=$u&password=$p"
-        val cats = categoryMap("$api&action=get_vod_categories")
-        val a = readJsonArray("$api&action=get_vod_streams")
+        val (cats, a) = coroutineScope {
+            val catsJob = async { categoryMap("$api&action=get_vod_categories") }
+            val streamsJob = async { readJsonArray("$api&action=get_vod_streams") }
+            catsJob.await() to streamsJob.await()
+        }
         val out = ArrayList<Channel>(a.length())
         for (i in 0 until a.length()) {
             val o = a.getJSONObject(i)
@@ -62,8 +67,11 @@ object Repo {
         val u = java.net.URLEncoder.encode(src.user, "UTF-8")
         val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
         val api = "$base/player_api.php?username=$u&password=$p"
-        val cats = categoryMap("$api&action=get_series_categories")
-        val a = readJsonArray("$api&action=get_series")
+        val (cats, a) = coroutineScope {
+            val catsJob = async { categoryMap("$api&action=get_series_categories") }
+            val streamsJob = async { readJsonArray("$api&action=get_series") }
+            catsJob.await() to streamsJob.await()
+        }
         val out = ArrayList<Channel>(a.length())
         for (i in 0 until a.length()) {
             val o = a.getJSONObject(i)
