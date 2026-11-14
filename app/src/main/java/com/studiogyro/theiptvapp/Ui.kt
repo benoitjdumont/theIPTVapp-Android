@@ -106,6 +106,10 @@ fun AppRoot(vm: MainVm) {
     }
     // sur une télé, les bords de l'écran sont souvent rognés : marge de sécurité
     val safe = if (tv) Modifier.padding(horizontal = 48.dp, vertical = 27.dp) else Modifier
+    val dens = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(dens.density, dens.fontScale * TEXT_SIZES[vm.textSizeIdx].second),
+    ) {
     MaterialTheme(colorScheme = scheme) {
         PinDialog(vm)
         UpdateDialog(vm)
@@ -129,6 +133,7 @@ fun AppRoot(vm: MainVm) {
                 }
             }
         }
+    }
     }
 }
 
@@ -159,10 +164,14 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
     }
 }
 
-val RailBg = Color(0xB3080C24)
-val GroupBg = Color(0x66101850)
-val ListBg = Color(0x33000000)
-val CellBg = Color(0x553A4A9A)
+var UiAlpha by mutableStateOf(1f)
+val TEXT_SIZES = listOf("Petite" to 0.9f, "Moyenne" to 1f, "Grande" to 1.15f, "Très grande" to 1.3f)
+val TRANSPS = listOf("Très transparente" to 0.5f, "Normale" to 1f, "Presque opaque" to 1.8f)
+private fun tint(c: Long, a: Float) = Color(c or 0xFF000000L).copy(alpha = (a * UiAlpha).coerceIn(0f, 1f))
+val RailBg get() = tint(0x080C24, 0.7f)
+val GroupBg get() = tint(0x101850, 0.4f)
+val ListBg get() = tint(0x000000, 0.2f)
+val CellBg get() = tint(0x3A4A9A, 0.33f)
 
 @Composable
 private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
@@ -748,7 +757,7 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                         page == "root" -> {
                             PanelItem("Listes de lecture", first = true) { page = "lists" }
                             PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
-                            PanelItem("Apparence", "Couleur : ${ACCENTS[vm.accentIdx].first}") { page = "look" }
+                            PanelItem("Apparence", "${ACCENTS[vm.accentIdx].first} · texte ${TEXT_SIZES[vm.textSizeIdx].first.lowercase()}") { page = "look" }
                             PanelItem("Lecture") { page = "playback" }
                             PanelItem("Enregistrements") { page = "rec" }
                             PanelItem("Contrôle parental") { page = "parental" }
@@ -777,9 +786,11 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                         page == "add" -> AddSourceForm(vm, canClose) { page = "lists"; back() }
                         page == "groups" -> GroupsPage(vm)
                         page == "look" -> {
+                            PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first, first = true) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
+                            PanelItem("Transparence de l'interface", TRANSPS[vm.transpIdx].first) { vm.changeTransp((vm.transpIdx + 1) % TRANSPS.size) }
                             PanelLabel("Couleur de l'interface")
                             ACCENTS.forEachIndexed { i, (n, c) ->
-                                PanelItem(n, first = i == 0, trailing = { if (i == vm.accentIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeAccent(i) }
+                                PanelItem(n, trailing = { if (i == vm.accentIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeAccent(i) }
                             }
                         }
                         page == "playback" -> {
