@@ -1,6 +1,15 @@
 package com.studiogyro.theiptvapp
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.media.AudioManager
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.material3.TextButton
+import androidx.media3.datasource.DefaultDataSource
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -78,7 +87,7 @@ fun PlayerScreen(vm: MainVm) {
 
     val player = remember {
         val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.STREAM_UA)
-        ExoPlayer.Builder(ctx).setMediaSourceFactory(DefaultMediaSourceFactory(ds)).build()
+        ExoPlayer.Builder(ctx).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build()
     }
     DisposableEffect(Unit) { onDispose { player.release() } }
 
@@ -86,6 +95,15 @@ fun PlayerScreen(vm: MainVm) {
     var idx by remember(ch.id) { mutableIntStateOf(0) }
     var status by remember(ch.id) { mutableStateOf("Chargement…") }
     var showUi by remember { mutableStateOf(true) }
+    var hud by remember { mutableStateOf("") }
+    val activity = remember(ctx) {
+        var c: Context = ctx
+        while (c is ContextWrapper && c !is Activity) c = c.baseContext
+        c as? Activity
+    }
+    LaunchedEffect(hud) { if (hud.isNotEmpty()) { delay(900); hud = "" } }
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(vm.recording) { while (vm.recording != null) { now = System.currentTimeMillis(); delay(1000) } }
 
     LaunchedEffect(ch.id, idx) {
         val a = tries[idx]
@@ -119,7 +137,7 @@ fun PlayerScreen(vm: MainVm) {
         onDispose { player.removeListener(l) }
     }
 
-    LaunchedEffect(ch.id) { vm.loadEpg(ch) }
+    LaunchedEffect(ch.id, vm.xmltvReady) { vm.loadEpg(ch) }
 
     // reprise de lecture : on mémorise la position des films et épisodes
     DisposableEffect(ch.id) {
@@ -176,7 +194,50 @@ fun PlayerScreen(vm: MainVm) {
                     else -> false
                 }
             }
-            .pointerInput(Unit) { detectTapGestures { showUi = !showUi } },
+            .pointerInput(Unit) { detectTapGestures { showUi = !showUi } }
+            .pointerInput(ch.id) {
+                // glisser : côté gauche = luminosité, côté droit = volume, centre = changer de chaîne (en direct)
+                var total = 0f
+                var zone = 0
+                var vol = 0f
+                val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                detectVerticalDragGestures(
+                    onDragStart = { off ->
+                        total = 0f
+                        zone = when {
+                            off.x < size.width * 0.3f -> 1
+                            off.x > size.width * 0.7f -> 2
+                            else -> 0
+                        }
+                        vol = am.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
+                    },
+                    onDragEnd = {
+                        if (zone == 0 && abs(total) > 140f && ch.kind == "live") {
+                            vm.step(if (total < 0) 1 else -1)
+                            showUi = true
+                        }
+                    },
+                    onVerticalDrag = { _, dy ->
+                        total += dy
+                        when (zone) {
+                            1 -> activity?.let { a ->
+                                val lp = a.window.attributes
+                                val cur = if (lp.screenBrightness < 0f) 0.5f else lp.screenBrightness
+                                val nv = (cur - dy / size.height * 1.2f).coerceIn(0.02f, 1f)
+                                lp.screenBrightness = nv
+                                a.window.attributes = lp
+                                hud = "Luminosité ${(nv * 100).roundToInt()} %"
+                            }
+                            2 -> {
+                                val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                vol = (vol - dy / size.height * max * 1.2f).coerceIn(0f, max.toFloat())
+                                am.setStreamVolume(AudioManager.STREAM_MUSIC, vol.roundToInt(), 0)
+                                hud = "Volume ${(vol / max * 100).roundToInt()} %"
+                            }
+                        }
+                    },
+                )
+            },
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -201,7 +262,14 @@ fun PlayerScreen(vm: MainVm) {
             )
         }
 
-        if (showUi) {
+        if (hud.isNotEmpty() && !vm.inPip) {
+            Text(
+                hud, color = Color.White,
+                modifier = Modifier.align(Alignment.Center).background(Color(0xAA000000)).padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+
+        if (showUi && !vm.inPip) {
             Row(
                 Modifier
                     .align(Alignment.TopCenter)
@@ -221,6 +289,14 @@ fun PlayerScreen(vm: MainVm) {
                         if (e.next != null) Text("Ensuite : ${e.next.title}  ${hm(e.next.start)}", color = Color(0xFFAAAAAA), fontSize = 12.sp, maxLines = 1)
                     }
                 }
+                if (ch.kind == "live") {
+                    val rec = vm.recording
+                    TextButton(onClick = { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }) {
+                        val secs = if (rec != null) ((now - rec.startMs) / 1000).coerceAtLeast(0) else 0
+                        Text(if (rec == null) "⏺ REC" else "⏹ %d:%02d".format(secs / 60, secs % 60), color = if (rec == null) Color.White else Color(0xFFFF6B6B))
+                    }
+                }
+                TextButton(onClick = { (activity as? MainActivity)?.enterPip() }) { Text("PiP", color = Color.White) }
                 val fav = vm.isFav(ch)
                 IconButton(onClick = { vm.toggleFav(ch) }) {
                     Icon(

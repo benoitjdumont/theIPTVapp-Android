@@ -13,6 +13,8 @@ import java.util.concurrent.TimeUnit
 /** Loading of channel lists (M3U and Xtream Codes). */
 object Repo {
     const val LIST_UA = "theIPTVapp/0.1 (Android)"
+    @Volatile var xmltvUrl: String = ""
+
     const val STREAM_UA = "VLC/3.0.20 LibVLC/3.0.20"
 
     val client: OkHttpClient = OkHttpClient.Builder()
@@ -129,6 +131,62 @@ object Repo {
         return m
     }
 
+    /** Reads an XMLTV guide (plain or gzip) and keeps the next 12 hours for the wanted channels. */
+    suspend fun loadXmltv(url: String, ids: Set<String>): Map<String, List<Prog>> = withContext(Dispatchers.IO) {
+        val out = HashMap<String, MutableList<Prog>>()
+        val nowMs = System.currentTimeMillis()
+        val horizon = nowMs + 12 * 3600_000L
+        val req = Request.Builder().url(url).header("User-Agent", LIST_UA).build()
+        client.newCall(req).execute().use { r ->
+            if (!r.isSuccessful) throw RuntimeException("HTTP ${r.code}")
+            val raw = (r.body ?: throw RuntimeException("réponse vide")).byteStream().buffered()
+            raw.mark(2)
+            val b1 = raw.read()
+            val b2 = raw.read()
+            raw.reset()
+            val stream = if (b1 == 0x1f && b2 == 0x8b) java.util.zip.GZIPInputStream(raw) else raw
+            val p = android.util.Xml.newPullParser()
+            p.setInput(stream, null)
+            var channel = ""
+            var start = 0L
+            var stop = 0L
+            var title = ""
+            var keep = false
+            var ev = p.eventType
+            while (ev != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+                if (ev == org.xmlpull.v1.XmlPullParser.START_TAG) {
+                    if (p.name == "programme") {
+                        channel = p.getAttributeValue(null, "channel") ?: ""
+                        start = xmltvTime(p.getAttributeValue(null, "start"))
+                        stop = xmltvTime(p.getAttributeValue(null, "stop"))
+                        title = ""
+                        keep = channel in ids && stop > nowMs && start < horizon
+                    } else if (p.name == "title" && keep && title.isEmpty()) {
+                        title = p.nextText().trim()
+                    }
+                } else if (ev == org.xmlpull.v1.XmlPullParser.END_TAG && p.name == "programme") {
+                    if (keep && title.isNotEmpty()) out.getOrPut(channel) { ArrayList() }.add(Prog(title, start, stop))
+                    keep = false
+                }
+                ev = p.next()
+            }
+        }
+        out.mapValues { e -> e.value.sortedBy { it.start } }
+    }
+
+    private fun xmltvTime(s: String?): Long {
+        if (s == null) return 0L
+        for (f in listOf("yyyyMMddHHmmss Z", "yyyyMMddHHmmss")) {
+            val d = runCatching {
+                val fmt = java.text.SimpleDateFormat(f, java.util.Locale.US)
+                if (f.length == 14) fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                fmt.parse(s.trim())
+            }.getOrNull()
+            if (d != null) return d.time
+        }
+        return 0L
+    }
+
     private val epgGate = Semaphore(4)
 
     /** Programme guide for one Xtream channel (now + next). Never throws: returns an empty guide on failure. */
@@ -178,7 +236,8 @@ object Repo {
         var out: List<Channel> = emptyList()
         open(url) { r ->
             val body = r.body ?: throw RuntimeException("Réponse vide")
-            body.charStream().buffered().use { out = parseM3u(it) }
+            xmltvUrl = ""
+            body.charStream().buffered().use { out = parseM3u(it) { u -> xmltvUrl = u } }
         }
         if (out.isEmpty()) throw RuntimeException("Aucune chaîne trouvée dans cette liste")
         return out
@@ -186,19 +245,24 @@ object Repo {
 
     private val attrRe = Regex("""([\w-]+)="([^"]*)"""")
 
-    fun parseM3u(reader: BufferedReader): List<Channel> {
+    fun parseM3u(reader: BufferedReader, onGuideUrl: (String) -> Unit = {}): List<Channel> {
         val list = ArrayList<Channel>()
         var name = ""
         var logo = ""
         var group = ""
         var pending = false
+        var epgId = ""
         var n = 0
         while (true) {
             val line = (reader.readLine() ?: break).trim()
             if (line.isEmpty()) continue
-            if (line.startsWith("#EXTINF", ignoreCase = true)) {
+            if (line.startsWith("#EXTM3U", ignoreCase = true)) {
+                val h = attrRe.findAll(line).associate { it.groupValues[1].lowercase() to it.groupValues[2] }
+                (h["url-tvg"] ?: h["x-tvg-url"])?.split(',')?.firstOrNull { it.startsWith("http") }?.let(onGuideUrl)
+            } else if (line.startsWith("#EXTINF", ignoreCase = true)) {
                 val attrs = attrRe.findAll(line).associate { it.groupValues[1].lowercase() to it.groupValues[2] }
                 logo = attrs["tvg-logo"] ?: ""
+                epgId = attrs["tvg-id"] ?: ""
                 group = attrs["group-title"] ?: ""
                 val comma = line.lastIndexOf(',')
                 name = if (comma >= 0) line.substring(comma + 1).trim() else ""
@@ -209,9 +273,9 @@ object Repo {
             } else if (!line.startsWith("#")) {
                 if (pending || line.contains("://")) {
                     n++
-                    list.add(Channel(id = "m$n", name = name.ifEmpty { "Chaîne $n" }, url = line, logo = logo, group = group))
+                    list.add(Channel(id = "m$n", name = name.ifEmpty { "Chaîne $n" }, url = line, logo = logo, group = group, epgId = epgId))
                 }
-                name = ""; logo = ""; group = ""; pending = false
+                name = ""; logo = ""; group = ""; epgId = ""; pending = false
             }
         }
         return list

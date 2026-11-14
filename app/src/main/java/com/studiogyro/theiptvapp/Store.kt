@@ -29,4 +29,9 @@ class Store(ctx: Context) {
 
     fun lockedCats(): Set<String> = sp.getStringSet("lockedcats", emptySet())?.toSet() ?: emptySet()
     fun saveLockedCats(s: Set<String>) = sp.edit().putStringSet("lockedcats", s).apply()
+
+    fun lastLive(): String? = sp.getString("lastlive", null)
+    fun saveLastLive(id: String?) = sp.edit().putString("lastlive", id).apply()
+    fun autoResume(): Boolean = sp.getBoolean("autoresume", true)
+    fun saveAutoResume(b: Boolean) = sp.edit().putBoolean("autoresume", b).apply()
 }

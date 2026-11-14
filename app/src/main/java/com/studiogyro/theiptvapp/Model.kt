@@ -45,6 +45,8 @@ data class Channel(
     /** "live", "movie" (playable file) or "series" (opens the episode list) */
     val kind: String = "live",
     val plot: String = "",
+    /** tvg-id of an M3U channel, used to find it in the XMLTV guide */
+    val epgId: String = "",
 )
 
 data class SeriesData(val plot: String, val seasons: Map<Int, List<Channel>>)

@@ -357,7 +357,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                     Box(Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)).background(Panel))
                 }
                 Spacer(Modifier.width(10.dp))
-                LaunchedEffect(c.id) { vm.loadEpg(c) }
+                LaunchedEffect(c.id, vm.xmltvReady) { vm.loadEpg(c) }
                 val e = vm.epg[c.id]
                 Column(Modifier.weight(1f)) {
                     Text((if (vm.isLocked(c)) "🔒 " else "") + c.name, color = Color.White, maxLines = 1)
@@ -444,6 +444,8 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
             ) { Text("Ajouter") }
             if (vm.sources.isNotEmpty()) OutlinedButton(onClick = back) { Text("Annuler") }
         }
+        PlaybackSection(vm)
+        RecordingsSection(vm)
         ParentalSection(vm)
         UpdateSection(vm)
     }
@@ -546,4 +548,37 @@ private fun UpdateSection(vm: MainVm) {
         if (vm.update != null) Button(onClick = { vm.updateDismissed = false }) { Text("Installer la nouvelle version") }
     }
     if (vm.updateInfo.isNotBlank()) Text(vm.updateInfo, color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+}
+
+@Composable
+private fun PlaybackSection(vm: MainVm) {
+    Spacer(Modifier.size(24.dp))
+    Text("Lecture", fontSize = 18.sp, color = Color.White)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+        Text("Reprendre la dernière chaîne au démarrage", color = Color.White, modifier = Modifier.weight(1f))
+        androidx.compose.material3.Switch(checked = vm.autoResume, onCheckedChange = { vm.setAutoResume(it) })
+    }
+}
+
+@Composable
+private fun RecordingsSection(vm: MainVm) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val files = remember(vm.recVersion, vm.recording) { vm.recordings(ctx) }
+    Spacer(Modifier.size(24.dp))
+    Text("Enregistrements", fontSize = 18.sp, color = Color.White)
+    vm.recording?.let { Text("● En cours : ${it.name} (${it.file.length() / 1_000_000} Mo)", color = Color(0xFFFF6B6B), fontSize = 12.sp) }
+    if (vm.recMessage.isNotBlank()) Text(vm.recMessage, color = Color(0xFFFF8A8A), fontSize = 12.sp)
+    if (files.isEmpty()) Text("Aucun enregistrement. Ouvre une chaîne en direct et touche ⏺ REC.", color = Color.Gray, fontSize = 12.sp)
+    files.forEach { f ->
+        FocusRow(selected = false, onClick = {
+            val ch = Channel(id = "r" + f.name, name = f.name.removeSuffix(".ts"), url = f.toURI().toString(), kind = "movie")
+            vm.play(listOf(ch), ch)
+        }) {
+            Column(Modifier.weight(1f)) {
+                Text(f.name.removeSuffix(".ts"), color = Color.White, maxLines = 1)
+                Text("${f.length() / 1_000_000} Mo", color = Color.Gray, fontSize = 12.sp)
+            }
+            IconButton(onClick = { vm.deleteRecording(f) }) { Icon(Icons.Default.Delete, "Supprimer", tint = Color(0xFFFF8A8A)) }
+        }
+    }
 }

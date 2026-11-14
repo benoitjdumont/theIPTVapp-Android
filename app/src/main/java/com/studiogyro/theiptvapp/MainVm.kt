@@ -179,6 +179,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
                     },
                 )
                 sec.loaded = true
+                if (which == 0) afterLiveLoaded(s)
             } catch (e: Exception) {
                 sec.error = e.message ?: e.toString()
                 sec.replaceItems(emptyList())
@@ -186,6 +187,80 @@ class MainVm(app: Application) : AndroidViewModel(app) {
             sec.loading = false
         }
     }
+
+    // ---- reprise de la dernière chaîne, guide XMLTV (listes M3U)
+    var autoResume by mutableStateOf(store.autoResume()); private set
+    private var resumed = false
+    private var xmltv: Map<String, List<Prog>> = emptyMap()
+    var xmltvReady by mutableStateOf(false); private set
+
+    fun setAutoResume(b: Boolean) { autoResume = b; store.saveAutoResume(b) }
+
+    private fun afterLiveLoaded(s: Source) {
+        if (!resumed) {
+            resumed = true
+            if (autoResume) {
+                val id = store.lastLive()
+                live.items.firstOrNull { it.id == id }?.let { c -> guard(c) { play(live.items, c) } }
+            }
+        }
+        xmltvReady = false
+        xmltv = emptyMap()
+        val url = Repo.xmltvUrl
+        if (s.type == SourceType.M3U && url.isNotBlank()) {
+            val ids = live.items.map { it.epgId }.filter { it.isNotEmpty() }.toSet()
+            if (ids.isNotEmpty()) viewModelScope.launch {
+                try {
+                    xmltv = Repo.loadXmltv(url, ids)
+                    epg.clear()
+                    xmltvReady = true
+                } catch (_: Exception) { }
+            }
+        }
+    }
+
+    // ---- image dans l'image
+    var inPip by mutableStateOf(false)
+
+    // ---- enregistrements
+    data class Rec(val name: String, val file: java.io.File, val startMs: Long)
+    var recording by mutableStateOf<Rec?>(null); private set
+    var recBytes by mutableStateOf(0L); private set
+    var recVersion by mutableStateOf(0); private set
+    var recMessage by mutableStateOf(""); private set
+    private var recJob: kotlinx.coroutines.Job? = null
+
+    fun startRecording(ctx: android.content.Context, c: Channel) {
+        if (recording != null) return
+        val safe = c.name.replace(Regex("[^A-Za-z0-9À-ÿ _-]"), "").trim().ifEmpty { "chaine" }.replace(' ', '_')
+        val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmm", java.util.Locale.US).format(java.util.Date())
+        val f = java.io.File(Recorder.dir(ctx), "${safe}_$stamp.ts")
+        recording = Rec(c.name, f, System.currentTimeMillis())
+        recBytes = 0
+        recMessage = ""
+        runCatching { androidx.core.content.ContextCompat.startForegroundService(ctx, android.content.Intent(ctx, RecordService::class.java)) }
+        recJob = viewModelScope.launch {
+            try {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Recorder.record(c, f) { recBytes = it } }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // arrêt demandé : le fichier est conservé
+            } catch (e: Exception) {
+                recMessage = "Enregistrement arrêté : ${e.message}"
+            } finally {
+                ctx.stopService(android.content.Intent(ctx, RecordService::class.java))
+                if (f.exists() && f.length() < 1024) f.delete()
+                recording = null
+                recVersion++
+            }
+        }
+    }
+
+    fun stopRecording() { recJob?.cancel() }
+
+    fun deleteRecording(f: java.io.File) { f.delete(); recVersion++ }
+
+    fun recordings(ctx: android.content.Context): List<java.io.File> =
+        Recorder.dir(ctx).listFiles { x -> x.isFile && x.name.endsWith(".ts") }?.sortedByDescending { it.lastModified() } ?: emptyList()
 
     fun addSource(s: Source) {
         sources = sources + s
@@ -221,7 +296,17 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     /** Asks for the guide of a channel once; refreshed when the programme that was on has ended. */
     fun loadEpg(c: Channel) {
-        if (c.sid.isEmpty() || c.kind != "live") return
+        if (c.kind != "live") return
+        if (c.sid.isEmpty()) {
+            // liste M3U : guide XMLTV chargé en arrière-plan
+            if (c.epgId.isEmpty() || !xmltvReady) return
+            val list = xmltv[c.epgId] ?: return
+            val nowMs = System.currentTimeMillis()
+            val now = list.firstOrNull { it.start <= nowMs && it.stop > nowMs }
+            val next = list.firstOrNull { it.start > nowMs }
+            epg[c.id] = Epg(now, next, (now?.stop ?: (nowMs + 300_000)).coerceAtLeast(nowMs + 30_000))
+            return
+        }
         val cached = epg[c.id]
         if (cached != null && System.currentTimeMillis() < cached.until) return
         val s = activeSource ?: return
@@ -342,12 +427,13 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         playlist = list
         playIndex = list.indexOf(c).coerceAtLeast(0)
         store.saveLast(c.id)
+        if (c.kind == "live") store.saveLastLive(c.id)
     }
 
     fun step(delta: Int) {
         if (playlist.isEmpty()) return
         playIndex = (playIndex + delta + playlist.size) % playlist.size
-        current?.let { store.saveLast(it.id) }
+        current?.let { store.saveLast(it.id); if (it.kind == "live") store.saveLastLive(it.id) }
     }
 
     fun stop() {
