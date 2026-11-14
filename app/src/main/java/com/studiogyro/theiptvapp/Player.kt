@@ -31,8 +31,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -303,8 +301,8 @@ fun PlayerScreen(vm: MainVm) {
                     }
                 }
                 if (ch.kind == "live") {
-                    IconButton(onClick = { player.playWhenReady = !player.playWhenReady }) {
-                        Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (playing) "Pause" else "Lecture", tint = Color.White)
+                    TextButton(onClick = { player.playWhenReady = !player.playWhenReady }) {
+                        Text(if (playing) "⏸" else "▶", color = Color.White, fontSize = 20.sp)
                     }
                     val rec = vm.recording
                     TextButton(onClick = { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }) {
