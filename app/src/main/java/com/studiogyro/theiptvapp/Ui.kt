@@ -86,6 +86,13 @@ fun AppRoot(vm: MainVm) {
         onSurface = Color.White,
         onBackground = Color.White,
     )
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val tv = remember {
+        (ctx.getSystemService(android.content.Context.UI_MODE_SERVICE) as android.app.UiModeManager).currentModeType ==
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    }
+    // sur une télé, les bords de l'écran sont souvent rognés : marge de sécurité
+    val safe = if (tv) Modifier.padding(horizontal = 48.dp, vertical = 27.dp) else Modifier
     MaterialTheme(colorScheme = scheme) {
         PinDialog(vm)
         UpdateDialog(vm)
@@ -94,10 +101,10 @@ fun AppRoot(vm: MainVm) {
             if (vm.current != null) {
                 PlayerScreen(vm)
             } else if (vm.seriesOpen != null) {
-                Box(Modifier.fillMaxSize().safeDrawingPadding()) { SeriesScreen(vm) }
+                Box(Modifier.fillMaxSize().safeDrawingPadding().then(safe)) { SeriesScreen(vm) }
             } else {
                 // keep clear of the status bar (battery, clock) and the navigation bar
-                Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+                Box(Modifier.fillMaxSize().safeDrawingPadding().then(safe)) {
                     if (screen == "settings") {
                         BackHandler(vm.sources.isNotEmpty()) { screen = "home" }
                         SettingsScreen(vm) { screen = "home" }
@@ -558,11 +565,16 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
         Spacer(Modifier.size(16.dp))
         Text("Ajouter une source", fontSize = 18.sp, color = Color.White)
         Spacer(Modifier.size(8.dp))
-        OutlinedTextField(name, { name = it }, label = { Text("Nom") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            FilterChip(selected = type == SourceType.M3U, onClick = { type = SourceType.M3U }, label = { Text("Liste M3U") })
-            FilterChip(selected = type == SourceType.XTREAM, onClick = { type = SourceType.XTREAM }, label = { Text("Xtream Codes") })
+        Text("Type de liste", color = Color(0xFFB8C4DA), fontSize = 13.sp)
+        FocusRow(selected = type == SourceType.M3U, onClick = { type = SourceType.M3U }) {
+            Text(if (type == SourceType.M3U) "●  Liste M3U" else "○  Liste M3U", color = Color.White, modifier = Modifier.padding(vertical = 8.dp))
         }
+        FocusRow(selected = type == SourceType.XTREAM, onClick = { type = SourceType.XTREAM }) {
+            Text(if (type == SourceType.XTREAM) "●  Xtream Codes" else "○  Xtream Codes", color = Color.White, modifier = Modifier.padding(vertical = 8.dp))
+        }
+        Spacer(Modifier.size(8.dp))
+        OutlinedTextField(name, { name = it }, label = { Text("Nom") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.size(4.dp))
         if (type == SourceType.M3U) {
             OutlinedTextField(
                 url, { url = it }, label = { Text("Adresse de la liste (http…)") }, singleLine = true,

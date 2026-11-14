@@ -85,6 +85,9 @@ private fun attemptsFor(c: Channel): List<Attempt> {
 fun PlayerScreen(vm: MainVm) {
     val ch = vm.current ?: return
     val ctx = LocalContext.current
+    val tvPad = remember {
+        if ((ctx.getSystemService(Context.UI_MODE_SERVICE) as android.app.UiModeManager).currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION) 40.dp else 0.dp
+    }
 
     val player = remember {
         val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.STREAM_UA)
@@ -297,6 +300,7 @@ fun PlayerScreen(vm: MainVm) {
                     .fillMaxWidth()
                     .background(Color(0xAA000000))
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                    .padding(horizontal = tvPad, vertical = tvPad / 2)
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
