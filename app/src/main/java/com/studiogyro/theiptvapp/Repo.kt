@@ -49,6 +49,7 @@ object Repo {
                     id = "v$id", name = o.optString("name").ifEmpty { "Film $id" },
                     url = "$base/movie/$u/$p/$id.$ext", logo = o.optString("stream_icon"),
                     group = cats[o.optString("category_id")] ?: "", kind = "movie",
+                    sid = id, meta = metaOf(o.optString("rating"), "", ""),
                 ),
             )
         }
@@ -73,11 +74,37 @@ object Repo {
                     id = "s$id", name = o.optString("name").ifEmpty { "Série $id" }, url = "",
                     logo = o.optString("cover"), group = cats[o.optString("category_id")] ?: "",
                     sid = id, kind = "series", plot = o.optString("plot"),
+                    meta = metaOf(o.optString("rating"), o.optString("releaseDate").take(4), o.optString("genre")),
                 ),
             )
         }
         if (out.isEmpty()) throw RuntimeException("Aucune série trouvée")
         out
+    }
+
+    private fun metaOf(rating: String, year: String, genre: String): String {
+        val parts = ArrayList<String>()
+        val r = rating.trim().toDoubleOrNull()
+        if (r != null && r > 0) parts.add("★ " + String.format(java.util.Locale.US, "%.1f", r))
+        if (year.length == 4 && year.all(Char::isDigit)) parts.add(year)
+        if (genre.isNotBlank()) parts.add(genre.trim())
+        return parts.joinToString("  ·  ")
+    }
+
+    /** fiche d'un film : résumé, durée, genre, distribution */
+    suspend fun vodInfo(src: Source, sid: String): Detail = withContext(Dispatchers.IO) {
+        val base = normHost(src.host)
+        val u = java.net.URLEncoder.encode(src.user, "UTF-8")
+        val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
+        var txt = ""
+        open("$base/player_api.php?username=$u&password=$p&action=get_vod_info&vod_id=$sid") { r -> txt = r.body?.string() ?: "" }
+        val info = org.json.JSONObject(txt.trim()).optJSONObject("info") ?: return@withContext Detail("", "", "")
+        val plot = info.optString("plot").ifBlank { info.optString("description") }
+        val year = info.optString("releasedate").take(4).ifBlank { info.optString("year") }
+        val dur = info.optString("duration")
+        val meta = metaOf(info.optString("rating"), year, info.optString("genre")) +
+            (if (dur.isNotBlank()) (if (info.optString("rating").isNotBlank() || year.isNotBlank()) "  ·  " else "") + dur else "")
+        Detail(plot, meta, info.optString("cast"))
     }
 
     suspend fun seriesInfo(src: Source, sid: String): SeriesData = withContext(Dispatchers.IO) {

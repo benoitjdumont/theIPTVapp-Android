@@ -249,7 +249,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                                     modifier = Modifier.fillMaxWidth().padding(6.dp),
                                 )
                             }
-                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f)) else PosterGrid(vm, list, Modifier.weight(1f).padding(6.dp))
+                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f)) else PosterWall(vm, list, Modifier.weight(1f))
                         }
                     }
                 }
@@ -376,9 +376,36 @@ private fun topEntries(sec: Section, live: Boolean): List<Pair<String?, String>>
     return l
 }
 
+/** Films et séries : fiche du titre survolé en haut, murs d'affiches en dessous. */
+@Composable
+private fun PosterWall(vm: MainVm, list: List<Channel>, modifier: Modifier) {
+    if (list.isEmpty()) {
+        Box(modifier, contentAlignment = Alignment.Center) { Text("Rien à afficher.", color = Color.Gray) }
+        return
+    }
+    var sel by remember(list) { mutableStateOf<Channel?>(null) }
+    val cur = sel ?: list.first()
+    LaunchedEffect(cur.id) {
+        kotlinx.coroutines.delay(300)
+        vm.loadDetail(cur)
+    }
+    val d = vm.details[cur.id]
+    Column(modifier) {
+        Column(Modifier.fillMaxWidth().height(112.dp).background(GroupBg).padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Text(cur.name, color = Color.White, fontSize = 19.sp, maxLines = 1)
+            val meta = d?.meta?.ifBlank { null } ?: cur.meta
+            if (meta.isNotBlank()) Text(meta, color = Color(0xFF9DB4D8), fontSize = 12.sp, maxLines = 1)
+            if (d != null && d.cast.isNotBlank()) Text("Acteurs : " + d.cast, color = Color(0xFF8A97A6), fontSize = 11.sp, maxLines = 1)
+            val plot = (d?.plot?.ifBlank { null } ?: cur.plot).ifBlank { if (d == null) "…" else "" }
+            Text(plot, color = Color(0xFFB8C4DA), fontSize = 12.sp, maxLines = 3, modifier = Modifier.padding(top = 3.dp))
+        }
+        PosterGrid(vm, list, Modifier.weight(1f).padding(6.dp)) { sel = it }
+    }
+}
+
 /** Poster wall for movies and series. */
 @Composable
-private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier) {
+private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, onFocus: (Channel) -> Unit = {}) {
     if (list.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) { Text("Rien à afficher.", color = Color.Gray) }
         return
@@ -392,7 +419,7 @@ private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                     .clip(shape)
                     .background(if (focused) Accent.copy(alpha = 0.35f) else Panel)
                     .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
-                    .onFocusChanged { focused = it.isFocused }
+                    .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus(c) }
                     .clickable { vm.guard(c) { if (c.kind == "series") vm.openSeries(c) else vm.play(listOf(c), c) } }
                     .padding(6.dp),
             ) {

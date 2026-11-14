@@ -335,6 +335,19 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { epg[c.id] = Repo.shortEpg(s, c.sid) }
     }
 
+    /** fiches (film : résumé, distribution) chargées à la demande quand on survole une affiche */
+    val details = mutableStateMapOf<String, Detail>()
+
+    fun loadDetail(c: Channel) {
+        if (c.id in details) return
+        if (c.kind == "series") { details[c.id] = Detail(c.plot, c.meta, ""); return }
+        val s = activeSource ?: return
+        viewModelScope.launch {
+            val d = runCatching { Repo.vodInfo(s, c.sid) }.getOrNull() ?: Detail("", c.meta, "")
+            details[c.id] = if (d.meta.isBlank()) d.copy(meta = c.meta) else d
+        }
+    }
+
     fun openSeries(c: Channel) {
         val s = activeSource ?: return
         seriesOpen = c
