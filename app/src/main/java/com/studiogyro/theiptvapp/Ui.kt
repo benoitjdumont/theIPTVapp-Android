@@ -113,6 +113,8 @@ fun AppRoot(vm: MainVm) {
             var screen by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "settings" else "home") }
             if (vm.current != null) {
                 PlayerScreen(vm)
+            } else if (vm.movieOpen != null) {
+                Box(Modifier.fillMaxSize().safeDrawingPadding().then(safe)) { MovieScreen(vm) }
             } else if (vm.seriesOpen != null) {
                 Box(Modifier.fillMaxSize().safeDrawingPadding().then(safe)) { SeriesScreen(vm) }
             } else {
@@ -442,7 +444,7 @@ private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, onFo
                     .background(if (focused) Accent.copy(alpha = 0.35f) else Panel)
                     .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
                     .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus(c) }
-                    .combinedClickable(onClick = { vm.guard(c) { if (c.kind == "series") vm.openSeries(c) else vm.play(listOf(c), c) } }, onLongClick = { vm.toggleFav(c) })
+                    .combinedClickable(onClick = { vm.guard(c) { if (c.kind == "series") vm.openSeries(c) else vm.openMovie(c) } }, onLongClick = { vm.toggleFav(c) })
                     .padding(6.dp),
             ) {
                 Poster(c.logo, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
@@ -461,6 +463,53 @@ private fun Poster(url: String, modifier: Modifier) {
     }
 }
 
+/** Page d'un film : affiche, infos, puis Regarder / Ma liste / Bande annonce. */
+@Composable
+fun MovieScreen(vm: MainVm) {
+    val c = vm.movieOpen ?: return
+    BackHandler(true) { vm.closeMovie() }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val d = vm.details[c.id]
+    val pos = vm.pos(c.id)
+    val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(c.id) { runCatching { fr.requestFocus() } }
+    Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { vm.closeMovie() }) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
+            Text("Film", fontSize = 14.sp, color = Color(0xFFB8C4DA))
+        }
+        Row(Modifier.fillMaxSize()) {
+            Poster(c.logo, Modifier.width(140.dp).aspectRatio(2f / 3f))
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f).fillMaxSize()) {
+                Text(c.name, color = Color.White, fontSize = 22.sp, maxLines = 2)
+                val meta = d?.meta?.ifBlank { null } ?: c.meta
+                if (meta.isNotBlank()) Text(meta, color = Color(0xFF9DB4D8), fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+                if (d != null && d.cast.isNotBlank()) Text("Acteurs : " + d.cast, color = Color(0xFF8A97A6), fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 8.dp)) {
+                    Text(
+                        (d?.plot?.ifBlank { null } ?: c.plot).ifBlank { if (d == null) "Chargement…" else "Pas de résumé." },
+                        color = Color(0xFFB8C4DA), fontSize = 13.sp,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                    Button(onClick = { vm.play(listOf(c), c) }, modifier = Modifier.androidx_focusRequester(fr)) {
+                        Text(if (pos > 10_000) "Reprendre (" + "%d:%02d".format(pos / 60000, pos / 1000 % 60) + ")" else "▶ Regarder")
+                    }
+                    OutlinedButton(onClick = { vm.toggleFav(c) }) { Text(if (vm.isFav(c)) "★ Dans ma liste" else "☆ Ma liste") }
+                    val tr = d?.trailer.orEmpty()
+                    if (tr.isNotBlank()) OutlinedButton(onClick = {
+                        val url = if (tr.startsWith("http")) tr else "https://www.youtube.com/watch?v=$tr"
+                        runCatching {
+                            ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                        }
+                    }) { Text("Bande annonce") }
+                }
+            }
+        }
+    }
+}
+
 /** Series page, laid out for a landscape screen: poster and summary on the left, seasons and episodes on the right. */
 @Composable
 fun SeriesScreen(vm: MainVm) {
@@ -472,6 +521,7 @@ fun SeriesScreen(vm: MainVm) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { vm.closeSeries() }) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
             Text(c.name, fontSize = 18.sp, color = Color.White, maxLines = 1, modifier = Modifier.weight(1f))
+            OutlinedButton(onClick = { vm.toggleFav(c) }) { Text(if (vm.isFav(c)) "★ Dans ma liste" else "☆ Ma liste") }
         }
         if (data == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }

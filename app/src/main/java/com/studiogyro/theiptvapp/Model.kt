@@ -51,7 +51,7 @@ data class Channel(
     val epgId: String = "",
 )
 
-data class Detail(val plot: String, val meta: String, val cast: String)
+data class Detail(val plot: String, val meta: String, val cast: String, val trailer: String = "")
 
 data class SeriesData(val plot: String, val seasons: Map<Int, List<Channel>>)
 

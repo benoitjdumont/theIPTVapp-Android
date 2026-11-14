@@ -369,6 +369,16 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    var movieOpen by mutableStateOf<Channel?>(null); private set
+
+    fun openMovie(c: Channel) {
+        movieOpen = c
+        addHistory(c.id)
+        loadDetail(c)
+    }
+
+    fun closeMovie() { movieOpen = null }
+
     fun openSeries(c: Channel) {
         addHistory(c.id)
         val s = activeSource ?: return

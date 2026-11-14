@@ -104,7 +104,7 @@ object Repo {
         val dur = info.optString("duration")
         val meta = metaOf(info.optString("rating"), year, info.optString("genre")) +
             (if (dur.isNotBlank()) (if (info.optString("rating").isNotBlank() || year.isNotBlank()) "  ·  " else "") + dur else "")
-        Detail(plot, meta, info.optString("cast"))
+        Detail(plot, meta, info.optString("cast"), info.optString("youtube_trailer").trim())
     }
 
     suspend fun seriesInfo(src: Source, sid: String): SeriesData = withContext(Dispatchers.IO) {
