@@ -139,7 +139,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     private val activeSource: Source? get() = sources.firstOrNull { it.id == activeId }
 
     init {
-        Accent = ACCENTS[accentIdx].second
+        Accent = ACCENTS[store.accent().coerceIn(0, ACCENTS.lastIndex)].second
         reload()
         checkUpdate(silent = true)
     }
