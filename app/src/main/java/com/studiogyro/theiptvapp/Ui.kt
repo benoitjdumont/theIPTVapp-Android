@@ -18,7 +18,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -27,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -129,6 +132,126 @@ fun FocusRow(selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? 
 
 @Composable
 fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (maxWidth >= 480.dp) HomeWide(vm, openSettings) else HomeNarrow(vm, openSettings)
+    }
+}
+
+val RailBg = Color(0xFF151E26)
+val GroupBg = Color(0xFF1C2730)
+val ListBg = Color(0xFF222E37)
+val CellBg = Color(0xFF2E3B46)
+
+@Composable
+private fun RailItem(selected: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        Modifier
+            .size(44.dp)
+            .clip(shape)
+            .background(if (focused) Accent.copy(alpha = 0.45f) else if (selected) Accent.copy(alpha = 0.9f) else Color.Transparent)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+/** Écran principal façon TiviMate : rail d'icônes, groupes, puis la liste (ou les affiches). */
+@Composable
+private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
+    val sec = vm.section()
+    var searchOpen by rememberSaveable { mutableStateOf(vm.query.isNotEmpty()) }
+    Row(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.width(56.dp).fillMaxHeight().background(RailBg).padding(vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(30.dp))
+            RailItem(searchOpen, { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
+            RailItem(vm.tab == 0, { vm.selectTab(0) }) { Text("📺", fontSize = 20.sp) }
+            RailItem(vm.tab == 1, { vm.selectTab(1) }) { Text("🎬", fontSize = 20.sp) }
+            RailItem(vm.tab == 2, { vm.selectTab(2) }) { Text("🎞", fontSize = 20.sp) }
+            Spacer(Modifier.weight(1f))
+            RailItem(false, { vm.reload() }) { Icon(Icons.Default.Refresh, "Actualiser", tint = Color.White) }
+            RailItem(false, openSettings) { Icon(Icons.Default.Settings, "Réglages", tint = Color.White) }
+        }
+        Box(Modifier.weight(1f).fillMaxHeight()) {
+            when {
+                vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
+                sec.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Spacer(Modifier.size(12.dp))
+                        Text("Chargement de la liste…", color = Color.White)
+                    }
+                }
+                sec.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(if (vm.tab == 0) "Erreur : ${sec.error}" else "${sec.error}", color = Color(0xFFFF8A8A))
+                        Spacer(Modifier.size(12.dp))
+                        if (vm.tab == 0 || vm.sources.firstOrNull { it.id == vm.activeId }?.type == SourceType.XTREAM) {
+                            Button(onClick = { vm.reload() }) { Text("Réessayer") }
+                        }
+                    }
+                }
+                else -> {
+                    val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs) { vm.visible() }
+                    val subs = sec.subs()
+                    Row(Modifier.fillMaxSize()) {
+                        LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp)) {
+                            items(topEntries(sec, vm.tab == 0), key = { it.first ?: "\u0001all" }) { (g, label) ->
+                                val lock = g != null && g != GROUP_FAV && vm.catLocked(label)
+                                FocusRow(
+                                    selected = sec.top == g,
+                                    onClick = { if (g == null || g == GROUP_FAV) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) } },
+                                    onLongClick = if (g != null && g != GROUP_FAV) ({ vm.toggleCatLock(label) }) else null,
+                                ) {
+                                    Text((if (lock) "🔒 " else "") + label, color = if (sec.top == g) Accent else Color.White, maxLines = 1)
+                                }
+                            }
+                        }
+                        if (subs.isNotEmpty()) {
+                            LazyColumn(Modifier.width(180.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp)) {
+                                item(key = "\u0001subAll") {
+                                    FocusRow(selected = sec.sub == null, onClick = { sec.pickSub(null) }) {
+                                        Text("Tout", color = if (sec.sub == null) Accent else Color.White, maxLines = 1)
+                                    }
+                                }
+                                items(subs, key = { it.first }) { (full, label) ->
+                                    FocusRow(
+                                        selected = sec.sub == full,
+                                        onClick = { vm.guardCat(label, full) { sec.pickSub(full) } },
+                                        onLongClick = { vm.toggleCatLock(full) },
+                                    ) {
+                                        Text((if (vm.catLocked(label, full)) "🔒 " else "") + label, color = if (sec.sub == full) Accent else Color.White, maxLines = 1)
+                                    }
+                                }
+                            }
+                        }
+                        Column(Modifier.weight(1f).fillMaxHeight().background(ListBg)) {
+                            if (searchOpen) {
+                                OutlinedTextField(
+                                    value = vm.query,
+                                    onValueChange = { vm.query = it },
+                                    singleLine = true,
+                                    placeholder = { Text("Rechercher") },
+                                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                                    modifier = Modifier.fillMaxWidth().padding(6.dp),
+                                )
+                            }
+                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f)) else PosterGrid(vm, list, Modifier.weight(1f).padding(6.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
     val sec = vm.section()
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
         // une seule rangée : l'écran est toujours à l'horizontale
@@ -338,40 +461,67 @@ private fun Message(text: String) {
 }
 
 @Composable
+private fun EpgCell(title: String?, sub: String?, progress: Float?, modifier: Modifier) {
+    Box(modifier.padding(horizontal = 2.dp).clip(RoundedCornerShape(5.dp)).background(CellBg)) {
+        Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
+            Text(title ?: "Pas d'information", color = if (title == null) Color(0xFF7D8A96) else Color.White, fontSize = 12.sp, maxLines = 1)
+            if (sub != null) Text(sub, color = Color(0xFF9DB4D8), fontSize = 10.sp, maxLines = 1)
+        }
+        if (progress != null) {
+            Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(progress.coerceIn(0f, 1f)).height(2.dp).background(Accent))
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
     if (list.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) { Text("Aucune chaîne.", color = Color.Gray) }
         return
     }
-    LazyColumn(modifier) {
-        items(list, key = { it.id }) { c ->
-            FocusRow(selected = false, onClick = { vm.guard(c) { vm.play(list, c) } }) {
-                if (c.logo.isNotBlank()) {
-                    AsyncImage(
-                        model = c.logo,
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)),
-                    )
-                } else {
-                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)).background(Panel))
-                }
-                Spacer(Modifier.width(10.dp))
-                LaunchedEffect(c.id, vm.xmltvReady) { vm.loadEpg(c) }
-                val e = vm.epg[c.id]
-                Column(Modifier.weight(1f)) {
-                    Text((if (vm.isLocked(c)) "🔒 " else "") + c.name, color = Color.White, maxLines = 1)
-                    if (e?.now != null) {
-                        Text("${e.now.title}  ${hm(e.now.start)}–${hm(e.now.stop)}", color = Color(0xFF9DB4D8), fontSize = 12.sp, maxLines = 1)
-                        if (e.next != null) Text("Ensuite : ${e.next.title}", color = Color.Gray, fontSize = 11.sp, maxLines = 1)
+    BoxWithConstraints(modifier) {
+        val showNext = maxWidth >= 430.dp
+        Column(Modifier.fillMaxSize()) {
+            // en-tête façon guide : date à gauche, « maintenant » / « ensuite » au-dessus des cases
+            Row(Modifier.fillMaxWidth().background(Color(0xFF2B3944)).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                val today = remember { java.text.SimpleDateFormat("EEE d MMM  HH:mm", java.util.Locale.getDefault()).format(java.util.Date()) }
+                Text(today, color = Color(0xFF8FB8FF), fontSize = 11.sp, maxLines = 1, modifier = Modifier.width(200.dp))
+                Text("Maintenant", color = Color(0xFFB8C4DA), fontSize = 11.sp, modifier = Modifier.weight(1f).padding(start = 6.dp))
+                if (showNext) Text("Ensuite", color = Color(0xFFB8C4DA), fontSize = 11.sp, modifier = Modifier.weight(0.8f).padding(start = 6.dp))
+            }
+            LazyColumn(Modifier.weight(1f)) {
+                itemsIndexed(list, key = { _, c -> c.id }) { i, c ->
+                    FocusRow(
+                        selected = false,
+                        onClick = { vm.guard(c) { vm.play(list, c) } },
+                        onLongClick = { vm.toggleFav(c) },
+                    ) {
+                        LaunchedEffect(c.id, vm.xmltvReady) { vm.loadEpg(c) }
+                        val e = vm.epg[c.id]
+                        Text("${i + 1}", color = Color(0xFFB8C4DA), fontSize = 13.sp, modifier = Modifier.width(30.dp))
+                        if (c.logo.isNotBlank()) {
+                            AsyncImage(
+                                model = c.logo,
+                                contentDescription = null,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.size(34.dp).clip(RoundedCornerShape(5.dp)),
+                            )
+                        } else {
+                            Box(Modifier.size(34.dp).clip(RoundedCornerShape(5.dp)).background(Panel))
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            (if (vm.isLocked(c)) "🔒 " else "") + (if (vm.isFav(c)) "★ " else "") + c.name,
+                            color = Color.White, fontSize = 13.sp, maxLines = 1,
+                            modifier = Modifier.width(128.dp),
+                        )
+                        val now = e?.now
+                        val span = if (now != null) (now.stop - now.start).coerceAtLeast(1) else 1L
+                        val frac = if (now != null) ((System.currentTimeMillis() - now.start).toFloat() / span) else null
+                        EpgCell(now?.title, now?.let { "${hm(it.start)} – ${hm(it.stop)}" }, frac, Modifier.weight(1f))
+                        if (showNext) EpgCell(e?.next?.title, e?.next?.let { hm(it.start) }, null, Modifier.weight(0.8f))
                     }
-                }
-                IconButton(onClick = { vm.toggleFav(c) }) {
-                    Icon(
-                        if (vm.isFav(c)) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        "Favori",
-                        tint = if (vm.isFav(c)) Accent else Color.Gray,
-                    )
                 }
             }
         }
