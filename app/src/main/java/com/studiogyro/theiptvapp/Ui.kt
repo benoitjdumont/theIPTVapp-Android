@@ -578,6 +578,9 @@ fun SeriesScreen(vm: MainVm) {
     val data = vm.seriesData
     BackHandler(true) { vm.closeSeries() }
     var season by rememberSaveable(c.id) { mutableStateOf(-1) }
+    val poster = c.logo.ifBlank { data?.cover.orEmpty() }
+    Box(Modifier.fillMaxSize()) {
+    if (poster.isNotBlank()) AsyncImage(model = poster, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.2f))
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { vm.closeSeries() }) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
@@ -590,7 +593,8 @@ fun SeriesScreen(vm: MainVm) {
         }
         Row(Modifier.fillMaxSize()) {
             Column(Modifier.width(220.dp).fillMaxSize().verticalScroll(rememberScrollState())) {
-                Poster(c.logo.ifBlank { data.cover }, Modifier.width(130.dp).aspectRatio(2f / 3f), c.name)
+                Poster(poster, Modifier.width(150.dp).aspectRatio(2f / 3f), c.name)
+                if (c.meta.isNotBlank()) Text(c.meta, color = Color(0xFF9DB4D8), fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
                 Text(
                     data.plot.ifBlank { c.plot }.ifBlank { "Pas de résumé." },
                     color = Color(0xFFB8C4DA), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp),
@@ -626,6 +630,7 @@ fun SeriesScreen(vm: MainVm) {
                 }
             }
         }
+    }
     }
 }
 
@@ -912,7 +917,6 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                         else -> {
                             PanelLabel("theIPTVapp pour Android")
                             Text("Version ${BuildConfig.VERSION_NAME}", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 18.dp))
-                            Text("Studio Gyro", color = Color(0xFFB8C4EE), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp))
                         }
                     }
                 }

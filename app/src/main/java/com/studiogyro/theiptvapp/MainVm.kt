@@ -164,17 +164,26 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         ensureLoaded()
     }
 
-    private fun ensureLoaded() {
-        val sec = section()
+    private fun ensureLoaded() = loadSection(tab, visible = true)
+
+    /** Charge en arrière-plan films et séries pour que le premier clic soit instantané. */
+    fun prefetchCatalogs() {
+        val s = activeSource ?: return
+        if (s.type != SourceType.XTREAM) return
+        loadSection(1, visible = false)
+        loadSection(2, visible = false)
+    }
+
+    private fun loadSection(which: Int, visible: Boolean) {
+        val sec = when (which) { 0 -> live; 1 -> movies; else -> series }
         if (sec.loaded || sec.loading) return
         val s = activeSource ?: return
-        if (tab != 0 && s.type != SourceType.XTREAM) {
-            sec.error = "Films et séries : disponible avec un compte Xtream."
+        if (which != 0 && s.type != SourceType.XTREAM) {
+            if (visible) sec.error = "Films et séries : disponible avec un compte Xtream."
             return
         }
         sec.loading = true
         sec.error = null
-        val which = tab
         viewModelScope.launch {
             try {
                 sec.replaceItems(
@@ -185,7 +194,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
                     },
                 )
                 sec.loaded = true
-                if (which == 0) afterLiveLoaded(s)
+                if (which == 0) { afterLiveLoaded(s); prefetchCatalogs() }
             } catch (e: Exception) {
                 sec.error = e.message ?: e.toString()
                 sec.replaceItems(emptyList())
