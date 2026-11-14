@@ -68,9 +68,9 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
 
-private data class Attempt(val url: String, val mime: String?)
+internal data class Attempt(val url: String, val mime: String?)
 
-private fun attemptsFor(c: Channel): List<Attempt> {
+internal fun attemptsFor(c: Channel): List<Attempt> {
     val out = ArrayList<Attempt>()
     out.add(Attempt(c.url, null))
     if (c.kind != "live") return out

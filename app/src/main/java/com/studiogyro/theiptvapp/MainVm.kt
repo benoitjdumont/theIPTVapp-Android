@@ -148,6 +148,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     fun selectTab(i: Int) {
         tab = i
+        preview = null
         query = ""
         ensureLoaded()
     }
@@ -191,6 +192,10 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     // ---- reprise de la dernière chaîne, guide XMLTV (listes M3U)
     var autoResume by mutableStateOf(store.autoResume()); private set
+    var previewMode by mutableStateOf(store.previewMode()); private set
+    fun changePreviewMode(b: Boolean) { previewMode = b; store.savePreviewMode(b); if (!b) preview = null }
+    /** chaîne en aperçu sur l'accueil (premier clic) ; un second clic ouvre le plein écran */
+    var preview by mutableStateOf<Channel?>(null)
     var accentIdx by mutableStateOf(store.accent().coerceIn(0, ACCENTS.lastIndex)); private set
 
     fun changeAccent(i: Int) { accentIdx = i; Accent = ACCENTS[i].second; store.saveAccent(i) }
@@ -462,6 +467,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         java.security.MessageDigest.getInstance("SHA-256").digest(("theiptvapp:" + p).toByteArray()).joinToString("") { "%02x".format(it) }
 
     fun play(list: List<Channel>, c: Channel) {
+        preview = null
         playlist = list
         playIndex = list.indexOf(c).coerceAtLeast(0)
         store.saveLast(c.id)

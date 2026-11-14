@@ -267,6 +267,8 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                                     modifier = Modifier.fillMaxWidth().padding(6.dp),
                                 )
                             }
+                            val pv = vm.preview
+                            if (vm.tab == 0 && vm.previewMode && pv != null) PreviewHeader(vm, pv)
                             if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f)) else PosterWall(vm, list, Modifier.weight(1f))
                         }
                     }
@@ -514,6 +516,30 @@ private fun Message(text: String) {
 }
 
 @Composable
+private fun PreviewHeader(vm: MainVm, pv: Channel) {
+    val e = vm.epg[pv.id]
+    Row(Modifier.fillMaxWidth().height(118.dp).background(GroupBg).padding(8.dp)) {
+        Box(Modifier.fillMaxHeight().aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)).background(Color.Black)) { PreviewBox(pv) }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(pv.name, color = Color.White, fontSize = 18.sp, maxLines = 1)
+            val now = e?.now
+            if (now != null) {
+                Text("${now.title}  ${hm(now.start)} – ${hm(now.stop)}", color = Color(0xFF9DB4D8), fontSize = 12.sp, maxLines = 2)
+                val span = (now.stop - now.start).coerceAtLeast(1)
+                val frac = ((System.currentTimeMillis() - now.start).toFloat() / span).coerceIn(0f, 1f)
+                Box(Modifier.padding(top = 4.dp).fillMaxWidth(0.6f).height(3.dp).background(Color(0x33FFFFFF))) {
+                    Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(Accent))
+                }
+                if (e.next != null) Text("Ensuite : ${e.next.title}", color = Color(0xFF8A97A6), fontSize = 11.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+            }
+            Spacer(Modifier.weight(1f))
+            Text("Appuie encore sur la chaîne pour le plein écran", color = Color(0xFF8FB8FF), fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
 private fun EpgCell(title: String?, sub: String?, progress: Float?, modifier: Modifier) {
     Box(modifier.padding(horizontal = 2.dp).clip(RoundedCornerShape(5.dp)).background(CellBg)) {
         Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
@@ -547,7 +573,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                 itemsIndexed(list, key = { _, c -> c.id }) { i, c ->
                     FocusRow(
                         selected = false,
-                        onClick = { vm.guard(c) { vm.play(list, c) } },
+                        onClick = { vm.guard(c) { if (vm.previewMode && vm.preview?.id != c.id) vm.preview = c else vm.play(list, c) } },
                         onLongClick = { vm.toggleFav(c) },
                     ) {
                         LaunchedEffect(c.id, vm.xmltvReady) { vm.loadEpg(c) }
@@ -706,6 +732,7 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                         }
                         page == "playback" -> {
                             PanelItem("Reprendre la dernière chaîne", "Au démarrage de l'appli", first = true, trailing = { PanelSwitch(vm.autoResume) }) { vm.changeAutoResume(!vm.autoResume) }
+                            PanelItem("Aperçu avant le plein écran", "Un clic = aperçu, deux clics = plein écran", trailing = { PanelSwitch(vm.previewMode) }) { vm.changePreviewMode(!vm.previewMode) }
                         }
                         page == "rec" -> Column(Modifier.padding(horizontal = 12.dp)) { RecordingsSection(vm) }
                         page == "parental" -> Column(Modifier.padding(horizontal = 12.dp)) { ParentalSection(vm) }

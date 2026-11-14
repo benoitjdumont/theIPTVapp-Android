@@ -34,6 +34,8 @@ class Store(ctx: Context) {
 
     fun lastLive(): String? = sp.getString("lastlive", null)
     fun saveLastLive(id: String?) = sp.edit().putString("lastlive", id).apply()
+    fun previewMode(): Boolean = sp.getBoolean("preview", true)
+    fun savePreviewMode(b: Boolean) = sp.edit().putBoolean("preview", b).apply()
     fun accent(): Int = sp.getInt("accent", 0)
     fun saveAccent(i: Int) = sp.edit().putInt("accent", i).apply()
     fun autoResume(): Boolean = sp.getBoolean("autoresume", true)
