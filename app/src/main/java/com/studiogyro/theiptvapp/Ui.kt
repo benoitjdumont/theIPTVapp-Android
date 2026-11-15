@@ -335,14 +335,24 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     var railFocus by remember { mutableStateOf(false) }
     var groupFocus by remember { mutableStateOf(false) }
     val railExpanded = railFocus || (!groupFocus && sec.top == null)
-    val groupFirst = remember { androidx.compose.ui.focus.FocusRequester() }
+    // la catégorie choisie garde sa place : on y revient (focus + défilement) au lieu de la première
+    val selectedRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    val groupState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val entries = remember(sec.tops, vm.tab, vm.hiddenCats) {
+        topEntries(sec, vm.tab == 0).filter { it.first == null || (it.first == GROUP_FAV || it.first == GROUP_HIST) || it.first !in vm.hiddenCats }
+    }
     val listFirst = remember { androidx.compose.ui.focus.FocusRequester() }
-    // on clique TV / Films / Séries : le focus passe dans la colonne des catégories
+    // on clique TV / Films / Séries : la colonne des catégories revient
     LaunchedEffect(vm.tabTick) {
-        if (vm.tabTick > 0) {
-            showCols = true
+        if (vm.tabTick > 0) showCols = true
+    }
+    // colonne des catégories affichée (retour arrière ou changement d'onglet) : on remet la catégorie choisie au centre
+    LaunchedEffect(showCols, vm.tab, vm.tabTick) {
+        if (showCols && sec.top != null) {
+            val i = entries.indexOfFirst { it.first == sec.top }
+            if (i >= 0) groupState.scrollToItem(i)
             kotlinx.coroutines.delay(60)
-            runCatching { groupFirst.requestFocus() }
+            runCatching { selectedRequester.requestFocus() }
         }
     }
     // une catégorie choisie : les colonnes se replient et le focus va sur la liste
@@ -381,8 +391,8 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                     val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs) { vm.visible() }
                     val subs = sec.subs()
                     Row(Modifier.fillMaxSize()) {
-                        if (!colsHidden) LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp).onFocusChanged { groupFocus = it.hasFocus }) {
-                            itemsIndexed(topEntries(sec, vm.tab == 0).filter { it.first == null || (it.first == GROUP_FAV || it.first == GROUP_HIST) || it.first !in vm.hiddenCats }, key = { _, e -> e.first ?: "\u0001all" }) { idx, (g, label) ->
+                        if (!colsHidden) LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp).onFocusChanged { groupFocus = it.hasFocus }, state = groupState) {
+                            itemsIndexed(entries, key = { _, e -> e.first ?: "\u0001all" }) { _, (g, label) ->
                                 val lock = g != null && (g != GROUP_FAV && g != GROUP_HIST) && vm.catLocked(label)
                                 FocusRow(
                                     selected = sec.top == g,
@@ -391,7 +401,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                                         if (g != null) showCols = false
                                     },
                                     onLongClick = if (g != null && (g != GROUP_FAV && g != GROUP_HIST)) ({ vm.toggleCatLock(label) }) else null,
-                                    requester = if (idx == 0) groupFirst else null,
+                                    requester = if (g == sec.top) selectedRequester else null,
                                 ) {
                                     Text((if (lock) "🔒 " else "") + label, color = if (sec.top == g) Accent else Color.White, maxLines = 1)
                                 }
