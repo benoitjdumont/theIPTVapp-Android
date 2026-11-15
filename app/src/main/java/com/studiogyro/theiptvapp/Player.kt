@@ -555,7 +555,6 @@ fun PlayerScreen(vm: MainVm) {
     }
 }
 
-@Composable
 private val displayModes = listOf("Normal", "Zoom", "4:3", "16:9")
 private val sleepSteps = listOf(0, 15, 30, 60, 90)
 
