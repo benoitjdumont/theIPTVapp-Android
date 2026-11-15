@@ -407,6 +407,25 @@ fun PlayerScreen(vm: MainVm) {
             ) {
                 fun close() { menuStage = 0 }
                 val recents = vm.recentChannels()
+                // flèche : ouvre ou ferme le menu (téléphone)
+                Box(
+                    Modifier
+                        .width(72.dp)
+                        .height(24.dp)
+                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                        .background(Color(0xAA000000))
+                        .clickable {
+                            menuStage = when (menuStage) { 0 -> 1; 1 -> 2; else -> 0 }
+                            if (menuStage == 1 && recents.isEmpty()) menuStage = 2
+                            showUi = true
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        if (menuStage == 0) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        "Menu", tint = Color.White,
+                    )
+                }
                 if (menuStage == 1 && recents.isNotEmpty()) {
                     // raccourcis toujours visibles avec l'historique (sans fond)
                     Row(
@@ -496,25 +515,6 @@ fun PlayerScreen(vm: MainVm) {
                             PlayerMenuItem(label, icon, modifier = if (i == 0) Modifier.focusRequester(menuFirst) else Modifier, onClick = action)
                         }
                     }
-                }
-                // flèche : ouvre ou ferme le menu (téléphone)
-                Box(
-                    Modifier
-                        .width(72.dp)
-                        .height(24.dp)
-                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-                        .background(Color(0xAA000000))
-                        .clickable {
-                            menuStage = when (menuStage) { 0 -> 1; 1 -> 2; else -> 0 }
-                            if (menuStage == 1 && recents.isEmpty()) menuStage = 2
-                            showUi = true
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        if (menuStage == 0) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        "Menu", tint = Color.White,
-                    )
                 }
             }
         }
