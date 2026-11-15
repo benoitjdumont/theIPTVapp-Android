@@ -36,6 +36,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -117,6 +119,9 @@ fun PlayerScreen(vm: MainVm) {
     // menu du bas (comme la télé Samsung) et liste des chaînes par-dessus la vidéo
     var menuOpen by remember(ch.id) { mutableStateOf(false) }
     var listOpen by remember(ch.id) { mutableStateOf(false) }
+    val menuFirst = remember { FocusRequester() }
+    val listFirst = remember { FocusRequester() }
+    val focusRoot = remember { FocusRequester() }
     val activity = remember(ctx) {
         var c: Context = ctx
         while (c is ContextWrapper && c !is Activity) c = c.baseContext
@@ -185,6 +190,10 @@ fun PlayerScreen(vm: MainVm) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(showUi) { if (!showUi) runCatching { focus.requestFocus() } }
+    // menu ouvert : le focus va sur le menu (la télécommande le parcourt) ; fermé : retour à la vidéo
+    LaunchedEffect(menuOpen) { if (menuOpen) runCatching { menuFirst.requestFocus() } }
+    LaunchedEffect(listOpen) { if (listOpen) runCatching { listFirst.requestFocus() } }
+    LaunchedEffect(menuOpen, listOpen) { if (!menuOpen && !listOpen) runCatching { focus.requestFocus() } }
 
     // Retour : ferme d'abord la liste ou le menu, puis revient à l'aperçu (le flux continue)
     BackHandler(true) {
@@ -217,11 +226,14 @@ fun PlayerScreen(vm: MainVm) {
                         else -> false
                     }
                 }
+                // menu ou liste ouverts : les flèches déplacent le focus dans le menu, sans changer de chaîne
+                if (menuOpen || listOpen) return@onKeyEvent false
                 when (ev.key) {
                     Key.DirectionDown, Key.ChannelDown, Key.PageDown -> { vm.step(1); showUi = true; true }
                     Key.DirectionUp, Key.ChannelUp, Key.PageUp -> { vm.step(-1); showUi = true; true }
                     Key.MediaPlayPause -> { player.playWhenReady = !player.playWhenReady; showUi = true; true }
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { showUi = !showUi; true }
+                    // bouton central de la manette : ouvre le menu du bas
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { menuOpen = true; showUi = true; true }
                     else -> false
                 }
             }
@@ -332,7 +344,7 @@ fun PlayerScreen(vm: MainVm) {
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        PlayerMenuItem("Liste des chaînes") { listOpen = true; menuOpen = false }
+                        PlayerMenuItem("Liste des chaînes", Modifier.focusRequester(menuFirst)) { listOpen = true; menuOpen = false }
                         PlayerMenuItem("Rechercher") { listOpen = true; menuOpen = false }
                         PlayerMenuItem(if (rec == null) "⏺ Enregistrer" else "⏹ Arrêter") {
                             if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording()
@@ -373,13 +385,14 @@ fun PlayerScreen(vm: MainVm) {
                         modifier = Modifier.fillMaxWidth(),
                     )
                     LazyColumn(Modifier.fillMaxSize().padding(top = 6.dp)) {
-                        items(shown, key = { it.id }) { c ->
+                        itemsIndexed(shown, key = { _, c -> c.id }) { idx, c ->
                             Text(
-                                c.name,
+                                vm.displayName(c),
                                 color = if (c.id == ch.id) Color(0xFF7FB2FF) else Color.White,
                                 maxLines = 1,
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .let { if (idx == 0) it.focusRequester(listFirst) else it }
                                     .clickable { listOpen = false; vm.play(all, c) }
                                     .padding(horizontal = 10.dp, vertical = 10.dp),
                             )
@@ -435,12 +448,18 @@ fun PlayerScreen(vm: MainVm) {
 }
 
 @Composable
-private fun PlayerMenuItem(label: String, onClick: () -> Unit) {
+private fun PlayerMenuItem(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
     Text(
         label,
         color = Color.White,
         fontSize = 14.sp,
         maxLines = 1,
-        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
+        modifier = modifier
+            .onFocusChanged { focused = it.isFocused }
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (focused) Accent else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
     )
 }

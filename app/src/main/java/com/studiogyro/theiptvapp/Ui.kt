@@ -43,6 +43,9 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -195,7 +198,7 @@ val ListBg get() = tint(0x000000, 0.2f)
 val CellBg get() = tint(0x3A4A9A, 0.33f)
 
 @Composable
-private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
+private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClick: () -> Unit, enabled: Boolean = true, icon: @Composable () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
     Row(
@@ -203,10 +206,11 @@ private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClic
             .fillMaxWidth()
             .padding(horizontal = 6.dp)
             .height(44.dp)
+            .alpha(if (enabled) 1f else 0.3f)
             .clip(shape)
             .background(if (focused) Accent.copy(alpha = 0.55f) else if (selected) Accent.copy(alpha = 0.9f) else Color.Transparent)
             .onFocusChanged { focused = it.isFocused }
-            .clickable(onClick = onClick),
+            .clickable(enabled = enabled, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(44.dp), contentAlignment = Alignment.Center) { icon() }
@@ -258,8 +262,8 @@ private fun Rail(vm: MainVm, searchOpen: Boolean, onSearch: () -> Unit, openSett
     ) {
         RailItem(searchOpen, focus, "Rechercher", onSearch) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
         RailItem(vm.tab == 0, focus, "TV", { vm.selectTab(0) }) { TvIcon() }
-        RailItem(vm.tab == 1, focus, "Films", { vm.selectTab(1) }) { FilmIcon() }
-        RailItem(vm.tab == 2, focus, "Séries", { vm.selectTab(2) }) { SeriesIcon() }
+        RailItem(vm.tab == 1, focus, "Films", { vm.selectTab(1) }, enabled = vm.movies.items.isNotEmpty() || vm.tab == 1) { FilmIcon() }
+        RailItem(vm.tab == 2, focus, "Séries", { vm.selectTab(2) }, enabled = vm.series.items.isNotEmpty() || vm.tab == 2) { SeriesIcon() }
         Spacer(Modifier.weight(1f))
         RailItem(false, focus, "Paramètres", openSettings) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
     }
@@ -270,9 +274,14 @@ private fun Rail(vm: MainVm, searchOpen: Boolean, onSearch: () -> Unit, openSett
 private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     val sec = vm.section()
     var searchOpen by rememberSaveable { mutableStateOf(vm.query.isNotEmpty()) }
+    // une fois une catégorie choisie, les colonnes de gauche se replient : la liste prend tout l'écran
+    var showCols by rememberSaveable { mutableStateOf(true) }
+    LaunchedEffect(vm.tab) { showCols = true }
+    val colsHidden = !showCols && sec.top != null
+    BackHandler(enabled = colsHidden) { showCols = true }
     Box(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxSize()) {
-        Spacer(Modifier.width(56.dp))
+        if (!colsHidden) Spacer(Modifier.width(56.dp))
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when {
                 vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
@@ -296,19 +305,22 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                     val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs) { vm.visible() }
                     val subs = sec.subs()
                     Row(Modifier.fillMaxSize()) {
-                        LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp)) {
+                        if (!colsHidden) LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp)) {
                             items(topEntries(sec, vm.tab == 0).filter { it.first == null || (it.first == GROUP_FAV || it.first == GROUP_HIST) || it.first !in vm.hiddenCats }, key = { it.first ?: "\u0001all" }) { (g, label) ->
                                 val lock = g != null && (g != GROUP_FAV && g != GROUP_HIST) && vm.catLocked(label)
                                 FocusRow(
                                     selected = sec.top == g,
-                                    onClick = { if (g == null || (g == GROUP_FAV || g == GROUP_HIST)) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) } },
+                                    onClick = {
+                                        if (g == null || (g == GROUP_FAV || g == GROUP_HIST)) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) }
+                                        if (g != null) showCols = false
+                                    },
                                     onLongClick = if (g != null && (g != GROUP_FAV && g != GROUP_HIST)) ({ vm.toggleCatLock(label) }) else null,
                                 ) {
                                     Text((if (lock) "🔒 " else "") + label, color = if (sec.top == g) Accent else Color.White, maxLines = 1)
                                 }
                             }
                         }
-                        if (subs.isNotEmpty()) {
+                        if (subs.isNotEmpty() && !colsHidden) {
                             LazyColumn(Modifier.width(180.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp)) {
                                 item(key = "\u0001subAll") {
                                     FocusRow(selected = sec.sub == null, onClick = { sec.pickSub(null) }) {
@@ -346,8 +358,24 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
             }
         }
     }
-    Rail(vm, searchOpen, { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }, openSettings)
+    if (!colsHidden) Rail(vm, searchOpen, { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }, openSettings)
+    else EdgeHandle { showCols = true }
     }
+}
+
+/** Bord gauche replié : touche-le (ou la manette à gauche) pour ré-afficher les colonnes. */
+@Composable
+private fun EdgeHandle(onOpen: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Box(
+        Modifier
+            .fillMaxHeight()
+            .width(26.dp)
+            .background(if (focused) Accent.copy(alpha = 0.6f) else Color(0x66000000))
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) onOpen() }
+            .clickable(onClick = onOpen),
+        contentAlignment = Alignment.Center,
+    ) { Icon(Icons.Default.KeyboardArrowRight, "Afficher les colonnes", tint = Color.White) }
 }
 
 @Composable
@@ -357,7 +385,8 @@ private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
         // une seule rangée : l'écran est toujours à l'horizontale
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Direct", "Films", "Séries").forEachIndexed { i, label ->
-                FilterChip(selected = vm.tab == i, onClick = { vm.selectTab(i) }, label = { Text(label) })
+                val ok = i == 0 || (if (i == 1) vm.movies.items.isNotEmpty() else vm.series.items.isNotEmpty()) || vm.tab == i
+                FilterChip(selected = vm.tab == i, enabled = ok, onClick = { vm.selectTab(i) }, label = { Text(label) })
             }
             OutlinedTextField(
                 value = vm.query,
@@ -668,7 +697,16 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
         ) { PreviewBox(pv) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f).fillMaxHeight()) {
-            Text(pv.name, color = Color.White, fontSize = 17.sp, maxLines = 1)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(vm.displayName(pv), color = Color.White, fontSize = 17.sp, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                val fav = vm.isFav(pv)
+                Icon(
+                    if (fav) Icons.Default.Star else Icons.Default.StarBorder,
+                    if (fav) "Retirer des favoris" else "Ajouter aux favoris",
+                    tint = if (fav) Color(0xFFFFC107) else Color.White,
+                    modifier = Modifier.padding(start = 8.dp).size(24.dp).clickable { vm.toggleFav(pv) },
+                )
+            }
             val now = e?.now
             if (now != null) {
                 Text("${now.title}  ${hm(now.start)} – ${hm(now.stop)}", color = Color(0xFF9DB4D8), fontSize = 12.sp, maxLines = 1)
@@ -871,7 +909,8 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
     BackHandler(true) {
         when {
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
-            page == "rename" -> page = "look"
+            page == "rename" -> page = "look_guide"
+            page.startsWith("look_") -> page = "look"
             page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
             canClose -> back()
         }
@@ -889,6 +928,9 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
         page == "epg" -> "Guide (EPG)"
         page == "backup" -> "Sauvegarde"
         page == "look" -> "Apparence"
+        page == "look_color" -> "Couleur de l'interface"
+        page == "look_bg" -> "Image de fond"
+        page == "look_guide" -> "Guide TV"
         page == "rec" -> "Enregistrements"
         page == "parental" -> "Contrôle parental"
         page == "update" -> "Mises à jour"
@@ -940,7 +982,20 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                         page == "look" -> {
                             PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first, first = true) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
                             PanelItem("Transparence de l'interface", TRANSPS[vm.transpIdx].first) { vm.changeTransp((vm.transpIdx + 1) % TRANSPS.size) }
-                            PanelLabel("Guide TV")
+                            PanelItem("Couleur de l'interface", ACCENTS[vm.accentIdx].first) { page = "look_color" }
+                            PanelItem("Image de fond", if (vm.bgPath != null) "Une image est active" else "Aucune") { page = "look_bg" }
+                            PanelItem("Guide TV") { page = "look_guide" }
+                        }
+                        page == "look_color" -> {
+                            ACCENTS.forEachIndexed { i, (n, c) ->
+                                PanelItem(n, first = i == 0, trailing = { if (i == vm.accentIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeAccent(i) }
+                            }
+                        }
+                        page == "look_bg" -> {
+                            PanelItem("Choisir une image", first = true) { vm.pickBackground?.invoke() }
+                            if (vm.bgPath != null) PanelItem("Retirer l'image") { vm.clearBackground() }
+                        }
+                        page == "look_guide" -> {
                             PanelItem("Afficher les numéros de chaîne", first = true, trailing = { PanelSwitch(vm.opt("numbers")) }) { vm.setOpt("numbers", !vm.opt("numbers")) }
                             PanelItem("Afficher le nom de chaîne", trailing = { PanelSwitch(vm.opt("names")) }) { vm.setOpt("names", !vm.opt("names")) }
                             PanelItem("Icône de rattrapage dans la liste", trailing = { PanelSwitch(vm.opt("replay")) }) { vm.setOpt("replay", !vm.opt("replay")) }
@@ -950,13 +1005,6 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                             PanelItem("Mettre en évidence uniquement la progression", trailing = { PanelSwitch(vm.opt("progonly", false)) }) { vm.setOpt("progonly", !vm.opt("progonly", false)) }
                             PanelItem("Trier les chaînes de A à Z", "Sinon : ordre de la liste", trailing = { PanelSwitch(vm.opt("sortaz", false)) }) { vm.setOpt("sortaz", !vm.opt("sortaz", false)) }
                             PanelItem("Renommer des chaînes") { page = "rename" }
-                            PanelLabel("Image de fond")
-                            PanelItem("Choisir une image", if (vm.bgPath != null) "Une image est active" else null) { vm.pickBackground?.invoke() }
-                            if (vm.bgPath != null) PanelItem("Retirer l'image") { vm.clearBackground() }
-                            PanelLabel("Couleur de l'interface")
-                            ACCENTS.forEachIndexed { i, (n, c) ->
-                                PanelItem(n, trailing = { if (i == vm.accentIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeAccent(i) }
-                            }
                         }
                         page == "playback" -> {
                             PanelItem("Reprendre la dernière chaîne", "Au démarrage de l'appli", first = true, trailing = { PanelSwitch(vm.autoResume) }) { vm.changeAutoResume(!vm.autoResume) }
