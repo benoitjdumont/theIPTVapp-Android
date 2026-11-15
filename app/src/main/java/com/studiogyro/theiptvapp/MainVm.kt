@@ -267,6 +267,25 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         if (if (startup) store.epgOnStart() else store.epgOnList()) refreshGuide(auto = true)
     }
 
+    // ---- apparence : guide TV, noms, image de fond
+    var optVersion by mutableStateOf(0); private set
+    fun opt(key: String, def: Boolean = true): Boolean = store.guideOpt(key, def)
+    fun setOpt(key: String, b: Boolean) { store.saveGuideOpt(key, b); optVersion++ }
+    var renames by mutableStateOf(store.renames()); private set
+    fun displayName(c: Channel): String = renames[c.id] ?: c.name
+    fun rename(c: Channel, name: String) {
+        renames = if (name.isBlank()) renames - c.id else renames + (c.id to name.trim())
+        store.saveRenames(renames)
+    }
+    var bgPath by mutableStateOf(store.bgPath()); private set
+    var pickBackground: (() -> Unit)? = null
+    fun setBackground(ctx: android.content.Context, uri: android.net.Uri) {
+        val f = java.io.File(ctx.filesDir, "background.jpg")
+        runCatching { ctx.contentResolver.openInputStream(uri)?.use { i -> f.outputStream().use { o -> i.copyTo(o) } } }
+            .onSuccess { bgPath = f.absolutePath; store.saveBgPath(bgPath) }
+    }
+    fun clearBackground() { bgPath = null; store.saveBgPath(null) }
+
     // ---- préférences générales
     private var guideStarted = false
     var pipOnHome by mutableStateOf(store.pipOnHome()); private set
@@ -457,6 +476,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         val sec = section()
         var l = sec.visible(query, { isFav(it) }, { it.id in history })
         if (sec.top == GROUP_HIST) l = l.sortedBy { history.indexOf(it.id) }
+        if (tab == 0 && store.guideOpt("sortaz", false)) l = l.sortedBy { displayName(it).lowercase() }
         return if (hiddenCats.isEmpty()) l else l.filterNot { groupHidden(it) }
     }
 

@@ -113,4 +113,19 @@ class Store(ctx: Context) {
         }
         return e.commit()
     }
+
+    // ---- apparence : guide TV, noms de chaînes, image de fond
+    fun guideOpt(key: String, def: Boolean): Boolean = sp.getBoolean("g_$key", def)
+    fun saveGuideOpt(key: String, b: Boolean) = sp.edit().putBoolean("g_$key", b).apply()
+    fun renames(): Map<String, String> {
+        val o = runCatching { org.json.JSONObject(sp.getString("renames", "{}") ?: "{}") }.getOrElse { org.json.JSONObject() }
+        return o.keys().asSequence().associateWith { o.optString(it) }
+    }
+    fun saveRenames(m: Map<String, String>) {
+        val o = org.json.JSONObject()
+        m.forEach { (k, v) -> o.put(k, v) }
+        sp.edit().putString("renames", o.toString()).apply()
+    }
+    fun bgPath(): String? = sp.getString("bg", null)
+    fun saveBgPath(p: String?) = sp.edit().putString("bg", p).apply()
 }

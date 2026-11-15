@@ -133,6 +133,9 @@ fun AppRoot(vm: MainVm) {
             }
         }
         Surface(Modifier.fillMaxSize().background(BgBrush), color = Color.Transparent) {
+            vm.bgPath?.let { path ->
+                AsyncImage(model = java.io.File(path), contentDescription = null, contentScale = ContentScale.Crop, alpha = 0.35f, modifier = Modifier.fillMaxSize())
+            }
             if (vm.current != null) {
                 PlayerScreen(vm)
             } else if (vm.movieOpen != null) {
@@ -708,10 +711,10 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
 }
 
 @Composable
-private fun EpgCell(title: String?, sub: String?, progress: Float?, modifier: Modifier, highlight: Boolean = false) {
+private fun EpgCell(title: String?, sub: String?, progress: Float?, modifier: Modifier, highlight: Boolean = false, twoLines: Boolean = false) {
     Box(modifier.padding(horizontal = 1.dp).clip(RoundedCornerShape(4.dp)).background(if (highlight) Accent.copy(alpha = 0.35f) else CellBg)) {
         Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
-            Text(title ?: "Pas d'information", color = if (title == null) Color(0xFF7D8A96) else Color.White, fontSize = 12.sp, maxLines = 1)
+            Text(title ?: "Pas d'information", color = if (title == null) Color(0xFF7D8A96) else Color.White, fontSize = 12.sp, maxLines = if (twoLines) 2 else 1)
             if (sub != null) Text(sub, color = Color(0xFF9DB4D8), fontSize = 10.sp, maxLines = 1)
         }
         if (progress != null) {
@@ -761,7 +764,8 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                     ) {
                         LaunchedEffect(c.id, vm.xmltvReady) { vm.loadEpg(c) }
                         val e = vm.epg[c.id]
-                        Text("${i + 1}", color = Color(0xFFB8C4DA), fontSize = 13.sp, modifier = Modifier.width(30.dp))
+                        val vOpt = vm.optVersion
+                        if (vm.opt("numbers")) Text("${i + 1}", color = Color(0xFFB8C4DA), fontSize = 13.sp, modifier = Modifier.width(30.dp))
                         if (c.logo.isNotBlank()) {
                             AsyncImage(
                                 model = c.logo,
@@ -773,9 +777,11 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                             Box(Modifier.size(34.dp).clip(RoundedCornerShape(5.dp)).background(Panel))
                         }
                         Spacer(Modifier.width(8.dp))
-                        Text(
-                            (if (vm.isLocked(c)) "🔒 " else "") + (if (vm.isFav(c)) "★ " else "") + c.name,
-                            color = Color.White, fontSize = 13.sp, maxLines = 1,
+                        if (vm.opt("replay") && c.archive > 0) Text("⏪ ", color = Accent, fontSize = 12.sp)
+                        if (vm.opt("names")) Text(
+                            (if (vm.isLocked(c)) "🔒 " else "") + (if (vm.isFav(c)) "★ " else "") + vm.displayName(c),
+                            color = if (vm.opt("curcolor") && vm.current?.id == c.id) Color(0xFF7FB2FF) else Color.White,
+                            fontSize = 13.sp, maxLines = 1,
                             modifier = Modifier.width(128.dp),
                         )
                         val progs = (e?.list ?: emptyList()).filter { it.stop > ws && it.start < ws + winMin * 60_000L }
@@ -787,7 +793,13 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                                     val x0 = xOf(p.start)
                                     val w = (xOf(p.stop) - x0).coerceAtLeast(6.dp)
                                     val isNow = p.start <= nowMs && p.stop > nowMs
-                                    EpgCell(p.title, null, null, Modifier.offset(x = x0).width(w).fillMaxHeight(), highlight = isNow)
+                                    val frac = if (isNow) ((nowMs - p.start).toFloat() / (p.stop - p.start).coerceAtLeast(1)) else null
+                                    EpgCell(
+                                        p.title, null, frac,
+                                        Modifier.offset(x = x0).width(w).fillMaxHeight(),
+                                        highlight = isNow && vm.opt("highlight") && !vm.opt("progonly", false),
+                                        twoLines = vm.opt("twolines", false),
+                                    )
                                 }
                             }
                             // trait de l'heure actuelle
@@ -859,6 +871,7 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
     BackHandler(true) {
         when {
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
+            page == "rename" -> page = "look"
             page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
             canClose -> back()
         }
@@ -872,6 +885,7 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
         page == "groups" -> "Groupes"
         page == "playback" -> "Préférences générales"
         page == "network" -> "Réseau"
+        page == "rename" -> "Renommer des chaînes"
         page == "epg" -> "Guide (EPG)"
         page == "backup" -> "Sauvegarde"
         page == "look" -> "Apparence"
@@ -926,6 +940,19 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                         page == "look" -> {
                             PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first, first = true) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
                             PanelItem("Transparence de l'interface", TRANSPS[vm.transpIdx].first) { vm.changeTransp((vm.transpIdx + 1) % TRANSPS.size) }
+                            PanelLabel("Guide TV")
+                            PanelItem("Afficher les numéros de chaîne", first = true, trailing = { PanelSwitch(vm.opt("numbers")) }) { vm.setOpt("numbers", !vm.opt("numbers")) }
+                            PanelItem("Afficher le nom de chaîne", trailing = { PanelSwitch(vm.opt("names")) }) { vm.setOpt("names", !vm.opt("names")) }
+                            PanelItem("Icône de rattrapage dans la liste", trailing = { PanelSwitch(vm.opt("replay")) }) { vm.setOpt("replay", !vm.opt("replay")) }
+                            PanelItem("Titre de programme sur deux lignes", trailing = { PanelSwitch(vm.opt("twolines", false)) }) { vm.setOpt("twolines", !vm.opt("twolines", false)) }
+                            PanelItem("Chaîne actuelle dans une autre couleur", trailing = { PanelSwitch(vm.opt("curcolor")) }) { vm.setOpt("curcolor", !vm.opt("curcolor")) }
+                            PanelItem("Mettre en évidence le programme actuel", trailing = { PanelSwitch(vm.opt("highlight")) }) { vm.setOpt("highlight", !vm.opt("highlight")) }
+                            PanelItem("Mettre en évidence uniquement la progression", trailing = { PanelSwitch(vm.opt("progonly", false)) }) { vm.setOpt("progonly", !vm.opt("progonly", false)) }
+                            PanelItem("Trier les chaînes de A à Z", "Sinon : ordre de la liste", trailing = { PanelSwitch(vm.opt("sortaz", false)) }) { vm.setOpt("sortaz", !vm.opt("sortaz", false)) }
+                            PanelItem("Renommer des chaînes") { page = "rename" }
+                            PanelLabel("Image de fond")
+                            PanelItem("Choisir une image", if (vm.bgPath != null) "Une image est active" else null) { vm.pickBackground?.invoke() }
+                            if (vm.bgPath != null) PanelItem("Retirer l'image") { vm.clearBackground() }
                             PanelLabel("Couleur de l'interface")
                             ACCENTS.forEachIndexed { i, (n, c) ->
                                 PanelItem(n, trailing = { if (i == vm.accentIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeAccent(i) }
@@ -939,6 +966,7 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                             PanelItem("Démarrer au démarrage d'Android", "Ouvre l'appli quand l'appareil démarre", trailing = { PanelSwitch(vm.bootStart) }) { vm.changeBootStart(!vm.bootStart) }
                         }
                         page == "network" -> NetworkPage(vm)
+                        page == "rename" -> RenamePage(vm)
                         page == "epg" -> EpgPage(vm)
                         page == "backup" -> BackupPage(vm)
                         page == "rec" -> Column(Modifier.padding(horizontal = 12.dp)) { RecordingsSection(vm) }
@@ -958,6 +986,30 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RenamePage(vm: MainVm) {
+    var target by remember { mutableStateOf<Channel?>(null) }
+    var text by remember { mutableStateOf("") }
+    Column(Modifier.padding(horizontal = 6.dp)) {
+        PanelLabel("Touchez une chaîne pour changer son nom affiché. Nom vide = nom d'origine.")
+        vm.live.items.forEachIndexed { i, c ->
+            PanelItem(vm.displayName(c), if (vm.displayName(c) != c.name) "Original : ${c.name}" else null, first = i == 0) {
+                target = c
+                text = vm.displayName(c)
+            }
+        }
+    }
+    target?.let { c ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { target = null },
+            title = { Text("Nom de la chaîne") },
+            text = { OutlinedTextField(text, { text = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+            confirmButton = { Button(onClick = { vm.rename(c, text); target = null }) { Text("OK") } },
+            dismissButton = { OutlinedButton(onClick = { vm.rename(c, ""); target = null }) { Text("Original") } },
+        )
     }
 }
 

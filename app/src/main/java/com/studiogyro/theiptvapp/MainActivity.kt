@@ -16,6 +16,10 @@ class MainActivity : ComponentActivity() {
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
     ) { uri -> uri?.let { vm.writeBackup(this, it) } }
 
+    private val pickBackground = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { vm.setBackground(this, it) } }
+
     private val openBackup = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { vm.readBackup(this, it) } }
@@ -24,7 +28,26 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         vm.createBackup = { createBackup.launch("theiptvapp-sauvegarde.json") }
         vm.openBackup = { openBackup.launch(arrayOf("application/json", "text/plain", "*/*")) }
+        vm.pickBackground = { pickBackground.launch("image/*") }
         setContent { AppRoot(vm) }
+    }
+
+    /**
+     * Manette Google TV : le bouton A valide, B revient en arrière, L1/R1 changent de chaîne (page précédente/suivante).
+     */
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val code = when (event.keyCode) {
+            android.view.KeyEvent.KEYCODE_BUTTON_A -> android.view.KeyEvent.KEYCODE_DPAD_CENTER
+            android.view.KeyEvent.KEYCODE_BUTTON_B -> android.view.KeyEvent.KEYCODE_BACK
+            android.view.KeyEvent.KEYCODE_BUTTON_L1 -> android.view.KeyEvent.KEYCODE_PAGE_UP
+            android.view.KeyEvent.KEYCODE_BUTTON_R1 -> android.view.KeyEvent.KEYCODE_PAGE_DOWN
+            else -> return super.dispatchKeyEvent(event)
+        }
+        val mapped = android.view.KeyEvent(
+            event.downTime, event.eventTime, event.action, code, event.repeatCount,
+            event.metaState, event.deviceId, event.scanCode, event.flags, event.source,
+        )
+        return super.dispatchKeyEvent(mapped)
     }
 
     /** Leaving the app while a channel plays shrinks it into a small floating window (si l'option est active). */
