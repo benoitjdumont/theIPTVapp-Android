@@ -152,6 +152,13 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     fun section(): Section = when (tab) { 0 -> live; 1 -> movies; else -> series }
 
+    /** Films / Séries cliquables : grisés seulement quand la liste est chargée et vide (Xtream : chargée en arrière-plan). */
+    fun vodEnabled(which: Int): Boolean {
+        if (tab == which) return true
+        val sec = if (which == 1) movies else series
+        return if (activeSource?.type == SourceType.XTREAM) !(sec.loaded && sec.items.isEmpty()) else sec.items.isNotEmpty()
+    }
+
     /** incrémenté à chaque clic sur TV / Films / Séries : le focus passe alors dans la colonne des catégories */
     var tabTick by mutableStateOf(0); private set
 

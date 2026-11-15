@@ -71,6 +71,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -178,7 +179,7 @@ fun FocusRow(selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? 
     Row(
         Modifier
             .fillMaxWidth()
-            .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
+            .then(if (requester != null) Modifier.focusRequester(requester).focusProperties { up = androidx.compose.ui.focus.FocusRequester.Cancel } else Modifier)
             .clip(shape)
             .background(if (focused) Accent.copy(alpha = 0.35f) else if (selected) Accent.copy(alpha = 0.18f) else Color.Transparent)
             .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
@@ -274,8 +275,8 @@ private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, sear
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         RailItem(vm.tab == 0, focus, "TV", { vm.selectTab(0) }) { TvIcon() }
-        RailItem(vm.tab == 1, focus, "Films", { vm.selectTab(1) }, enabled = vm.movies.items.isNotEmpty() || vm.tab == 1) { FilmIcon() }
-        RailItem(vm.tab == 2, focus, "Séries", { vm.selectTab(2) }, enabled = vm.series.items.isNotEmpty() || vm.tab == 2) { SeriesIcon() }
+        RailItem(vm.tab == 1, focus, "Films", { vm.selectTab(1) }, enabled = vm.vodEnabled(1)) { FilmIcon() }
+        RailItem(vm.tab == 2, focus, "Séries", { vm.selectTab(2) }, enabled = vm.vodEnabled(2)) { SeriesIcon() }
         Spacer(Modifier.weight(1f))
         RailItem(searchOpen, focus, "Rechercher", onSearch) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
         RailItem(false, focus, "Paramètres", openSettings) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
@@ -420,7 +421,7 @@ private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
         // une seule rangée : l'écran est toujours à l'horizontale
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Direct", "Films", "Séries").forEachIndexed { i, label ->
-                val ok = i == 0 || (if (i == 1) vm.movies.items.isNotEmpty() else vm.series.items.isNotEmpty()) || vm.tab == i
+                val ok = i == 0 || vm.vodEnabled(i)
                 FilterChip(selected = vm.tab == i, enabled = ok, onClick = { vm.selectTab(i) }, label = { Text(label) })
             }
             OutlinedTextField(
