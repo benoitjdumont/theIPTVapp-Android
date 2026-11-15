@@ -12,15 +12,25 @@ import androidx.activity.viewModels
 class MainActivity : ComponentActivity() {
     private val vm: MainVm by viewModels()
 
+    private val createBackup = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { vm.writeBackup(this, it) } }
+
+    private val openBackup = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { vm.readBackup(this, it) } }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        vm.createBackup = { createBackup.launch("theiptvapp-sauvegarde.json") }
+        vm.openBackup = { openBackup.launch(arrayOf("application/json", "text/plain", "*/*")) }
         setContent { AppRoot(vm) }
     }
 
-    /** Leaving the app while a channel plays shrinks it into a small floating window. */
+    /** Leaving the app while a channel plays shrinks it into a small floating window (si l'option est active). */
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (vm.current != null) enterPip()
+        if (vm.current != null && vm.pipOnHome) enterPip()
     }
 
     fun enterPip() {

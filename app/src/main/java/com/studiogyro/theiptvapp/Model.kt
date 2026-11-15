@@ -57,7 +57,7 @@ data class Detail(val plot: String, val meta: String, val cast: String, val trai
 
 data class SeriesData(val plot: String, val seasons: Map<Int, List<Channel>>, val cover: String = "")
 
-data class Prog(val title: String, val start: Long, val stop: Long)
+data class Prog(val title: String, val start: Long, val stop: Long, val desc: String = "")
 
 /** Programme guide of one channel: what is on now and what comes next (times in ms). */
 data class Epg(val now: Prog?, val next: Prog?, val until: Long, val list: List<Prog> = emptyList())

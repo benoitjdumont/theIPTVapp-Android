@@ -15,14 +15,30 @@ object Repo {
     const val LIST_UA = "theIPTVapp/0.1 (Android)"
     @Volatile var xmltvUrl: String = ""
 
-    const val STREAM_UA = "VLC/3.0.20 LibVLC/3.0.20"
+    /** User-Agent des flux vidéo (modifiable dans Réglages → Réseau) */
+    @Volatile var streamUa: String = "VLC/3.0.20 LibVLC/3.0.20"
 
-    val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .followSslRedirects(true)
-        .build()
+    @Volatile var client: OkHttpClient = build("", "")
+
+    /** Applique le User-Agent et le proxy choisis dans les réglages. proxy = "hôte:port" ou vide. */
+    fun configure(ua: String, proxy: String) {
+        streamUa = ua.trim().ifEmpty { "VLC/3.0.20 LibVLC/3.0.20" }
+        client = build(ua, proxy)
+    }
+
+    private fun build(ua: String, proxy: String): OkHttpClient {
+        val b = OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+        val host = proxy.trim().substringBefore(':')
+        val port = proxy.trim().substringAfter(':', "").toIntOrNull()
+        if (host.isNotEmpty() && port != null) {
+            b.proxy(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress(host, port)))
+        }
+        return b.build()
+    }
 
     suspend fun load(src: Source): List<Channel> = withContext(Dispatchers.IO) {
         when (src.type) {
@@ -161,11 +177,11 @@ object Repo {
         return m
     }
 
-    /** Reads an XMLTV guide (plain or gzip) and keeps the next 12 hours for the wanted channels. */
-    suspend fun loadXmltv(url: String, ids: Set<String>): Map<String, List<Prog>> = withContext(Dispatchers.IO) {
+    /** Reads an XMLTV guide (plain or gzip) and keeps `days` days ahead for the wanted channels. */
+    suspend fun loadXmltv(url: String, ids: Set<String>, days: Int, withDesc: Boolean): Map<String, List<Prog>> = withContext(Dispatchers.IO) {
         val out = HashMap<String, MutableList<Prog>>()
         val nowMs = System.currentTimeMillis()
-        val horizon = nowMs + 12 * 3600_000L
+        val horizon = nowMs + days.coerceIn(1, 30) * 86400_000L
         val req = Request.Builder().url(url).header("User-Agent", LIST_UA).build()
         client.newCall(req).execute().use { r ->
             if (!r.isSuccessful) throw RuntimeException("HTTP ${r.code}")
@@ -181,6 +197,7 @@ object Repo {
             var start = 0L
             var stop = 0L
             var title = ""
+            var desc = ""
             var keep = false
             var ev = p.eventType
             while (ev != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
@@ -190,12 +207,15 @@ object Repo {
                         start = xmltvTime(p.getAttributeValue(null, "start"))
                         stop = xmltvTime(p.getAttributeValue(null, "stop"))
                         title = ""
+                        desc = ""
                         keep = channel in ids && stop > nowMs && start < horizon
                     } else if (p.name == "title" && keep && title.isEmpty()) {
                         title = p.nextText().trim()
+                    } else if (p.name == "desc" && keep && withDesc && desc.isEmpty()) {
+                        desc = p.nextText().trim()
                     }
                 } else if (ev == org.xmlpull.v1.XmlPullParser.END_TAG && p.name == "programme") {
-                    if (keep && title.isNotEmpty()) out.getOrPut(channel) { ArrayList() }.add(Prog(title, start, stop))
+                    if (keep && title.isNotEmpty()) out.getOrPut(channel) { ArrayList() }.add(Prog(title, start, stop, desc))
                     keep = false
                 }
                 ev = p.next()

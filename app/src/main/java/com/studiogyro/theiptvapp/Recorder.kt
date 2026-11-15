@@ -36,7 +36,7 @@ object Recorder {
     fun dir(ctx: Context): File =
         File(ctx.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES) ?: ctx.filesDir, "theIPTVapp").apply { mkdirs() }
 
-    private fun request(url: String) = Request.Builder().url(url).header("User-Agent", Repo.STREAM_UA).build()
+    private fun request(url: String) = Request.Builder().url(url).header("User-Agent", Repo.streamUa).build()
 
     suspend fun record(c: Channel, file: File, onBytes: (Long) -> Unit) {
         val url = c.alt.firstOrNull { it.contains(".ts", ignoreCase = true) } ?: c.url

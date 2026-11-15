@@ -30,7 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 fun PreviewBox(ch: Channel, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val player = remember {
-        val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.STREAM_UA)
+        val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.streamUa)
         ExoPlayer.Builder(ctx)
             .setLoadControl(androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(2000, 6000, 800, 1500).build())
             .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build()

@@ -141,11 +141,13 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     private val activeSource: Source? get() = sources.firstOrNull { it.id == activeId }
 
     init {
+        Repo.configure(store.userAgent(), store.proxy())
         viewModelScope.launch { while (true) { kotlinx.coroutines.delay(60_000); clock = System.currentTimeMillis() } }
         Accent = ACCENTS[store.accent().coerceIn(0, ACCENTS.lastIndex)].second
         UiAlpha = TRANSPS[store.transp().coerceIn(0, TRANSPS.lastIndex)].second
         reload()
         checkUpdate(silent = true)
+        guideTimer()
     }
 
     fun section(): Section = when (tab) { 0 -> live; 1 -> movies; else -> series }
@@ -259,17 +261,115 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         }
         xmltvReady = false
         xmltv = emptyMap()
+        // mise à jour du guide : au démarrage, puis à chaque changement de liste (réglages EPG)
+        val startup = !guideStarted
+        guideStarted = true
+        if (if (startup) store.epgOnStart() else store.epgOnList()) refreshGuide(auto = true)
+    }
+
+    // ---- préférences générales
+    private var guideStarted = false
+    var pipOnHome by mutableStateOf(store.pipOnHome()); private set
+    fun changePipOnHome(b: Boolean) { pipOnHome = b; store.savePipOnHome(b) }
+    var doubleBack by mutableStateOf(store.doubleBack()); private set
+    fun changeDoubleBack(b: Boolean) { doubleBack = b; store.saveDoubleBack(b) }
+    var bootStart by mutableStateOf(store.bootStart()); private set
+    fun changeBootStart(b: Boolean) { bootStart = b; store.saveBootStart(b) }
+
+    // ---- réseau
+    var userAgent by mutableStateOf(store.userAgent()); private set
+    var proxy by mutableStateOf(store.proxy()); private set
+    fun saveNetwork(ua: String, px: String) {
+        userAgent = ua.trim(); proxy = px.trim()
+        store.saveUserAgent(userAgent); store.saveProxy(proxy)
+        Repo.configure(userAgent, proxy)
+        applyNetworkNote = "Réglages réseau enregistrés. Recharge la liste pour les utiliser."
+    }
+    var applyNetworkNote by mutableStateOf(""); private set
+
+    // ---- guide (EPG)
+    var epgDays by mutableStateOf(store.epgDays()); private set
+    fun changeEpgDays(n: Int) { epgDays = n.coerceIn(1, 30); store.saveEpgDays(epgDays) }
+    var epgDesc by mutableStateOf(store.epgDesc()); private set
+    fun changeEpgDesc(b: Boolean) { epgDesc = b; store.saveEpgDesc(b) }
+    var epgInterval by mutableStateOf(store.epgInterval()); private set
+    fun changeEpgInterval(h: Int) { epgInterval = h.coerceIn(0, 168); store.saveEpgInterval(epgInterval) }
+    var epgOnStart by mutableStateOf(store.epgOnStart()); private set
+    fun changeEpgOnStart(b: Boolean) { epgOnStart = b; store.saveEpgOnStart(b) }
+    var epgOnList by mutableStateOf(store.epgOnList()); private set
+    fun changeEpgOnList(b: Boolean) { epgOnList = b; store.saveEpgOnList(b) }
+    var epgStatus by mutableStateOf(store.epgStatus().ifEmpty { "Jamais mis à jour" }); private set
+    var epgBusy by mutableStateOf(false); private set
+
+    /** Télécharge le guide XMLTV de la liste active. auto = déclenché par le réglage (pas d'erreur affichée). */
+    fun refreshGuide(auto: Boolean = false) {
         val url = Repo.xmltvUrl
-        if (s.type == SourceType.M3U && url.isNotBlank()) {
-            val ids = live.items.map { it.epgId }.filter { it.isNotEmpty() }.toSet()
-            if (ids.isNotEmpty()) viewModelScope.launch {
-                try {
-                    xmltv = Repo.loadXmltv(url, ids)
-                    epg.clear()
-                    xmltvReady = true
-                } catch (_: Exception) { }
+        val s = activeSource
+        if (epgBusy) return
+        if (s == null || s.type != SourceType.M3U || url.isBlank()) {
+            if (!auto) epgStatus = "Cette liste n'a pas de guide XMLTV."
+            return
+        }
+        val ids = live.items.map { it.epgId }.filter { it.isNotEmpty() }.toSet()
+        if (ids.isEmpty()) {
+            if (!auto) epgStatus = "Aucune chaîne avec un identifiant de guide."
+            return
+        }
+        epgBusy = true
+        xmltvReady = false
+        viewModelScope.launch {
+            try {
+                xmltv = Repo.loadXmltv(url, ids, store.epgDays(), store.epgDesc())
+                epg.clear()
+                xmltvReady = true
+                val now = System.currentTimeMillis()
+                epgStatus = "Mis à jour à ${hm(now)} · ${xmltv.size} chaîne(s)"
+                store.saveEpgStatus(now, epgStatus)
+            } catch (e: Exception) {
+                epgStatus = "Échec de la mise à jour : ${e.message ?: "erreur"}"
+                if (!auto) store.saveEpgStatus(System.currentTimeMillis(), epgStatus)
+            } finally {
+                epgBusy = false
             }
         }
+    }
+
+    fun clearGuide() {
+        xmltv = emptyMap()
+        xmltvReady = false
+        epg.clear()
+        store.saveEpgStatus(0L, "")
+        epgStatus = "Guide effacé."
+    }
+
+    /** Mise à jour périodique selon l'intervalle choisi (0 = jamais). */
+    private fun guideTimer() {
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(15 * 60_000L)
+                val h = store.epgInterval()
+                if (h > 0 && System.currentTimeMillis() - store.epgLast() >= h * 3_600_000L) refreshGuide(auto = true)
+            }
+        }
+    }
+
+    // ---- sauvegarde / restauration (les lanceurs de fichiers viennent de MainActivity)
+    var createBackup: (() -> Unit)? = null
+    var openBackup: (() -> Unit)? = null
+    var backupMessage by mutableStateOf(""); private set
+
+    fun writeBackup(ctx: android.content.Context, uri: android.net.Uri) {
+        backupMessage = try {
+            ctx.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(store.backupJson()) }
+            "Sauvegarde enregistrée."
+        } catch (e: Exception) { "Sauvegarde impossible : ${e.message}" }
+    }
+
+    fun readBackup(ctx: android.content.Context, uri: android.net.Uri) {
+        val text = try { ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } } catch (e: Exception) { null }
+        backupMessage = if (text != null && store.restoreJson(text)) {
+            "Restauration terminée. Redémarre l'appli pour tout appliquer."
+        } else "Fichier de sauvegarde invalide."
     }
 
     // ---- image dans l'image

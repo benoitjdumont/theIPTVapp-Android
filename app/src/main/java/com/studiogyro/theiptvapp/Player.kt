@@ -90,7 +90,7 @@ fun PlayerScreen(vm: MainVm) {
     }
 
     val player = remember {
-        val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.STREAM_UA)
+        val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.streamUa)
         ExoPlayer.Builder(ctx).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build()
     }
     DisposableEffect(Unit) { onDispose { player.release() } }

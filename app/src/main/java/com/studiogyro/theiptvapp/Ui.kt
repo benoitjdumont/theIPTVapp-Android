@@ -91,6 +91,7 @@ val ACCENTS = listOf(
     "Orange" to Color(0xFFF57C00),
     "Rouge" to Color(0xFFE53935),
     "Rose" to Color(0xFFE91E8C),
+    "Gris" to Color(0xFF7C8593),
 )
 
 val BgBrush = androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF16205E), Color(0xFF0B1230), Color(0xFF0E1A4A)))
@@ -118,8 +119,20 @@ fun AppRoot(vm: MainVm) {
     MaterialTheme(colorScheme = scheme) {
         PinDialog(vm)
         UpdateDialog(vm)
+        var screen by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "settings" else "home") }
+        // Retour sur l'accueil : quitte, ou demande une seconde pression si la confirmation est activée
+        var lastBack by remember { mutableStateOf(0L) }
+        val onHome = vm.current == null && vm.movieOpen == null && vm.seriesOpen == null && screen == "home"
+        BackHandler(enabled = onHome) {
+            val now = System.currentTimeMillis()
+            if (!vm.doubleBack || now - lastBack < 2000) {
+                (ctx as? android.app.Activity)?.finish()
+            } else {
+                lastBack = now
+                android.widget.Toast.makeText(ctx, "Appuie encore sur Retour pour quitter", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
         Surface(Modifier.fillMaxSize().background(BgBrush), color = Color.Transparent) {
-            var screen by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "settings" else "home") }
             if (vm.current != null) {
                 PlayerScreen(vm)
             } else if (vm.movieOpen != null) {
@@ -240,13 +253,11 @@ private fun Rail(vm: MainVm, searchOpen: Boolean, onSearch: () -> Unit, openSett
         Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(if (focus) Color(0xF2080C24) else RailBg).padding(vertical = 6.dp).onFocusChanged { focus = it.hasFocus },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Box(Modifier.width(56.dp), contentAlignment = Alignment.Center) { Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(30.dp)) }
         RailItem(searchOpen, focus, "Rechercher", onSearch) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
         RailItem(vm.tab == 0, focus, "TV", { vm.selectTab(0) }) { TvIcon() }
         RailItem(vm.tab == 1, focus, "Films", { vm.selectTab(1) }) { FilmIcon() }
         RailItem(vm.tab == 2, focus, "Séries", { vm.selectTab(2) }) { SeriesIcon() }
         Spacer(Modifier.weight(1f))
-        RailItem(false, focus, "Actualiser", { vm.reload() }) { Icon(Icons.Default.Refresh, "Actualiser", tint = Color.White) }
         RailItem(false, focus, "Paramètres", openSettings) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
     }
 }
@@ -342,7 +353,6 @@ private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
         // une seule rangée : l'écran est toujours à l'horizontale
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(36.dp))
             listOf("Direct", "Films", "Séries").forEachIndexed { i, label ->
                 FilterChip(selected = vm.tab == i, onClick = { vm.selectTab(i) }, label = { Text(label) })
             }
@@ -354,7 +364,6 @@ private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
                 leadingIcon = { Icon(Icons.Default.Search, null) },
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = { vm.reload() }) { Icon(Icons.Default.Refresh, "Actualiser", tint = Color.White) }
             IconButton(onClick = openSettings) { Icon(Icons.Default.Settings, "Sources", tint = Color.White) }
         }
         Spacer(Modifier.size(8.dp))
@@ -841,7 +850,7 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
     BackHandler(true) {
         when {
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
-            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
+            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
             canClose -> back()
         }
     }
@@ -852,7 +861,10 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
         page == "add" -> "Ajouter une liste"
         page.startsWith("src:") -> vm.sources.firstOrNull { it.id == page.removePrefix("src:") }?.name?.ifBlank { "Liste" } ?: "Liste"
         page == "groups" -> "Groupes"
-        page == "playback" -> "Lecture"
+        page == "playback" -> "Préférences générales"
+        page == "network" -> "Réseau"
+        page == "epg" -> "Guide (EPG)"
+        page == "backup" -> "Sauvegarde"
         page == "look" -> "Apparence"
         page == "rec" -> "Enregistrements"
         page == "parental" -> "Contrôle parental"
@@ -872,7 +884,10 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                             PanelItem("Listes de lecture", first = true) { page = "lists" }
                             PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
                             PanelItem("Apparence", "${ACCENTS[vm.accentIdx].first} · texte ${TEXT_SIZES[vm.textSizeIdx].first.lowercase()}") { page = "look" }
-                            PanelItem("Lecture") { page = "playback" }
+                            PanelItem("Préférences générales") { page = "playback" }
+                            PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
+                            PanelItem("Guide (EPG)", vm.epgStatus) { page = "epg" }
+                            PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
                             PanelItem("Enregistrements") { page = "rec" }
                             PanelItem("Contrôle parental") { page = "parental" }
                             PanelItem("Mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
@@ -910,18 +925,83 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
                         page == "playback" -> {
                             PanelItem("Reprendre la dernière chaîne", "Au démarrage de l'appli", first = true, trailing = { PanelSwitch(vm.autoResume) }) { vm.changeAutoResume(!vm.autoResume) }
                             PanelItem("Aperçu avant le plein écran", "Un clic = aperçu, deux clics = plein écran", trailing = { PanelSwitch(vm.previewMode) }) { vm.changePreviewMode(!vm.previewMode) }
+                            PanelItem("Image dans l'image à l'accueil", "Touche Accueil pendant une chaîne", trailing = { PanelSwitch(vm.pipOnHome) }) { vm.changePipOnHome(!vm.pipOnHome) }
+                            PanelItem("Confirmer la sortie", "Retour deux fois pour quitter", trailing = { PanelSwitch(vm.doubleBack) }) { vm.changeDoubleBack(!vm.doubleBack) }
+                            PanelItem("Démarrer au démarrage d'Android", "Ouvre l'appli quand l'appareil démarre", trailing = { PanelSwitch(vm.bootStart) }) { vm.changeBootStart(!vm.bootStart) }
                         }
+                        page == "network" -> NetworkPage(vm)
+                        page == "epg" -> EpgPage(vm)
+                        page == "backup" -> BackupPage(vm)
                         page == "rec" -> Column(Modifier.padding(horizontal = 12.dp)) { RecordingsSection(vm) }
                         page == "parental" -> Column(Modifier.padding(horizontal = 12.dp)) { ParentalSection(vm) }
                         page == "update" -> Column(Modifier.padding(horizontal = 12.dp)) { UpdateSection(vm) }
                         else -> {
-                            PanelLabel("theIPTVapp pour Android")
-                            Text("Version ${BuildConfig.VERSION_NAME}", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 18.dp))
+                            Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(64.dp))
+                                Spacer(Modifier.size(10.dp))
+                                Text("theIPTVapp pour Android", color = Color.White, fontSize = 18.sp)
+                                Text("Créé par Benoît", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+                                Text("Projet gratuit · lecteur IPTV", color = Color.Gray, fontSize = 13.sp)
+                                Text("Version ${BuildConfig.VERSION_NAME}", color = Color.Gray, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun NetworkPage(vm: MainVm) {
+    var ua by rememberSaveable { mutableStateOf(vm.userAgent) }
+    var px by rememberSaveable { mutableStateOf(vm.proxy) }
+    Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(Modifier.size(6.dp))
+        OutlinedTextField(ua, { ua = it }, label = { Text("User-Agent (vide = par défaut)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(px, { px = it }, label = { Text("Proxy hôte:port (vide = aucun)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+        Button(onClick = { vm.saveNetwork(ua, px) }) { Text("Enregistrer") }
+        if (vm.applyNetworkNote.isNotBlank()) Text(vm.applyNetworkNote, color = Color.White, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun StepperRow(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
+        Text(label, color = Color.White, modifier = Modifier.weight(1f))
+        OutlinedButton(onClick = onMinus) { Text("−") }
+        Text(value, color = Color.White, modifier = Modifier.padding(horizontal = 12.dp))
+        OutlinedButton(onClick = onPlus) { Text("+") }
+    }
+}
+
+@Composable
+private fun EpgPage(vm: MainVm) {
+    Column(Modifier.padding(horizontal = 6.dp)) {
+        PanelLabel("Statut")
+        Text(vm.epgStatus, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 18.dp))
+        PanelLabel("Conservation")
+        StepperRow("Garder le guide", "${vm.epgDays} j", { vm.changeEpgDays(vm.epgDays - 1) }, { vm.changeEpgDays(vm.epgDays + 1) })
+        PanelItem("Stocker les descriptions des émissions", trailing = { PanelSwitch(vm.epgDesc) }) { vm.changeEpgDesc(!vm.epgDesc) }
+        PanelLabel("Mise à jour")
+        StepperRow(
+            "Intervalle (heures, 0 = jamais)",
+            if (vm.epgInterval == 0) "aucun" else "${vm.epgInterval} h",
+            { vm.changeEpgInterval(vm.epgInterval - 1) }, { vm.changeEpgInterval(vm.epgInterval + 1) },
+        )
+        PanelItem("Mise à jour au démarrage de l'appli", trailing = { PanelSwitch(vm.epgOnStart) }) { vm.changeEpgOnStart(!vm.epgOnStart) }
+        PanelItem("Mise à jour au changement de liste", trailing = { PanelSwitch(vm.epgOnList) }) { vm.changeEpgOnList(!vm.epgOnList) }
+        PanelItem(if (vm.epgBusy) "Mise à jour en cours…" else "Mettre à jour le guide") { vm.refreshGuide() }
+        PanelItem("Effacer le guide", "Supprime le guide chargé") { vm.clearGuide() }
+    }
+}
+
+@Composable
+private fun BackupPage(vm: MainVm) {
+    Column(Modifier.padding(horizontal = 6.dp)) {
+        PanelItem("Sauvegarder les données", "Listes, favoris, réglages", first = true) { vm.createBackup?.invoke() }
+        PanelItem("Restaurer les données", "Choisir un fichier de sauvegarde") { vm.openBackup?.invoke() }
+        if (vm.backupMessage.isNotBlank()) Text(vm.backupMessage, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(18.dp))
     }
 }
 

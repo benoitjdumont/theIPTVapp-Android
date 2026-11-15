@@ -46,4 +46,71 @@ class Store(ctx: Context) {
     fun saveAccent(i: Int) = sp.edit().putInt("accent", i).apply()
     fun autoResume(): Boolean = sp.getBoolean("autoresume", true)
     fun saveAutoResume(b: Boolean) = sp.edit().putBoolean("autoresume", b).apply()
+
+    // ---- préférences générales
+    fun pipOnHome(): Boolean = sp.getBoolean("pip_home", true)
+    fun savePipOnHome(b: Boolean) = sp.edit().putBoolean("pip_home", b).apply()
+    fun doubleBack(): Boolean = sp.getBoolean("double_back", true)
+    fun saveDoubleBack(b: Boolean) = sp.edit().putBoolean("double_back", b).apply()
+    fun bootStart(): Boolean = sp.getBoolean("boot_start", false)
+    fun saveBootStart(b: Boolean) = sp.edit().putBoolean("boot_start", b).apply()
+
+    // ---- réseau
+    fun userAgent(): String = sp.getString("ua", "") ?: ""
+    fun saveUserAgent(s: String) = sp.edit().putString("ua", s).apply()
+    fun proxy(): String = sp.getString("proxy", "") ?: ""
+    fun saveProxy(s: String) = sp.edit().putString("proxy", s).apply()
+
+    // ---- guide (EPG)
+    fun epgDays(): Int = sp.getInt("epg_days", 1).coerceIn(1, 30)
+    fun saveEpgDays(n: Int) = sp.edit().putInt("epg_days", n.coerceIn(1, 30)).apply()
+    fun epgDesc(): Boolean = sp.getBoolean("epg_desc", false)
+    fun saveEpgDesc(b: Boolean) = sp.edit().putBoolean("epg_desc", b).apply()
+    fun epgInterval(): Int = sp.getInt("epg_interval", 0).coerceIn(0, 168)
+    fun saveEpgInterval(h: Int) = sp.edit().putInt("epg_interval", h.coerceIn(0, 168)).apply()
+    fun epgOnStart(): Boolean = sp.getBoolean("epg_onstart", true)
+    fun saveEpgOnStart(b: Boolean) = sp.edit().putBoolean("epg_onstart", b).apply()
+    fun epgOnList(): Boolean = sp.getBoolean("epg_onlist", true)
+    fun saveEpgOnList(b: Boolean) = sp.edit().putBoolean("epg_onlist", b).apply()
+    fun epgLast(): Long = sp.getLong("epg_last", 0L)
+    fun epgStatus(): String = sp.getString("epg_status", "") ?: ""
+    fun saveEpgStatus(time: Long, text: String) = sp.edit().putLong("epg_last", time).putString("epg_status", text).apply()
+
+    // ---- sauvegarde : toutes les préférences et listes, en JSON
+    fun backupJson(): String {
+        val root = org.json.JSONObject()
+        for ((k, v) in sp.all) {
+            val o = org.json.JSONObject()
+            when (v) {
+                is Set<*> -> o.put("t", "set").put("v", org.json.JSONArray(v.map { it.toString() }))
+                is Int -> o.put("t", "i").put("v", v)
+                is Long -> o.put("t", "l").put("v", v)
+                is Boolean -> o.put("t", "b").put("v", v)
+                is String -> o.put("t", "s").put("v", v)
+                else -> continue
+            }
+            root.put(k, o)
+        }
+        return root.toString(2)
+    }
+
+    /** Remplace les préférences par celles d'une sauvegarde. Renvoie false si le fichier n'est pas valide. */
+    fun restoreJson(text: String): Boolean {
+        val root = runCatching { org.json.JSONObject(text) }.getOrNull() ?: return false
+        val e = sp.edit().clear()
+        for (k in root.keys()) {
+            val o = root.optJSONObject(k) ?: continue
+            when (o.optString("t")) {
+                "set" -> {
+                    val a = o.optJSONArray("v") ?: continue
+                    e.putStringSet(k, (0 until a.length()).map { a.getString(it) }.toSet())
+                }
+                "i" -> e.putInt(k, o.optInt("v"))
+                "l" -> e.putLong(k, o.optLong("v"))
+                "b" -> e.putBoolean(k, o.optBoolean("v"))
+                "s" -> e.putString(k, o.optString("v"))
+            }
+        }
+        return e.commit()
+    }
 }
