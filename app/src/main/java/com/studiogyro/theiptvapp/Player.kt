@@ -7,6 +7,7 @@ import android.media.AudioManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
@@ -158,6 +159,8 @@ fun PlayerScreen(vm: MainVm) {
         c as? Activity
     }
     LaunchedEffect(hud) { if (hud.isNotEmpty()) { delay(900); hud = "" } }
+    // le menu disparaît en même temps que la barre (après le même délai)
+    LaunchedEffect(showUi) { if (!showUi) menuStage = 0 }
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(vm.recording) { while (vm.recording != null) { now = System.currentTimeMillis(); delay(1000) } }
 
@@ -405,12 +408,34 @@ fun PlayerScreen(vm: MainVm) {
                 fun close() { menuStage = 0 }
                 val recents = vm.recentChannels()
                 if (menuStage == 1 && recents.isNotEmpty()) {
-                    // historique : une ligne de chaînes récentes ; la flèche dessous indique le menu plus bas
+                    // raccourcis toujours visibles avec l'historique (sans fond)
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = tvPad + 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                    ) {
+                        IconButton(onClick = { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }) {
+                            Icon(if (rec == null) IconRecord else IconStop, if (rec == null) "Enregistrer" else "Arrêter", tint = Color.White)
+                        }
+                        IconButton(onClick = { (activity as? MainActivity)?.enterPip() }) { Icon(IconPip, "Image dans l'image", tint = Color.White) }
+                        IconButton(onClick = { vm.toggleFav(ch) }) {
+                            Icon(
+                                if (vm.isFav(ch)) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                "Favori", tint = Color.White,
+                            )
+                        }
+                    }
+                    // historique : une ligne de chaînes récentes, sans fond ; glisser vers le bas ouvre les options
                     LazyRow(
                         Modifier
                             .fillMaxWidth()
-                            .background(Color(0xD9000000))
                             .padding(horizontal = tvPad + 8.dp, vertical = 8.dp)
+                            .pointerInput(Unit) {
+                                var acc = 0f
+                                detectVerticalDragGestures(
+                                    onDragStart = { acc = 0f },
+                                    onVerticalDrag = { _, dy -> acc += dy; if (acc > 80f) { menuStage = 2; acc = 0f } },
+                                )
+                            }
                             .onKeyEvent { ev ->
                                 if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown) { menuStage = 2; true } else false
                             },
@@ -455,7 +480,14 @@ fun PlayerScreen(vm: MainVm) {
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .background(Color(0xE6000000))
+                            // glisser vers le haut revient à l'historique
+                            .pointerInput(Unit) {
+                                var acc = 0f
+                                detectVerticalDragGestures(
+                                    onDragStart = { acc = 0f },
+                                    onVerticalDrag = { _, dy -> acc += dy; if (acc < -80f) { menuStage = 1; acc = 0f } },
+                                )
+                            }
                             .horizontalScroll(rememberScrollState())
                             .padding(horizontal = tvPad + 8.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
