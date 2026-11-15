@@ -64,6 +64,16 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -136,11 +146,9 @@ fun PlayerScreen(vm: MainVm) {
     var playing by remember { mutableStateOf(true) }
     // menu du bas (comme la télé Samsung) et liste des chaînes par-dessus la vidéo
     var menuOpen by remember(ch.id) { mutableStateOf(false) }
-    var stripOpen by remember(ch.id) { mutableStateOf(false) }
     var displayMode by remember { mutableIntStateOf(0) }
     var sleepMin by remember { mutableIntStateOf(0) }
     var picker by remember(ch.id) { mutableStateOf<String?>(null) }
-    val stripFirst = remember { FocusRequester() }
     var listOpen by remember(ch.id) { mutableStateOf(false) }
     val menuFirst = remember { FocusRequester() }
     val listFirst = remember { FocusRequester() }
@@ -224,17 +232,15 @@ fun PlayerScreen(vm: MainVm) {
         }
     }
 
-    LaunchedEffect(stripOpen) { if (stripOpen) runCatching { stripFirst.requestFocus() } }
     LaunchedEffect(menuOpen) { if (menuOpen) runCatching { menuFirst.requestFocus() } }
     LaunchedEffect(listOpen) { if (listOpen) runCatching { listFirst.requestFocus() } }
-    LaunchedEffect(menuOpen, listOpen, stripOpen) { if (!menuOpen && !listOpen && !stripOpen) runCatching { focus.requestFocus() } }
+    LaunchedEffect(menuOpen, listOpen) { if (!menuOpen && !listOpen) runCatching { focus.requestFocus() } }
 
     // Retour : ferme d'abord la liste ou le menu, puis revient à l'aperçu (le flux continue)
     BackHandler(true) {
         when {
             listOpen -> listOpen = false
             menuOpen -> menuOpen = false
-            stripOpen -> stripOpen = false
             else -> vm.stop()
         }
     }
@@ -262,16 +268,15 @@ fun PlayerScreen(vm: MainVm) {
                     }
                 }
                 // menu ou liste ouverts : les flèches déplacent le focus dans le menu, sans changer de chaîne
-                if (menuOpen || listOpen || stripOpen) return@onKeyEvent false
+                if (menuOpen || listOpen) return@onKeyEvent false
                 when (ev.key) {
                     Key.ChannelDown, Key.PageDown -> { vm.step(1); showUi = true; true }
                     Key.ChannelUp, Key.PageUp -> { vm.step(-1); showUi = true; true }
-                    // flèche bas : menu complet ; flèche haut : derniers canaux
+                    // flèche bas, flèche haut ou bouton central : ouvre le menu (derniers canaux + rangée d'icônes)
                     Key.DirectionDown -> { menuOpen = true; showUi = true; true }
-                    Key.DirectionUp -> { stripOpen = true; showUi = true; true }
+                    Key.DirectionUp -> { menuOpen = true; showUi = true; true }
                     Key.MediaPlayPause -> { player.playWhenReady = !player.playWhenReady; showUi = true; true }
-                    // bouton central de la manette : ouvre le menu du bas
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { stripOpen = true; showUi = true; true }
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { menuOpen = true; showUi = true; true }
                     else -> false
                 }
             }
@@ -373,7 +378,7 @@ fun PlayerScreen(vm: MainVm) {
             )
         }
 
-        // bas de l'écran (manette et téléphone) : derniers canaux, puis le menu complet plus bas
+        // bas de l'écran : derniers canaux + une rangée d'icônes ; flèche pour l'ouvrir au téléphone
         if (ch.kind == "live" && !vm.inPip) {
             val rec = vm.recording
             Column(
@@ -383,87 +388,73 @@ fun PlayerScreen(vm: MainVm) {
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (stripOpen) {
+                if (menuOpen) {
+                    fun close() { menuOpen = false }
                     val recents = vm.recentChannels()
-                    LazyRow(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xD9000000))
-                            .padding(horizontal = tvPad + 8.dp, vertical = 8.dp)
-                            .onKeyEvent { ev ->
-                                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown) { stripOpen = false; menuOpen = true; true } else false
-                            },
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        itemsIndexed(recents, key = { _, c -> c.id }) { idx, c ->
-                            RecentTile(
-                                c,
-                                selected = c.id == ch.id,
-                                modifier = if (idx == 0) Modifier.focusRequester(stripFirst) else Modifier,
-                            ) { stripOpen = false; vm.play(vm.playlist, c) }
+                    if (recents.isNotEmpty()) {
+                        LazyRow(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xD9000000))
+                                .padding(horizontal = tvPad + 8.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            itemsIndexed(recents, key = { _, c -> c.id }) { _, c ->
+                                RecentTile(c, selected = c.id == ch.id) { close(); vm.play(vm.playlist, c) }
+                            }
                         }
                     }
-                }
-                if (menuOpen) {
-                    val rec = vm.recording
-                    fun close() { menuOpen = false }
-                    val row1 = listOf<Pair<String, () -> Unit>>(
-                        "Résolution" to { close(); picker = "video" },
-                        "Préférences" to { close(); vm.stop(); vm.openSettingsRequest = true },
-                        "Sous-titres (CC)" to { close(); picker = "text" },
-                        "Image dans l'image" to { close(); (activity as? MainActivity)?.enterPip() },
-                        (if (rec == null) "Enregistrer" else "Arrêter l'enregistrement") to {
+                    val menuItems = listOf<Triple<String, ImageVector, () -> Unit>>(
+                        Triple("Rechercher", Icons.Default.Search) { close(); listOpen = true },
+                        Triple("Liste des chaînes", Icons.Default.List) { close(); listOpen = true },
+                        Triple(
+                            if (rec == null) "Enregistrer" else "Arrêter",
+                            if (rec == null) Icons.Default.FiberManualRecord else Icons.Default.Stop,
+                        ) {
                             if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording()
                             close()
                         },
-                        "Multi-vue" to { close(); hud = "Multi-vue : bientôt disponible" },
-                    )
-                    val row2 = listOf<Pair<String, () -> Unit>>(
-                        "Liste des chaînes" to { close(); listOpen = true },
-                        "Rechercher" to { close(); listOpen = true },
-                        "Audio" to { close(); picker = "audio" },
-                        "Affichage : " + displayModes[displayMode] to { displayMode = (displayMode + 1) % displayModes.size },
-                        "Minuterie : " + (if (sleepMin == 0) "désactivée" else "$sleepMin min") to {
+                        Triple("Multi-vue", IconMultiView) { close(); hud = "Multi-vue : bientôt disponible" },
+                        Triple("Image dans l'image", IconPip) { close(); (activity as? MainActivity)?.enterPip() },
+                        Triple("Résolution", IconScreen) { close(); picker = "video" },
+                        Triple("Sous-titres", IconCaption) { close(); picker = "text" },
+                        Triple("Audio", IconAudio) { close(); picker = "audio" },
+                        Triple("Affichage : " + displayModes[displayMode], IconAspect) {
+                            displayMode = (displayMode + 1) % displayModes.size
+                        },
+                        Triple(if (sleepMin == 0) "Minuterie" else "Minuterie $sleepMin min", IconTimer) {
                             sleepMin = sleepSteps[(sleepSteps.indexOf(sleepMin) + 1) % sleepSteps.size]
                         },
-                        (if (vm.isFav(ch)) "Retirer des favoris" else "Ajouter aux favoris") to { vm.toggleFav(ch) },
+                        Triple(if (vm.isFav(ch)) "Retirer favori" else "Favoris", if (vm.isFav(ch)) Icons.Default.Favorite else Icons.Default.FavoriteBorder) {
+                            vm.toggleFav(ch)
+                        },
+                        Triple("Préférences", Icons.Default.Settings) { close(); vm.stop(); vm.openSettingsRequest = true },
                     )
-                    Column(
+                    Row(
                         Modifier
                             .fillMaxWidth()
                             .background(Color(0xE6000000))
-                            .padding(horizontal = tvPad + 8.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = tvPad + 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            row1.forEachIndexed { i, (label, action) ->
-                                PlayerMenuItem(label, if (i == 0) Modifier.focusRequester(menuFirst) else Modifier, onClick = action)
-                            }
-                        }
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            row2.forEach { (label, action) -> PlayerMenuItem(label, Modifier, onClick = action) }
+                        menuItems.forEachIndexed { i, (label, icon, action) ->
+                            PlayerMenuItem(label, icon, modifier = if (i == 0) Modifier.focusRequester(menuFirst) else Modifier, onClick = action)
                         }
                     }
                 }
-                // flèche : ouvre les derniers canaux, puis le menu plus bas
+                // flèche : ouvre ou ferme le menu (téléphone)
                 Box(
                     Modifier
                         .width(72.dp)
                         .height(24.dp)
                         .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                         .background(Color(0xAA000000))
-                        .clickable {
-                            when {
-                                !stripOpen && !menuOpen -> stripOpen = true
-                                stripOpen -> { stripOpen = false; menuOpen = true }
-                                else -> { menuOpen = false; stripOpen = false }
-                            }
-                            showUi = true
-                        },
+                        .clickable { menuOpen = !menuOpen; showUi = true },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        if (stripOpen || menuOpen) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                        if (menuOpen) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
                         "Menu", tint = Color.White,
                     )
                 }
@@ -531,17 +522,24 @@ fun PlayerScreen(vm: MainVm) {
                         if (e.next != null) Text("Ensuite : ${e.next.title}  ${hm(e.next.start)}", color = Color(0xFFAAAAAA), fontSize = 12.sp, maxLines = 1)
                     }
                 }
+                IconButton(onClick = { player.playWhenReady = !player.playWhenReady }) {
+                    Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (playing) "Pause" else "Lecture", tint = Color.White)
+                }
                 if (ch.kind == "live") {
-                    Button(onClick = { player.playWhenReady = !player.playWhenReady }) {
-                        Text(if (playing) "Pause" else "Lecture", fontSize = 13.sp)
-                    }
                     val rec = vm.recording
-                    OutlinedButton(onClick = { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }) {
-                        val secs = if (rec != null) ((now - rec.startMs) / 1000).coerceAtLeast(0) else 0
-                        Text(if (rec == null) "Enregistrer" else "Arrêter %d:%02d".format(secs / 60, secs % 60), fontSize = 13.sp, color = if (rec == null) Color.White else Color(0xFFFF6B6B))
+                    IconButton(onClick = { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }) {
+                        Icon(
+                            if (rec == null) Icons.Default.FiberManualRecord else Icons.Default.Stop,
+                            if (rec == null) "Enregistrer" else "Arrêter",
+                            tint = if (rec == null) Color.White else Color(0xFFFF6B6B),
+                        )
+                    }
+                    if (rec != null) {
+                        val secs = ((now - rec.startMs) / 1000).coerceAtLeast(0)
+                        Text("%d:%02d".format(secs / 60, secs % 60), color = Color(0xFFFF6B6B), fontSize = 13.sp)
                     }
                 }
-                OutlinedButton(onClick = { (activity as? MainActivity)?.enterPip() }) { Text("Image dans l'image", fontSize = 13.sp) }
+                IconButton(onClick = { (activity as? MainActivity)?.enterPip() }) { Icon(IconPip, "Image dans l'image", tint = Color.White) }
                 val fav = vm.isFav(ch)
                 IconButton(onClick = { vm.toggleFav(ch) }) {
                     Icon(
@@ -559,23 +557,43 @@ private val displayModes = listOf("Normal", "Zoom", "4:3", "16:9")
 private val sleepSteps = listOf(0, 15, 30, 60, 90)
 
 @Composable
-private fun PlayerMenuItem(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun PlayerMenuItem(label: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    Text(
-        label,
-        color = Color.White,
-        fontSize = 14.sp,
-        maxLines = 1,
-        textAlign = TextAlign.Center,
-        modifier = modifier
-            .widthIn(min = 150.dp)
+    Column(
+        modifier
+            .width(104.dp)
             .onFocusChanged { focused = it.isFocused }
-            .clip(RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(if (focused) Accent else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-    )
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(icon, label, tint = Color.White, modifier = Modifier.size(28.dp))
+        Spacer(Modifier.height(4.dp))
+        Text(label, color = Color.White, fontSize = 12.sp, maxLines = 2, textAlign = TextAlign.Center)
+    }
 }
+
+private fun playerIcon(name: String, build: ImageVector.Builder.() -> Unit): ImageVector =
+    ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply(build).build()
+
+private fun ImageVector.Builder.outline(d: String) =
+    addPath(addPathNodes(d), stroke = SolidColor(Color.White), strokeLineWidth = 2f)
+
+private fun ImageVector.Builder.solid(d: String) =
+    addPath(addPathNodes(d), fill = SolidColor(Color.White))
+
+/** Icônes du menu qui n'existent pas dans le jeu de base de Material. */
+private val IconPip = playerIcon("pip") { outline("M3,4h18v16h-18z"); solid("M12,12h7v5h-7z") }
+private val IconMultiView = playerIcon("multi") {
+    solid("M3,3h8v8h-8z"); solid("M13,3h8v8h-8z"); solid("M3,13h8v8h-8z"); solid("M13,13h8v8h-8z")
+}
+private val IconScreen = playerIcon("screen") { outline("M3,5h18v12h-18z"); outline("M8,21h8") }
+private val IconCaption = playerIcon("caption") { outline("M3,5h18v14h-18z"); outline("M6,11h5"); outline("M13,11h5"); outline("M6,15h12") }
+private val IconAudio = playerIcon("audio") { solid("M3,9h4l5,-4v14l-5,-4h-4z"); outline("M16,8q3,4 0,8") }
+private val IconAspect = playerIcon("aspect") { outline("M2,6h20v12h-20z"); outline("M6,9h12v6h-12z") }
+private val IconTimer = playerIcon("timer") { outline("M12,4a8,8 0 1 0 0.01,0"); outline("M12,8v4l3,2") }
 
 /** Une chaîne récente, dans la rangée du bas. */
 @Composable

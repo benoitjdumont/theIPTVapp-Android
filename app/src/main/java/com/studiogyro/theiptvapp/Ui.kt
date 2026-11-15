@@ -409,11 +409,10 @@ private fun EdgeHandle(onOpen: () -> Unit) {
         Modifier
             .fillMaxHeight()
             .width(26.dp)
-            .background(if (focused) Accent.copy(alpha = 0.6f) else Color(0x66000000))
+            .background(if (focused) Accent.copy(alpha = 0.6f) else Color.Transparent)
             .onFocusChanged { focused = it.isFocused; if (it.isFocused) onOpen() }
             .clickable(onClick = onOpen),
-        contentAlignment = Alignment.Center,
-    ) { Icon(Icons.Default.KeyboardArrowRight, "Afficher les colonnes", tint = Color.White) }
+    )
 }
 
 @Composable
