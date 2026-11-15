@@ -8,6 +8,29 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.Tracks
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.TrackSelectionParameters
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.media3.datasource.DefaultDataSource
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -118,6 +141,9 @@ fun PlayerScreen(vm: MainVm) {
     var playing by remember { mutableStateOf(true) }
     // menu du bas (comme la télé Samsung) et liste des chaînes par-dessus la vidéo
     var menuOpen by remember(ch.id) { mutableStateOf(false) }
+    var stripOpen by remember(ch.id) { mutableStateOf(false) }
+    var picker by remember(ch.id) { mutableStateOf<String?>(null) }
+    val stripFirst = remember { FocusRequester() }
     var listOpen by remember(ch.id) { mutableStateOf(false) }
     val menuFirst = remember { FocusRequester() }
     val listFirst = remember { FocusRequester() }
@@ -191,15 +217,17 @@ fun PlayerScreen(vm: MainVm) {
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(showUi) { if (!showUi) runCatching { focus.requestFocus() } }
     // menu ouvert : le focus va sur le menu (la télécommande le parcourt) ; fermé : retour à la vidéo
+    LaunchedEffect(stripOpen) { if (stripOpen) runCatching { stripFirst.requestFocus() } }
     LaunchedEffect(menuOpen) { if (menuOpen) runCatching { menuFirst.requestFocus() } }
     LaunchedEffect(listOpen) { if (listOpen) runCatching { listFirst.requestFocus() } }
-    LaunchedEffect(menuOpen, listOpen) { if (!menuOpen && !listOpen) runCatching { focus.requestFocus() } }
+    LaunchedEffect(menuOpen, listOpen, stripOpen) { if (!menuOpen && !listOpen && !stripOpen) runCatching { focus.requestFocus() } }
 
     // Retour : ferme d'abord la liste ou le menu, puis revient à l'aperçu (le flux continue)
     BackHandler(true) {
         when {
             listOpen -> listOpen = false
-            menuOpen -> menuOpen = false
+            menuOpen -> { menuOpen = false; stripOpen = true }
+            stripOpen -> stripOpen = false
             else -> vm.stop()
         }
     }
@@ -227,13 +255,13 @@ fun PlayerScreen(vm: MainVm) {
                     }
                 }
                 // menu ou liste ouverts : les flèches déplacent le focus dans le menu, sans changer de chaîne
-                if (menuOpen || listOpen) return@onKeyEvent false
+                if (menuOpen || listOpen || stripOpen) return@onKeyEvent false
                 when (ev.key) {
                     Key.DirectionDown, Key.ChannelDown, Key.PageDown -> { vm.step(1); showUi = true; true }
                     Key.DirectionUp, Key.ChannelUp, Key.PageUp -> { vm.step(-1); showUi = true; true }
                     Key.MediaPlayPause -> { player.playWhenReady = !player.playWhenReady; showUi = true; true }
                     // bouton central de la manette : ouvre le menu du bas
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { menuOpen = true; showUi = true; true }
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { stripOpen = true; showUi = true; true }
                     else -> false
                 }
             }
@@ -328,8 +356,9 @@ fun PlayerScreen(vm: MainVm) {
             )
         }
 
-        // flèche du bas : ouvre le menu (Liste des chaînes, Enregistrer, Image dans l'image, Favori)
+        // bas de l'écran (manette et téléphone) : derniers canaux, puis le menu complet plus bas
         if (ch.kind == "live" && !vm.inPip) {
+            val rec = vm.recording
             Column(
                 Modifier
                     .align(Alignment.BottomCenter)
@@ -337,33 +366,73 @@ fun PlayerScreen(vm: MainVm) {
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                if (stripOpen) {
+                    val recents = vm.recentChannels()
+                    LazyRow(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xD9000000))
+                            .padding(horizontal = tvPad + 8.dp, vertical = 8.dp)
+                            .onKeyEvent { ev ->
+                                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown) { stripOpen = false; menuOpen = true; true } else false
+                            },
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        itemsIndexed(recents, key = { _, c -> c.id }) { idx, c ->
+                            RecentTile(
+                                c,
+                                selected = c.id == ch.id,
+                                modifier = if (idx == 0) Modifier.focusRequester(stripFirst) else Modifier,
+                            ) { stripOpen = false; vm.play(vm.playlist, c) }
+                        }
+                    }
+                }
                 if (menuOpen) {
-                    val rec = vm.recording
                     Row(
-                        Modifier.fillMaxWidth().background(Color(0xCC000000)).padding(horizontal = tvPad + 8.dp, vertical = 6.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xD9000000))
+                            .padding(horizontal = tvPad + 8.dp, vertical = 8.dp)
+                            .onKeyEvent { ev ->
+                                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionUp) { menuOpen = false; stripOpen = true; true } else false
+                            },
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        PlayerMenuItem("Liste des chaînes", Modifier.focusRequester(menuFirst)) { listOpen = true; menuOpen = false }
-                        PlayerMenuItem("Rechercher") { listOpen = true; menuOpen = false }
-                        PlayerMenuItem(if (rec == null) "⏺ Enregistrer" else "⏹ Arrêter") {
+                        PlayerMenuItem("Rechercher", Modifier.focusRequester(menuFirst)) { menuOpen = false; listOpen = true }
+                        PlayerMenuItem("Liste des chaînes") { menuOpen = false; listOpen = true }
+                        PlayerMenuItem(if (rec == null) "Enregistrer" else "Arrêter l'enregistrement") {
                             if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording()
                             menuOpen = false
                         }
                         PlayerMenuItem("Image dans l'image") { menuOpen = false; (activity as? MainActivity)?.enterPip() }
-                        PlayerMenuItem(if (vm.isFav(ch)) "♥ Favori" else "♡ Favori") { vm.toggleFav(ch) }
+                        PlayerMenuItem("Résolution") { menuOpen = false; picker = "video" }
+                        PlayerMenuItem("Sous-titres") { menuOpen = false; picker = "text" }
+                        PlayerMenuItem("Audio") { menuOpen = false; picker = "audio" }
+                        PlayerMenuItem(if (vm.isFav(ch)) "Retirer des favoris" else "Ajouter aux favoris") { vm.toggleFav(ch) }
                     }
                 }
+                // flèche : ouvre les derniers canaux, puis le menu plus bas
                 Box(
                     Modifier
                         .width(72.dp)
                         .height(24.dp)
                         .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                         .background(Color(0xAA000000))
-                        .clickable { menuOpen = !menuOpen; showUi = true },
+                        .clickable {
+                            when {
+                                !stripOpen && !menuOpen -> stripOpen = true
+                                stripOpen -> { stripOpen = false; menuOpen = true }
+                                else -> { menuOpen = false; stripOpen = false }
+                            }
+                            showUi = true
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(if (menuOpen) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp, "Menu", tint = Color.White)
+                    Icon(
+                        if (stripOpen || menuOpen) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                        "Menu", tint = Color.White,
+                    )
                 }
             }
         }
@@ -381,7 +450,6 @@ fun PlayerScreen(vm: MainVm) {
                         onValueChange = { q = it },
                         singleLine = true,
                         placeholder = { Text("Rechercher une chaîne") },
-                        keyboardOptions = KeyboardOptions(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     LazyColumn(Modifier.fillMaxSize().padding(top = 6.dp)) {
@@ -401,6 +469,9 @@ fun PlayerScreen(vm: MainVm) {
                 }
             }
         }
+
+        // choix de résolution, sous-titres ou audio
+        picker?.let { kind -> TrackPickerDialog(player, kind) { picker = null } }
 
         if (showUi && !vm.inPip) {
             Row(
@@ -424,16 +495,16 @@ fun PlayerScreen(vm: MainVm) {
                     }
                 }
                 if (ch.kind == "live") {
-                    TextButton(onClick = { player.playWhenReady = !player.playWhenReady }) {
-                        Text(if (playing) "⏸" else "▶", color = Color.White, fontSize = 20.sp)
+                    Button(onClick = { player.playWhenReady = !player.playWhenReady }) {
+                        Text(if (playing) "Pause" else "Lecture", fontSize = 13.sp)
                     }
                     val rec = vm.recording
-                    TextButton(onClick = { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }) {
+                    OutlinedButton(onClick = { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }) {
                         val secs = if (rec != null) ((now - rec.startMs) / 1000).coerceAtLeast(0) else 0
-                        Text(if (rec == null) "⏺ REC" else "⏹ %d:%02d".format(secs / 60, secs % 60), color = if (rec == null) Color.White else Color(0xFFFF6B6B))
+                        Text(if (rec == null) "Enregistrer" else "Arrêter %d:%02d".format(secs / 60, secs % 60), fontSize = 13.sp, color = if (rec == null) Color.White else Color(0xFFFF6B6B))
                     }
                 }
-                TextButton(onClick = { (activity as? MainActivity)?.enterPip() }) { Text("PiP", color = Color.White) }
+                OutlinedButton(onClick = { (activity as? MainActivity)?.enterPip() }) { Text("Image dans l'image", fontSize = 13.sp) }
                 val fav = vm.isFav(ch)
                 IconButton(onClick = { vm.toggleFav(ch) }) {
                     Icon(
@@ -461,5 +532,80 @@ private fun PlayerMenuItem(label: String, modifier: Modifier = Modifier, onClick
             .background(if (focused) Accent else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
+    )
+}
+
+/** Une chaîne récente, dans la rangée du bas. */
+@Composable
+private fun RecentTile(c: Channel, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Column(
+        modifier
+            .width(150.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (focused) Accent else if (selected) Accent.copy(alpha = 0.5f) else Color(0xFF111A2E))
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (c.logo.isNotBlank()) AsyncImage(model = c.logo, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(40.dp))
+        else Spacer(Modifier.height(40.dp))
+        Text(c.name, color = Color.White, fontSize = 12.sp, maxLines = 1)
+    }
+}
+
+private fun trackLabel(f: Format): String {
+    val parts = mutableListOf<String>()
+    if (f.label != null) parts += f.label!!
+    if (f.language != null && f.language != "und") parts += f.language!!
+    if (f.height > 0) parts += "${f.width}×${f.height}"
+    if (f.channelCount > 0) parts += "${f.channelCount} canaux"
+    return parts.joinToString(" · ").ifEmpty { "Piste" }
+}
+
+/** Choix de la résolution, des sous-titres ou de l'audio, selon les pistes du flux. */
+@Composable
+private fun TrackPickerDialog(player: ExoPlayer, kind: String, onDone: () -> Unit) {
+    val type = when (kind) { "video" -> C.TRACK_TYPE_VIDEO; "audio" -> C.TRACK_TYPE_AUDIO; else -> C.TRACK_TYPE_TEXT }
+    val title = when (kind) { "video" -> "Résolution"; "audio" -> "Audio"; else -> "Sous-titres (CC)" }
+    val options = remember(kind) {
+        val out = mutableListOf<Triple<String, Tracks.Group?, Int>>()
+        if (kind != "audio") out += Triple(if (kind == "video") "Automatique" else "Désactivés", null, -1)
+        player.currentTracks.groups.filter { it.type == type }.forEach { g ->
+            for (i in 0 until g.length) if (g.isTrackSupported(i)) out += Triple(trackLabel(g.getTrackFormat(i)), g, i)
+        }
+        out
+    }
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text(title) },
+        text = {
+            if (options.size <= 1 && kind != "text") Text("Aucune piste disponible sur cette chaîne.")
+            else LazyColumn(Modifier.heightIn(max = 300.dp)) {
+                items(options) { (label, group, index) ->
+                    Text(
+                        label, color = Color.White, maxLines = 2,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val b = player.trackSelectionParameters.buildUpon()
+                                if (group == null) {
+                                    b.clearOverridesOfType(type)
+                                    b.setTrackTypeDisabled(type, kind == "text")
+                                } else {
+                                    b.setTrackTypeDisabled(type, false)
+                                    b.clearOverridesOfType(type)
+                                    b.addOverride(TrackSelectionOverride(group.mediaTrackGroup, index))
+                                }
+                                player.trackSelectionParameters = b.build()
+                                onDone()
+                            }
+                            .padding(horizontal = 10.dp, vertical = 10.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDone) { Text("Fermer") } },
     )
 }

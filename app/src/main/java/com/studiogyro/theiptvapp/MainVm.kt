@@ -651,8 +651,17 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     private fun hashPin(p: String): String =
         java.security.MessageDigest.getInstance("SHA-256").digest(("theiptvapp:" + p).toByteArray()).joinToString("") { "%02x".format(it) }
 
+    /** derniers canaux regardés (10 au maximum, les plus anciens sont retirés) */
+    var recentIds by mutableStateOf(store.recentLive()); private set
+    fun recentChannels(): List<Channel> = recentIds.mapNotNull { id -> live.items.firstOrNull { it.id == id } }
+    private fun rememberRecent(c: Channel) {
+        recentIds = (listOf(c.id) + recentIds.filter { it != c.id }).take(10)
+        store.saveRecentLive(recentIds)
+    }
+
     fun play(list: List<Channel>, c: Channel) {
         preview = null
+        if (c.kind == "live") rememberRecent(c)
         if (c.kind == "movie" && !c.id.startsWith("r")) addHistory(c.id)
         playlist = list
         playIndex = list.indexOf(c).coerceAtLeast(0)

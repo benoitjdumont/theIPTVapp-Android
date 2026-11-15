@@ -128,4 +128,7 @@ class Store(ctx: Context) {
     }
     fun bgPath(): String? = sp.getString("bg", null)
     fun saveBgPath(p: String?) = sp.edit().putString("bg", p).apply()
+
+    fun recentLive(): List<String> = (sp.getString("recent", "") ?: "").split("\n").filter { it.isNotBlank() }
+    fun saveRecentLive(l: List<String>) = sp.edit().putString("recent", l.joinToString("\n")).apply()
 }

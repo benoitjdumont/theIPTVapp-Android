@@ -148,8 +148,11 @@ fun AppRoot(vm: MainVm) {
                 // keep clear of the status bar (battery, clock) and the navigation bar
                 Box(Modifier.fillMaxSize().safeDrawingPadding().then(safe)) {
                     if (screen == "settings") {
-                        if (vm.sources.isNotEmpty()) HomeScreen(vm) { }
-                        SettingsScreen(vm) { screen = "home" }
+                        // les préférences s'ouvrent à droite et poussent l'accueil vers la gauche
+                        Row(Modifier.fillMaxSize()) {
+                            if (vm.sources.isNotEmpty()) Box(Modifier.weight(1f).fillMaxHeight()) { HomeScreen(vm) { } }
+                            SettingsScreen(vm, docked = vm.sources.isNotEmpty()) { screen = "home" }
+                        }
                     } else {
                         HomeScreen(vm) { screen = "settings" }
                     }
@@ -253,10 +256,10 @@ private fun SeriesIcon() = androidx.compose.foundation.Canvas(Modifier.size(24.d
 
 /** Rail de gauche : fin au repos, il se déploie par-dessus la liste quand on navigue dessus. */
 @Composable
-private fun Rail(vm: MainVm, searchOpen: Boolean, onSearch: () -> Unit, openSettings: () -> Unit) {
-    var focus by remember { mutableStateOf(false) }
+private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, searchOpen: Boolean, onSearch: () -> Unit, openSettings: () -> Unit) {
+    val focus = expanded
     Column(
-        Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(if (focus) Color(0xF2080C24) else RailBg).padding(vertical = 6.dp).onFocusChanged { focus = it.hasFocus },
+        Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(if (focus) Color(0xF2080C24) else RailBg).padding(vertical = 6.dp).onFocusChanged { onFocus(it.hasFocus) },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         RailItem(searchOpen, focus, "Rechercher", onSearch) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
@@ -277,10 +280,15 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     var showCols by rememberSaveable { mutableStateOf(true) }
     LaunchedEffect(vm.tab) { showCols = true }
     val colsHidden = !showCols && sec.top != null
+    var railFocus by remember { mutableStateOf(false) }
+    var groupFocus by remember { mutableStateOf(false) }
+    val railExpanded = railFocus || (!groupFocus && sec.top == null)
     BackHandler(enabled = colsHidden) { showCols = true }
     Box(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxSize()) {
-        if (!colsHidden) Spacer(Modifier.width(56.dp))
+        // rail : grand (avec les noms) au repos ; petit (icônes) quand on parcourt les catégories ; caché une fois une catégorie choisie
+        if (!colsHidden) Rail(vm, railExpanded, { railFocus = it }, searchOpen, { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }, openSettings)
+        else EdgeHandle { showCols = true }
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when {
                 vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
@@ -304,7 +312,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                     val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs) { vm.visible() }
                     val subs = sec.subs()
                     Row(Modifier.fillMaxSize()) {
-                        if (!colsHidden) LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp)) {
+                        if (!colsHidden) LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp).onFocusChanged { groupFocus = it.hasFocus }) {
                             items(topEntries(sec, vm.tab == 0).filter { it.first == null || (it.first == GROUP_FAV || it.first == GROUP_HIST) || it.first !in vm.hiddenCats }, key = { it.first ?: "\u0001all" }) { (g, label) ->
                                 val lock = g != null && (g != GROUP_FAV && g != GROUP_HIST) && vm.catLocked(label)
                                 FocusRow(
@@ -357,8 +365,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
             }
         }
     }
-    if (!colsHidden) Rail(vm, searchOpen, { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }, openSettings)
-    else EdgeHandle { showCols = true }
+
     }
 }
 
@@ -902,7 +909,7 @@ private fun PanelLabel(text: String) {
 
 /** Panneau de réglages qui glisse par-dessus l'accueil, côté droit. */
 @Composable
-fun SettingsScreen(vm: MainVm, back: () -> Unit) {
+fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
     var page by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "add" else "root") }
     val canClose = vm.sources.isNotEmpty()
     BackHandler(true) {
@@ -936,10 +943,10 @@ fun SettingsScreen(vm: MainVm, back: () -> Unit) {
         else -> "À propos"
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val w = if (maxWidth > 400.dp) 360.dp else maxWidth * 0.92f
+    BoxWithConstraints(if (docked) Modifier.fillMaxWidth(0.42f).fillMaxHeight() else Modifier.fillMaxSize()) {
+        val w = if (docked) maxWidth else if (maxWidth > 400.dp) 360.dp else maxWidth * 0.92f
         Row(Modifier.fillMaxSize()) {
-            Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).clickable(enabled = canClose, onClick = back))
+            if (!docked) Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).clickable(enabled = canClose, onClick = back))
             Column(Modifier.width(w).fillMaxHeight().background(PanelBody)) {
                 Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.fillMaxWidth().background(PanelHead).padding(horizontal = 18.dp, vertical = 14.dp))
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
