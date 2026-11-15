@@ -646,7 +646,10 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         current?.let { store.saveLast(it.id); if (it.kind == "live") store.saveLastLive(it.id) }
     }
 
+    /** Retour depuis le plein écran : la chaîne revient en aperçu (elle continue de jouer). */
     fun stop() {
+        val c = current
         playIndex = -1
+        if (previewMode && c != null && c.kind == "live") preview = c
     }
 }

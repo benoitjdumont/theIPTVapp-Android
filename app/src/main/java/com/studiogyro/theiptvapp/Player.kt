@@ -32,6 +32,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -101,6 +114,9 @@ fun PlayerScreen(vm: MainVm) {
     var showUi by remember { mutableStateOf(true) }
     var hud by remember { mutableStateOf("") }
     var playing by remember { mutableStateOf(true) }
+    // menu du bas (comme la télé Samsung) et liste des chaînes par-dessus la vidéo
+    var menuOpen by remember(ch.id) { mutableStateOf(false) }
+    var listOpen by remember(ch.id) { mutableStateOf(false) }
     val activity = remember(ctx) {
         var c: Context = ctx
         while (c is ContextWrapper && c !is Activity) c = c.baseContext
@@ -170,7 +186,14 @@ fun PlayerScreen(vm: MainVm) {
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(showUi) { if (!showUi) runCatching { focus.requestFocus() } }
 
-    BackHandler(true) { vm.stop() }
+    // Retour : ferme d'abord la liste ou le menu, puis revient à l'aperçu (le flux continue)
+    BackHandler(true) {
+        when {
+            listOpen -> listOpen = false
+            menuOpen -> menuOpen = false
+            else -> vm.stop()
+        }
+    }
 
     Box(
         Modifier
@@ -293,6 +316,79 @@ fun PlayerScreen(vm: MainVm) {
             )
         }
 
+        // flèche du bas : ouvre le menu (Liste des chaînes, Enregistrer, Image dans l'image, Favori)
+        if (ch.kind == "live" && !vm.inPip) {
+            Column(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (menuOpen) {
+                    val rec = vm.recording
+                    Row(
+                        Modifier.fillMaxWidth().background(Color(0xCC000000)).padding(horizontal = tvPad + 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PlayerMenuItem("Liste des chaînes") { listOpen = true; menuOpen = false }
+                        PlayerMenuItem("Rechercher") { listOpen = true; menuOpen = false }
+                        PlayerMenuItem(if (rec == null) "⏺ Enregistrer" else "⏹ Arrêter") {
+                            if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording()
+                            menuOpen = false
+                        }
+                        PlayerMenuItem("Image dans l'image") { menuOpen = false; (activity as? MainActivity)?.enterPip() }
+                        PlayerMenuItem(if (vm.isFav(ch)) "♥ Favori" else "♡ Favori") { vm.toggleFav(ch) }
+                    }
+                }
+                Box(
+                    Modifier
+                        .width(72.dp)
+                        .height(24.dp)
+                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                        .background(Color(0xAA000000))
+                        .clickable { menuOpen = !menuOpen; showUi = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(if (menuOpen) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp, "Menu", tint = Color.White)
+                }
+            }
+        }
+
+        // liste des chaînes / recherche, à droite
+        if (listOpen && ch.kind == "live") {
+            var q by remember { mutableStateOf("") }
+            val all = vm.playlist
+            val shown = remember(q, all) { all.filter { q.isBlank() || it.name.contains(q, ignoreCase = true) } }
+            Row(Modifier.fillMaxSize()) {
+                Box(Modifier.weight(1f).fillMaxHeight().clickable { listOpen = false })
+                Column(Modifier.width(340.dp).fillMaxHeight().background(Color(0xEE101828)).padding(8.dp)) {
+                    OutlinedTextField(
+                        value = q,
+                        onValueChange = { q = it },
+                        singleLine = true,
+                        placeholder = { Text("Rechercher une chaîne") },
+                        keyboardOptions = KeyboardOptions(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    LazyColumn(Modifier.fillMaxSize().padding(top = 6.dp)) {
+                        items(shown, key = { it.id }) { c ->
+                            Text(
+                                c.name,
+                                color = if (c.id == ch.id) Color(0xFF7FB2FF) else Color.White,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { listOpen = false; vm.play(all, c) }
+                                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         if (showUi && !vm.inPip) {
             Row(
                 Modifier
@@ -336,4 +432,15 @@ fun PlayerScreen(vm: MainVm) {
             }
         }
     }
+}
+
+@Composable
+private fun PlayerMenuItem(label: String, onClick: () -> Unit) {
+    Text(
+        label,
+        color = Color.White,
+        fontSize = 14.sp,
+        maxLines = 1,
+        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
+    )
 }

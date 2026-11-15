@@ -649,11 +649,21 @@ private fun Message(text: String) {
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 private fun PreviewHeader(vm: MainVm, pv: Channel) {
     val e = vm.epg[pv.id]
     var replay by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().height(132.dp).background(GroupBg).padding(8.dp)) {
-        Box(Modifier.fillMaxHeight().aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)).background(Color.Black)) { PreviewBox(pv) }
+        // deux touches sur l'aperçu = plein écran
+        Box(
+            Modifier
+                .fillMaxHeight()
+                .aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.Black)
+                .combinedClickable(onClick = {}, onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }),
+        ) { PreviewBox(pv) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f).fillMaxHeight()) {
             Text(pv.name, color = Color.White, fontSize = 17.sp, maxLines = 1)
