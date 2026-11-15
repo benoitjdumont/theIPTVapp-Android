@@ -648,7 +648,6 @@ private fun Message(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(text, color = Color.White) }
 }
 
-@Composable
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PreviewHeader(vm: MainVm, pv: Channel) {
