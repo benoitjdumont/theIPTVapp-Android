@@ -64,13 +64,10 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
@@ -409,7 +406,7 @@ fun PlayerScreen(vm: MainVm) {
                         Triple("Liste des chaînes", Icons.Default.List) { close(); listOpen = true },
                         Triple(
                             if (rec == null) "Enregistrer" else "Arrêter",
-                            if (rec == null) Icons.Default.FiberManualRecord else Icons.Default.Stop,
+                            if (rec == null) IconRecord else IconStop,
                         ) {
                             if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording()
                             close()
@@ -523,13 +520,13 @@ fun PlayerScreen(vm: MainVm) {
                     }
                 }
                 IconButton(onClick = { player.playWhenReady = !player.playWhenReady }) {
-                    Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (playing) "Pause" else "Lecture", tint = Color.White)
+                    Icon(if (playing) IconPause else Icons.Default.PlayArrow, if (playing) "Pause" else "Lecture", tint = Color.White)
                 }
                 if (ch.kind == "live") {
                     val rec = vm.recording
                     IconButton(onClick = { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }) {
                         Icon(
-                            if (rec == null) Icons.Default.FiberManualRecord else Icons.Default.Stop,
+                            if (rec == null) IconRecord else IconStop,
                             if (rec == null) "Enregistrer" else "Arrêter",
                             tint = if (rec == null) Color.White else Color(0xFFFF6B6B),
                         )
@@ -585,6 +582,9 @@ private fun ImageVector.Builder.solid(d: String) =
     addPath(addPathNodes(d), fill = SolidColor(Color.White))
 
 /** Icônes du menu qui n'existent pas dans le jeu de base de Material. */
+private val IconPause = playerIcon("pause") { solid("M6,5h4v14h-4z"); solid("M14,5h4v14h-4z") }
+private val IconRecord = playerIcon("record") { solid("M12,4a8,8 0 1 1 -0.01,0z") }
+private val IconStop = playerIcon("stop") { solid("M6,6h12v12h-12z") }
 private val IconPip = playerIcon("pip") { outline("M3,4h18v16h-18z"); solid("M12,12h7v5h-7z") }
 private val IconMultiView = playerIcon("multi") {
     solid("M3,3h8v8h-8z"); solid("M13,3h8v8h-8z"); solid("M3,13h8v8h-8z"); solid("M13,13h8v8h-8z")
