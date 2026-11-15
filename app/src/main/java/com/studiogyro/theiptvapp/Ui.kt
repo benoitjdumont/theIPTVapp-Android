@@ -172,12 +172,13 @@ fun AppRoot(vm: MainVm) {
 /** A row that is clearly highlighted when focused with a remote control. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FocusRow(selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, content: @Composable RowScope.() -> Unit) {
+fun FocusRow(selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, requester: androidx.compose.ui.focus.FocusRequester? = null, content: @Composable RowScope.() -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
     Row(
         Modifier
             .fillMaxWidth()
+            .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
             .clip(shape)
             .background(if (focused) Accent.copy(alpha = 0.35f) else if (selected) Accent.copy(alpha = 0.18f) else Color.Transparent)
             .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
@@ -200,11 +201,13 @@ var UiAlpha by mutableStateOf(1f)
 val TEXT_SIZES = listOf("Petite" to 0.9f, "Moyenne" to 1f, "Grande" to 1.15f, "Très grande" to 1.3f)
 val TRANSPS = listOf("Très transparente" to 0.5f, "Normale" to 1f, "Presque opaque" to 1.8f)
 private fun tint(c: Long, a: Float) = Color(c or 0xFF000000L).copy(alpha = (a * UiAlpha).coerceIn(0f, 1f))
-/** Une seule couleur pour toutes les colonnes : rail, catégories, chaînes, guide et préférences. */
-val ColumnBg get() = tint(0x232C6B, 1f)
-val RailBg get() = ColumnBg
-val GroupBg get() = ColumnBg
-val ListBg get() = ColumnBg
+/** Couleurs des colonnes : suivent la couleur choisie dans Apparence.
+ *  Rail (TV / Films / Séries / Recherche) et Préférences = couleur choisie ; catégories, chaînes et guide = nuance plus foncée. */
+fun darker(c: Color, f: Float): Color = androidx.compose.ui.graphics.lerp(c, Color.Black, f)
+val AccentDark get() = darker(Accent, 0.4f)
+val RailBg get() = Accent
+val GroupBg get() = AccentDark
+val ListBg get() = AccentDark
 val CellBg get() = tint(0x3A4A9A, 0.33f)
 
 @Composable
@@ -218,7 +221,7 @@ private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClic
             .height(44.dp)
             .alpha(if (enabled) 1f else 0.3f)
             .clip(shape)
-            .background(if (focused) Accent.copy(alpha = 0.55f) else if (selected) Accent.copy(alpha = 0.9f) else Color.Transparent)
+            .background(if (focused) AccentDark else if (selected) Color.White.copy(alpha = 0.18f) else Color.Transparent)
             .onFocusChanged { focused = it.isFocused }
             .clickable(enabled = enabled, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
@@ -291,6 +294,23 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     var railFocus by remember { mutableStateOf(false) }
     var groupFocus by remember { mutableStateOf(false) }
     val railExpanded = railFocus || (!groupFocus && sec.top == null)
+    val groupFirst = remember { androidx.compose.ui.focus.FocusRequester() }
+    val listFirst = remember { androidx.compose.ui.focus.FocusRequester() }
+    // on clique TV / Films / Séries : le focus passe dans la colonne des catégories
+    LaunchedEffect(vm.tabTick) {
+        if (vm.tabTick > 0) {
+            showCols = true
+            kotlinx.coroutines.delay(60)
+            runCatching { groupFirst.requestFocus() }
+        }
+    }
+    // une catégorie choisie : les colonnes se replient et le focus va sur la liste
+    LaunchedEffect(colsHidden) {
+        if (colsHidden) {
+            kotlinx.coroutines.delay(60)
+            runCatching { listFirst.requestFocus() }
+        }
+    }
     BackHandler(enabled = colsHidden) { showCols = true }
     Box(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxSize()) {
@@ -321,7 +341,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                     val subs = sec.subs()
                     Row(Modifier.fillMaxSize()) {
                         if (!colsHidden) LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp).onFocusChanged { groupFocus = it.hasFocus }) {
-                            items(topEntries(sec, vm.tab == 0).filter { it.first == null || (it.first == GROUP_FAV || it.first == GROUP_HIST) || it.first !in vm.hiddenCats }, key = { it.first ?: "\u0001all" }) { (g, label) ->
+                            itemsIndexed(topEntries(sec, vm.tab == 0).filter { it.first == null || (it.first == GROUP_FAV || it.first == GROUP_HIST) || it.first !in vm.hiddenCats }, key = { _, e -> e.first ?: "\u0001all" }) { idx, (g, label) ->
                                 val lock = g != null && (g != GROUP_FAV && g != GROUP_HIST) && vm.catLocked(label)
                                 FocusRow(
                                     selected = sec.top == g,
@@ -330,6 +350,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                                         if (g != null) showCols = false
                                     },
                                     onLongClick = if (g != null && (g != GROUP_FAV && g != GROUP_HIST)) ({ vm.toggleCatLock(label) }) else null,
+                                    requester = if (idx == 0) groupFirst else null,
                                 ) {
                                     Text((if (lock) "🔒 " else "") + label, color = if (sec.top == g) Accent else Color.White, maxLines = 1)
                                 }
@@ -366,7 +387,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                             }
                             val pv = vm.preview
                             if (vm.tab == 0 && vm.previewMode && pv != null) PreviewHeader(vm, pv)
-                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f)) else PosterWall(vm, list, Modifier.weight(1f))
+                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f), listFirst) else PosterWall(vm, list, Modifier.weight(1f))
                         }
                     }
                 }
@@ -777,7 +798,7 @@ private fun EpgCell(title: String?, sub: String?, progress: Float?, modifier: Mo
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
+private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, first: androidx.compose.ui.focus.FocusRequester? = null) {
     if (list.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) { Text("Aucune chaîne.", color = Color.Gray) }
         return
@@ -813,6 +834,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
                         selected = false,
                         onClick = { vm.guard(c) { if (vm.previewMode && vm.preview?.id != c.id) vm.preview = c else vm.play(list, c) } },
                         onLongClick = { vm.toggleFav(c) },
+                        requester = if (i == 0) first else null,
                     ) {
                         LaunchedEffect(c.id, vm.xmltvReady) { vm.loadEpg(c) }
                         val e = vm.epg[c.id]
@@ -864,8 +886,8 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier) {
     }
 }
 
-val PanelHead = Color(0xFF32409A)
-val PanelBody = Color(0xFF232C6B)
+val PanelHead get() = darker(Accent, 0.2f)
+val PanelBody get() = Accent
 
 /** Une ligne d'un panneau de réglages : titre, petit texte, élément à droite (interrupteur, valeur…). */
 @OptIn(ExperimentalFoundationApi::class)
@@ -887,7 +909,7 @@ private fun PanelItem(
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 1.dp)
             .clip(shape)
-            .background(if (focused) Accent else Color.Transparent)
+            .background(if (focused) AccentDark else Color.Transparent)
             .androidx_focusRequester(fr)
             .onFocusChanged { focused = it.isFocused }
             .combinedClickable(onClick = onClick, onLongClick = onLong)

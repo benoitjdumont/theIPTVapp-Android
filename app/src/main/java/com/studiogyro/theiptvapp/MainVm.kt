@@ -152,7 +152,11 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     fun section(): Section = when (tab) { 0 -> live; 1 -> movies; else -> series }
 
+    /** incrémenté à chaque clic sur TV / Films / Séries : le focus passe alors dans la colonne des catégories */
+    var tabTick by mutableStateOf(0); private set
+
     fun selectTab(i: Int) {
+        tabTick++
         tab = i
         preview = null
         query = ""
