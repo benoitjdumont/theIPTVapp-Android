@@ -977,7 +977,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         val w = if (docked) maxWidth else if (maxWidth > 400.dp) 360.dp else maxWidth * 0.92f
         Row(Modifier.fillMaxSize()) {
             if (!docked) Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).clickable(enabled = canClose, onClick = back))
-            Column(Modifier.width(w).fillMaxHeight().background(PanelBody)) {
+            // la flèche Haut ne sort plus du panneau de réglages (sinon le focus revient à la colonne TV / Films / Séries)
+            Column(Modifier.width(w).fillMaxHeight().background(PanelBody).focusProperties { exit = { dir -> if (dir == androidx.compose.ui.focus.FocusDirection.Up) androidx.compose.ui.focus.FocusRequester.Cancel else androidx.compose.ui.focus.FocusRequester.Default } }) {
                 Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.fillMaxWidth().background(PanelHead).padding(horizontal = 18.dp, vertical = 14.dp))
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
                     when {
