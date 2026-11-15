@@ -675,6 +675,9 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         current?.let { store.saveLast(it.id); if (it.kind == "live") store.saveLastLive(it.id) }
     }
 
+    /** demandé par le menu du lecteur (Préférences) : l'accueil ouvre les réglages */
+    var openSettingsRequest by mutableStateOf(false)
+
     /** Retour depuis le plein écran : la chaîne revient en aperçu (elle continue de jouer). */
     fun stop() {
         val c = current

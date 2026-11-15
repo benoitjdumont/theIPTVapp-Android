@@ -122,10 +122,16 @@ fun AppRoot(vm: MainVm) {
         PinDialog(vm)
         UpdateDialog(vm)
         var screen by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "settings" else "home") }
+        LaunchedEffect(vm.openSettingsRequest) {
+            if (vm.openSettingsRequest) { screen = "settings"; vm.openSettingsRequest = false }
+        }
         // Retour sur l'accueil : quitte, ou demande une seconde pression si la confirmation est activée
         var lastBack by remember { mutableStateOf(0L) }
         val onHome = vm.current == null && vm.movieOpen == null && vm.seriesOpen == null && screen == "home"
+        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+        // le bouton Retour de la manette agit comme la flèche gauche ; quand on est déjà à gauche, il quitte
         BackHandler(enabled = onHome) {
+            if (focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)) return@BackHandler
             val now = System.currentTimeMillis()
             if (!vm.doubleBack || now - lastBack < 2000) {
                 (ctx as? android.app.Activity)?.finish()
@@ -194,9 +200,11 @@ var UiAlpha by mutableStateOf(1f)
 val TEXT_SIZES = listOf("Petite" to 0.9f, "Moyenne" to 1f, "Grande" to 1.15f, "Très grande" to 1.3f)
 val TRANSPS = listOf("Très transparente" to 0.5f, "Normale" to 1f, "Presque opaque" to 1.8f)
 private fun tint(c: Long, a: Float) = Color(c or 0xFF000000L).copy(alpha = (a * UiAlpha).coerceIn(0f, 1f))
-val RailBg get() = tint(0x080C24, 0.7f)
-val GroupBg get() = tint(0x101850, 0.4f)
-val ListBg get() = tint(0x000000, 0.2f)
+/** Une seule couleur pour toutes les colonnes : rail, catégories, chaînes, guide et préférences. */
+val ColumnBg get() = tint(0x232C6B, 1f)
+val RailBg get() = ColumnBg
+val GroupBg get() = ColumnBg
+val ListBg get() = ColumnBg
 val CellBg get() = tint(0x3A4A9A, 0.33f)
 
 @Composable
@@ -259,14 +267,14 @@ private fun SeriesIcon() = androidx.compose.foundation.Canvas(Modifier.size(24.d
 private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, searchOpen: Boolean, onSearch: () -> Unit, openSettings: () -> Unit) {
     val focus = expanded
     Column(
-        Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(if (focus) Color(0xF2080C24) else RailBg).padding(vertical = 6.dp).onFocusChanged { onFocus(it.hasFocus) },
+        Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(RailBg).padding(vertical = 6.dp).onFocusChanged { onFocus(it.hasFocus) },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        RailItem(searchOpen, focus, "Rechercher", onSearch) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
         RailItem(vm.tab == 0, focus, "TV", { vm.selectTab(0) }) { TvIcon() }
         RailItem(vm.tab == 1, focus, "Films", { vm.selectTab(1) }, enabled = vm.movies.items.isNotEmpty() || vm.tab == 1) { FilmIcon() }
         RailItem(vm.tab == 2, focus, "Séries", { vm.selectTab(2) }, enabled = vm.series.items.isNotEmpty() || vm.tab == 2) { SeriesIcon() }
         Spacer(Modifier.weight(1f))
+        RailItem(searchOpen, focus, "Rechercher", onSearch) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
         RailItem(false, focus, "Paramètres", openSettings) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
     }
 }

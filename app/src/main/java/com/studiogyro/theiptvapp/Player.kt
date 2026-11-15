@@ -16,10 +16,16 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.text.style.TextAlign
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
@@ -131,6 +137,8 @@ fun PlayerScreen(vm: MainVm) {
     // menu du bas (comme la télé Samsung) et liste des chaînes par-dessus la vidéo
     var menuOpen by remember(ch.id) { mutableStateOf(false) }
     var stripOpen by remember(ch.id) { mutableStateOf(false) }
+    var displayMode by remember { mutableIntStateOf(0) }
+    var sleepMin by remember { mutableIntStateOf(0) }
     var picker by remember(ch.id) { mutableStateOf<String?>(null) }
     val stripFirst = remember { FocusRequester() }
     var listOpen by remember(ch.id) { mutableStateOf(false) }
@@ -206,6 +214,16 @@ fun PlayerScreen(vm: MainVm) {
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(showUi) { if (!showUi) runCatching { focus.requestFocus() } }
     // menu ouvert : le focus va sur le menu (la télécommande le parcourt) ; fermé : retour à la vidéo
+    // minuterie : arrête la lecture après le temps choisi
+    LaunchedEffect(sleepMin) {
+        if (sleepMin > 0) {
+            delay(sleepMin * 60_000L)
+            player.playWhenReady = false
+            hud = "Minuterie : lecture arrêtée"
+            sleepMin = 0
+        }
+    }
+
     LaunchedEffect(stripOpen) { if (stripOpen) runCatching { stripFirst.requestFocus() } }
     LaunchedEffect(menuOpen) { if (menuOpen) runCatching { menuFirst.requestFocus() } }
     LaunchedEffect(listOpen) { if (listOpen) runCatching { listFirst.requestFocus() } }
@@ -215,7 +233,7 @@ fun PlayerScreen(vm: MainVm) {
     BackHandler(true) {
         when {
             listOpen -> listOpen = false
-            menuOpen -> { menuOpen = false; stripOpen = true }
+            menuOpen -> menuOpen = false
             stripOpen -> stripOpen = false
             else -> vm.stop()
         }
@@ -246,8 +264,11 @@ fun PlayerScreen(vm: MainVm) {
                 // menu ou liste ouverts : les flèches déplacent le focus dans le menu, sans changer de chaîne
                 if (menuOpen || listOpen || stripOpen) return@onKeyEvent false
                 when (ev.key) {
-                    Key.DirectionDown, Key.ChannelDown, Key.PageDown -> { vm.step(1); showUi = true; true }
-                    Key.DirectionUp, Key.ChannelUp, Key.PageUp -> { vm.step(-1); showUi = true; true }
+                    Key.ChannelDown, Key.PageDown -> { vm.step(1); showUi = true; true }
+                    Key.ChannelUp, Key.PageUp -> { vm.step(-1); showUi = true; true }
+                    // flèche bas : menu complet ; flèche haut : derniers canaux
+                    Key.DirectionDown -> { menuOpen = true; showUi = true; true }
+                    Key.DirectionUp -> { stripOpen = true; showUi = true; true }
                     Key.MediaPlayPause -> { player.playWhenReady = !player.playWhenReady; showUi = true; true }
                     // bouton central de la manette : ouvre le menu du bas
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { stripOpen = true; showUi = true; true }
@@ -256,7 +277,11 @@ fun PlayerScreen(vm: MainVm) {
             }
     ) {
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = when (displayMode) {
+                2 -> Modifier.align(Alignment.Center).fillMaxHeight().aspectRatio(4f / 3f)
+                3 -> Modifier.align(Alignment.Center).fillMaxHeight().aspectRatio(16f / 9f)
+                else -> Modifier.fillMaxSize()
+            },
             factory = { c ->
                 PlayerView(c).apply {
                     useController = false
@@ -264,7 +289,10 @@ fun PlayerScreen(vm: MainVm) {
                     keepScreenOn = true
                 }
             },
-            update = { it.useController = ch.kind != "live" },
+            update = {
+                it.useController = ch.kind != "live"
+                it.resizeMode = if (displayMode == 1) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
+            },
         )
 
         // couche tactile par-dessus la vidéo : gestes + toucher pour afficher/masquer
@@ -377,28 +405,44 @@ fun PlayerScreen(vm: MainVm) {
                     }
                 }
                 if (menuOpen) {
-                    Row(
+                    val rec = vm.recording
+                    fun close() { menuOpen = false }
+                    val row1 = listOf<Pair<String, () -> Unit>>(
+                        "Résolution" to { close(); picker = "video" },
+                        "Préférences" to { close(); vm.stop(); vm.openSettingsRequest = true },
+                        "Sous-titres (CC)" to { close(); picker = "text" },
+                        "Image dans l'image" to { close(); (activity as? MainActivity)?.enterPip() },
+                        (if (rec == null) "Enregistrer" else "Arrêter l'enregistrement") to {
+                            if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording()
+                            close()
+                        },
+                        "Multi-vue" to { close(); hud = "Multi-vue : bientôt disponible" },
+                    )
+                    val row2 = listOf<Pair<String, () -> Unit>>(
+                        "Liste des chaînes" to { close(); listOpen = true },
+                        "Rechercher" to { close(); listOpen = true },
+                        "Audio" to { close(); picker = "audio" },
+                        "Affichage : " + displayModes[displayMode] to { displayMode = (displayMode + 1) % displayModes.size },
+                        "Minuterie : " + (if (sleepMin == 0) "désactivée" else "$sleepMin min") to {
+                            sleepMin = sleepSteps[(sleepSteps.indexOf(sleepMin) + 1) % sleepSteps.size]
+                        },
+                        (if (vm.isFav(ch)) "Retirer des favoris" else "Ajouter aux favoris") to { vm.toggleFav(ch) },
+                    )
+                    Column(
                         Modifier
                             .fillMaxWidth()
-                            .background(Color(0xD9000000))
-                            .padding(horizontal = tvPad + 8.dp, vertical = 8.dp)
-                            .onKeyEvent { ev ->
-                                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionUp) { menuOpen = false; stripOpen = true; true } else false
-                            },
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically,
+                            .background(Color(0xE6000000))
+                            .padding(horizontal = tvPad + 8.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        PlayerMenuItem("Rechercher", Modifier.focusRequester(menuFirst)) { menuOpen = false; listOpen = true }
-                        PlayerMenuItem("Liste des chaînes") { menuOpen = false; listOpen = true }
-                        PlayerMenuItem(if (rec == null) "Enregistrer" else "Arrêter l'enregistrement") {
-                            if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording()
-                            menuOpen = false
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            row1.forEachIndexed { i, (label, action) ->
+                                PlayerMenuItem(label, if (i == 0) Modifier.focusRequester(menuFirst) else Modifier, onClick = action)
+                            }
                         }
-                        PlayerMenuItem("Image dans l'image") { menuOpen = false; (activity as? MainActivity)?.enterPip() }
-                        PlayerMenuItem("Résolution") { menuOpen = false; picker = "video" }
-                        PlayerMenuItem("Sous-titres") { menuOpen = false; picker = "text" }
-                        PlayerMenuItem("Audio") { menuOpen = false; picker = "audio" }
-                        PlayerMenuItem(if (vm.isFav(ch)) "Retirer des favoris" else "Ajouter aux favoris") { vm.toggleFav(ch) }
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            row2.forEach { (label, action) -> PlayerMenuItem(label, Modifier, onClick = action) }
+                        }
                     }
                 }
                 // flèche : ouvre les derniers canaux, puis le menu plus bas
@@ -476,7 +520,11 @@ fun PlayerScreen(vm: MainVm) {
             ) {
                 IconButton(onClick = { vm.stop() }) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
                 Column(Modifier.weight(1f)) {
-                    Text(ch.name, color = Color.White, maxLines = 1)
+                    val pos = vm.playlist.indexOf(ch)
+                    Text(
+                        vm.displayName(ch) + if (pos >= 0 && ch.kind == "live") "   ${pos + 1} / ${vm.playlist.size}" else "",
+                        color = Color.White, maxLines = 1,
+                    )
                     val e = vm.epg[ch.id]
                     if (e?.now != null) {
                         Text("${e.now.title}  ${hm(e.now.start)}–${hm(e.now.stop)}", color = Color(0xFFCCDDFF), fontSize = 13.sp, maxLines = 1)
@@ -508,6 +556,10 @@ fun PlayerScreen(vm: MainVm) {
 }
 
 @Composable
+private val displayModes = listOf("Normal", "Zoom", "4:3", "16:9")
+private val sleepSteps = listOf(0, 15, 30, 60, 90)
+
+@Composable
 private fun PlayerMenuItem(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     Text(
@@ -515,7 +567,9 @@ private fun PlayerMenuItem(label: String, modifier: Modifier = Modifier, onClick
         color = Color.White,
         fontSize = 14.sp,
         maxLines = 1,
+        textAlign = TextAlign.Center,
         modifier = modifier
+            .widthIn(min = 150.dp)
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(6.dp))
             .background(if (focused) Accent else Color.Transparent)
