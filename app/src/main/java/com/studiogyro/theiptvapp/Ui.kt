@@ -44,7 +44,6 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -700,11 +699,11 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(vm.displayName(pv), color = Color.White, fontSize = 17.sp, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
                 val fav = vm.isFav(pv)
-                Icon(
-                    if (fav) Icons.Default.Star else Icons.Default.StarBorder,
-                    if (fav) "Retirer des favoris" else "Ajouter aux favoris",
-                    tint = if (fav) Color(0xFFFFC107) else Color.White,
-                    modifier = Modifier.padding(start = 8.dp).size(24.dp).clickable { vm.toggleFav(pv) },
+                Text(
+                    if (fav) "★" else "☆",
+                    color = if (fav) Color(0xFFFFC107) else Color.White,
+                    fontSize = 22.sp,
+                    modifier = Modifier.padding(start = 8.dp).clickable { vm.toggleFav(pv) },
                 )
             }
             val now = e?.now
