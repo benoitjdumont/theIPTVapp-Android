@@ -142,7 +142,9 @@ fun PlayerScreen(vm: MainVm) {
     var hud by remember { mutableStateOf("") }
     var playing by remember { mutableStateOf(true) }
     // menu du bas (comme la télé Samsung) et liste des chaînes par-dessus la vidéo
-    var menuOpen by remember(ch.id) { mutableStateOf(false) }
+    // menu : 0 fermé ; 1 = historique des chaînes seul ; 2 = rangée d'options (remplace l'historique)
+    var menuStage by remember(ch.id) { mutableIntStateOf(0) }
+    val stripFirst = remember { FocusRequester() }
     var displayMode by remember { mutableIntStateOf(0) }
     var sleepMin by remember { mutableIntStateOf(0) }
     var picker by remember(ch.id) { mutableStateOf<String?>(null) }
@@ -229,15 +231,25 @@ fun PlayerScreen(vm: MainVm) {
         }
     }
 
-    LaunchedEffect(menuOpen) { if (menuOpen) runCatching { menuFirst.requestFocus() } }
+    LaunchedEffect(menuStage) {
+        when (menuStage) {
+            1 -> runCatching { stripFirst.requestFocus() }
+            2 -> runCatching { menuFirst.requestFocus() }
+        }
+    }
     LaunchedEffect(listOpen) { if (listOpen) runCatching { listFirst.requestFocus() } }
-    LaunchedEffect(menuOpen, listOpen) { if (!menuOpen && !listOpen) runCatching { focus.requestFocus() } }
+    LaunchedEffect(menuStage, listOpen) { if (menuStage == 0 && !listOpen) runCatching { focus.requestFocus() } }
+
+    fun openMenu(stage: Int) {
+        // pas d'historique à montrer : on passe directement aux options
+        menuStage = if (stage == 1 && vm.recentChannels().isEmpty()) 2 else stage
+    }
 
     // Retour : ferme d'abord la liste ou le menu, puis revient à l'aperçu (le flux continue)
     BackHandler(true) {
         when {
             listOpen -> listOpen = false
-            menuOpen -> menuOpen = false
+            menuStage != 0 -> menuStage = 0
             else -> vm.stop()
         }
     }
@@ -249,6 +261,12 @@ fun PlayerScreen(vm: MainVm) {
             .focusRequester(focus)
             .focusable()
             .onKeyEvent { ev ->
+                // bouton central : le menu s'ouvre au RELÂCHER (sinon le clic arrive sur l'élément focus)
+                if (ev.type == KeyEventType.KeyUp) {
+                    val center = ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.NumPadEnter
+                    if (center && ch.kind == "live" && menuStage == 0 && !listOpen) { openMenu(1); showUi = true; return@onKeyEvent true }
+                    return@onKeyEvent false
+                }
                 if (ev.type != KeyEventType.KeyDown) return@onKeyEvent false
                 val vod = ch.kind != "live"
                 if (vod) {
@@ -265,15 +283,14 @@ fun PlayerScreen(vm: MainVm) {
                     }
                 }
                 // menu ou liste ouverts : les flèches déplacent le focus dans le menu, sans changer de chaîne
-                if (menuOpen || listOpen) return@onKeyEvent false
+                if (menuStage != 0 || listOpen) return@onKeyEvent false
                 when (ev.key) {
                     Key.ChannelDown, Key.PageDown -> { vm.step(1); showUi = true; true }
                     Key.ChannelUp, Key.PageUp -> { vm.step(-1); showUi = true; true }
                     // flèche bas, flèche haut ou bouton central : ouvre le menu (derniers canaux + rangée d'icônes)
-                    Key.DirectionDown -> { menuOpen = true; showUi = true; true }
-                    Key.DirectionUp -> { menuOpen = true; showUi = true; true }
+                    Key.DirectionDown -> { openMenu(2); showUi = true; true }
+                    Key.DirectionUp -> { openMenu(1); showUi = true; true }
                     Key.MediaPlayPause -> { player.playWhenReady = !player.playWhenReady; showUi = true; true }
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { menuOpen = true; showUi = true; true }
                     else -> false
                 }
             }
@@ -385,22 +402,30 @@ fun PlayerScreen(vm: MainVm) {
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (menuOpen) {
-                    fun close() { menuOpen = false }
-                    val recents = vm.recentChannels()
-                    if (recents.isNotEmpty()) {
-                        LazyRow(
-                            Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xD9000000))
-                                .padding(horizontal = tvPad + 8.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            itemsIndexed(recents, key = { _, c -> c.id }) { _, c ->
-                                RecentTile(c, selected = c.id == ch.id) { close(); vm.play(vm.playlist, c) }
-                            }
+                fun close() { menuStage = 0 }
+                val recents = vm.recentChannels()
+                if (menuStage == 1 && recents.isNotEmpty()) {
+                    // historique : une ligne de chaînes récentes ; la flèche dessous indique le menu plus bas
+                    LazyRow(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xD9000000))
+                            .padding(horizontal = tvPad + 8.dp, vertical = 8.dp)
+                            .onKeyEvent { ev ->
+                                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown) { menuStage = 2; true } else false
+                            },
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        itemsIndexed(recents, key = { _, c -> c.id }) { idx, c ->
+                            RecentTile(
+                                c,
+                                selected = c.id == ch.id,
+                                modifier = if (idx == 0) Modifier.focusRequester(stripFirst) else Modifier,
+                            ) { close(); vm.play(vm.playlist, c) }
                         }
                     }
+                }
+                if (menuStage == 2) {
                     val menuItems = listOf<Triple<String, ImageVector, () -> Unit>>(
                         Triple("Rechercher", Icons.Default.Search) { close(); listOpen = true },
                         Triple("Liste des chaînes", Icons.Default.List) { close(); listOpen = true },
@@ -447,11 +472,15 @@ fun PlayerScreen(vm: MainVm) {
                         .height(24.dp)
                         .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                         .background(Color(0xAA000000))
-                        .clickable { menuOpen = !menuOpen; showUi = true },
+                        .clickable {
+                            menuStage = when (menuStage) { 0 -> 1; 1 -> 2; else -> 0 }
+                            if (menuStage == 1 && recents.isEmpty()) menuStage = 2
+                            showUi = true
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        if (menuOpen) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                        if (menuStage == 0) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         "Menu", tint = Color.White,
                     )
                 }

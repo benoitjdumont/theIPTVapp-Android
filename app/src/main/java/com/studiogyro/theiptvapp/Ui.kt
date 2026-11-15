@@ -316,10 +316,10 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     }
     BackHandler(enabled = colsHidden) { showCols = true }
     Box(Modifier.fillMaxSize()) {
+    if (colsHidden) EdgeHandle(Modifier.align(Alignment.CenterStart).fillMaxHeight().width(14.dp)) { showCols = true }
     Row(Modifier.fillMaxSize()) {
         // rail : grand (avec les noms) au repos ; petit (icônes) quand on parcourt les catégories ; caché une fois une catégorie choisie
         if (!colsHidden) Rail(vm, railExpanded, { railFocus = it }, searchOpen, { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }, openSettings)
-        else EdgeHandle { showCols = true }
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when {
                 vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
@@ -403,13 +403,11 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
 
 /** Bord gauche replié : touche-le (ou la manette à gauche) pour ré-afficher les colonnes. */
 @Composable
-private fun EdgeHandle(onOpen: () -> Unit) {
+private fun EdgeHandle(modifier: Modifier = Modifier, onOpen: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     Box(
-        Modifier
-            .fillMaxHeight()
-            .width(26.dp)
-            .background(if (focused) Accent.copy(alpha = 0.6f) else Color.Transparent)
+        modifier
+            .background(if (focused) Color(0x33FFFFFF) else Color.Transparent)
             .onFocusChanged { focused = it.isFocused; if (it.isFocused) onOpen() }
             .clickable(onClick = onOpen),
     )
