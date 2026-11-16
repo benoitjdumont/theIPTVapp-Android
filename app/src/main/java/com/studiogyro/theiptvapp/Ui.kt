@@ -101,6 +101,8 @@ val ACCENTS = listOf(
     "Gris" to Color(0xFF7C8593),
 )
 
+/** ombre sous les textes de détail : lisibles même sur une image de fond */
+val detailShadow = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = Color.Black, offset = androidx.compose.ui.geometry.Offset(0f, 2f), blurRadius = 8f))
 val BgBrush = androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF16205E), Color(0xFF0B1230), Color(0xFF0E1A4A)))
 
 @Composable
@@ -653,10 +655,10 @@ fun MovieScreen(vm: MainVm) {
             Poster(c.logo, Modifier.width(140.dp).aspectRatio(2f / 3f), c.name)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f).fillMaxSize()) {
-                Text(c.name, color = Color.White, fontSize = 22.sp, maxLines = 2)
+                Text(c.name, color = Color.White, fontSize = 22.sp, maxLines = 2, style = detailShadow)
                 val meta = d?.meta?.ifBlank { null } ?: c.meta
-                if (meta.isNotBlank()) Text(meta, color = Color(0xFF9DB4D8), fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
-                if (d != null && d.cast.isNotBlank()) Text("Acteurs : " + d.cast, color = Color(0xFF8A97A6), fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
+                if (meta.isNotBlank()) Text(meta, color = Color(0xFF9DB4D8), fontSize = 13.sp, style = detailShadow, modifier = Modifier.padding(top = 2.dp))
+                if (d != null && d.cast.isNotBlank()) Text("Acteurs : " + d.cast, color = Color(0xFFC9D3E0), fontSize = 12.sp, maxLines = 2, style = detailShadow, modifier = Modifier.padding(top = 4.dp))
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 8.dp)) {
                     Text(
                         (d?.plot?.ifBlank { null } ?: c.plot).ifBlank { if (d == null) "Chargement…" else "Pas de résumé." },
@@ -1056,20 +1058,15 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page == "groups" -> GroupsPage(vm)
                         page == "look" -> {
                             PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first, first = true) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
-                            PanelItem(
-                                "Transparence de l'interface",
-                                "${Math.round(GlassState.transp * 100)} %",
-                                trailing = {
-                                    androidx.compose.material3.Slider(
-                                        value = GlassState.transp,
-                                        onValueChange = { vm.changeGlass(it) },
-                                        modifier = Modifier.width(220.dp),
-                                    )
-                                },
-                            ) {
+                            PanelItem("Transparence de l'interface", "${Math.round(GlassState.transp * 100)} %") {
                                 // une pression fait avancer par paliers de 25 % (utile à la télécommande)
                                 vm.changeGlass(((Math.round(GlassState.transp * 4f) + 1) % 5) / 4f)
                             }
+                            androidx.compose.material3.Slider(
+                                value = GlassState.transp,
+                                onValueChange = { vm.changeGlass(it) },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                            )
                             PanelItem("Couleur de l'interface", ACCENTS[vm.accentIdx].first) { page = "look_color" }
                             PanelItem("Image de fond", if (vm.bgPath != null) "Une image est active" else "Aucune") { page = "look_bg" }
                             PanelItem("Guide TV") { page = "look_guide" }
