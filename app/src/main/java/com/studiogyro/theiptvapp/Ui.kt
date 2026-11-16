@@ -344,7 +344,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     val colsHidden = !showCols
     var railFocus by remember { mutableStateOf(false) }
     var groupFocus by remember { mutableStateOf(false) }
-    val railExpanded = railFocus || (!groupFocus && sec.top == null)
+    val railExpanded = railFocus
     // la catégorie choisie garde sa place : on y revient (focus + défilement) au lieu de la première
     val selectedRequester = remember { androidx.compose.ui.focus.FocusRequester() }
     val groupState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -1020,7 +1020,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         Row(Modifier.fillMaxSize()) {
             if (!docked) Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).clickable(enabled = canClose, onClick = back))
             // la flèche Haut ne sort plus du panneau de réglages (sinon le focus revient à la colonne TV / Films / Séries)
-            Column(Modifier.width(w).fillMaxHeight().background(PanelBody).onKeyEvent { ev -> if (canClose && ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && ev.key == androidx.compose.ui.input.key.Key.DirectionLeft) back(); false }.focusProperties { exit = { dir -> if (dir == androidx.compose.ui.focus.FocusDirection.Up) androidx.compose.ui.focus.FocusRequester.Cancel else androidx.compose.ui.focus.FocusRequester.Default } }) {
+            Column(Modifier.width(w).fillMaxHeight().background(PanelBody).onKeyEvent { ev -> if (canClose && ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && (ev.key == androidx.compose.ui.input.key.Key.DirectionLeft || ev.key == androidx.compose.ui.input.key.Key.DirectionRight)) back(); false }.focusProperties { exit = { dir -> if (dir == androidx.compose.ui.focus.FocusDirection.Up) androidx.compose.ui.focus.FocusRequester.Cancel else androidx.compose.ui.focus.FocusRequester.Default } }) {
                 Row(Modifier.fillMaxWidth().background(PanelHead).padding(start = 18.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
                     if (canClose) IconButton(onClick = back) { Icon(Icons.Default.Close, "Fermer", tint = Color.White) }
@@ -1063,9 +1063,16 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page == "groups" -> GroupsPage(vm)
                         page == "look" -> {
                             PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first, first = true) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
-                            PanelItem("Transparence de l'interface", "${Math.round(GlassState.transp * 100)} %") {
-                                // une pression fait avancer par paliers de 25 % (utile à la télécommande)
-                                vm.changeGlass(((Math.round(GlassState.transp * 4f) + 1) % 5) / 4f)
+                            Box(Modifier.onKeyEvent { ev ->
+                                // gauche / droite : -10 % / +10 % à la manette
+                                if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && (ev.key == androidx.compose.ui.input.key.Key.DirectionLeft || ev.key == androidx.compose.ui.input.key.Key.DirectionRight)) {
+                                    vm.changeGlass(GlassState.transp + if (ev.key == androidx.compose.ui.input.key.Key.DirectionRight) 0.1f else -0.1f); true
+                                } else false
+                            }) {
+                                PanelItem("Transparence de l'interface", "${Math.round(GlassState.transp * 100)} %") {
+                                    // OK : avance par paliers de 25 %
+                                    vm.changeGlass(((Math.round(GlassState.transp * 4f) + 1) % 5) / 4f)
+                                }
                             }
                             androidx.compose.material3.Slider(
                                 value = GlassState.transp,
