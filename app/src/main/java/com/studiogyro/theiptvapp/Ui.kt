@@ -158,6 +158,7 @@ fun AppRoot(vm: MainVm) {
                 Box(Modifier.fillMaxSize().safeDrawingPadding().then(safe)) {
                     // l'accueil reste à sa place ; les préférences glissent par-dessus, de droite à gauche
                     if (vm.sources.isNotEmpty() || screen != "settings") HomeScreen(vm) { screen = "settings" }
+                    if (screen == "settings" && vm.sources.isNotEmpty()) Box(Modifier.fillMaxSize().clickable { screen = "home" })
                     androidx.compose.animation.AnimatedVisibility(
                         visible = screen == "settings",
                         modifier = Modifier.align(Alignment.CenterEnd),
@@ -998,7 +999,10 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             if (!docked) Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).clickable(enabled = canClose, onClick = back))
             // la flèche Haut ne sort plus du panneau de réglages (sinon le focus revient à la colonne TV / Films / Séries)
             Column(Modifier.width(w).fillMaxHeight().background(PanelBody).focusProperties { exit = { dir -> if (dir == androidx.compose.ui.focus.FocusDirection.Up) androidx.compose.ui.focus.FocusRequester.Cancel else androidx.compose.ui.focus.FocusRequester.Default } }) {
-                Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.fillMaxWidth().background(PanelHead).padding(horizontal = 18.dp, vertical = 14.dp))
+                Row(Modifier.fillMaxWidth().background(PanelHead).padding(start = 18.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
+                    if (canClose) IconButton(onClick = back) { Icon(androidx.compose.material.icons.Icons.Default.Close, "Fermer", tint = Color.White) }
+                }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
                     when {
                         page == "root" -> {
