@@ -54,6 +54,8 @@ class Store(ctx: Context) {
     fun saveDoubleBack(b: Boolean) = sp.edit().putBoolean("double_back", b).apply()
     fun bootStart(): Boolean = sp.getBoolean("boot_start", false)
     fun saveBootStart(b: Boolean) = sp.edit().putBoolean("boot_start", b).apply()
+    fun wakeStart(): Boolean = sp.getBoolean("wake_start", false)
+    fun saveWakeStart(b: Boolean) = sp.edit().putBoolean("wake_start", b).apply()
 
     // ---- réseau
     fun userAgent(): String = sp.getString("ua", "") ?: ""
