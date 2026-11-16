@@ -660,7 +660,7 @@ fun MovieScreen(vm: MainVm) {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 8.dp)) {
                     Text(
                         (d?.plot?.ifBlank { null } ?: c.plot).ifBlank { if (d == null) "Chargement…" else "Pas de résumé." },
-                        color = Color(0xFFB8C4DA), fontSize = 13.sp,
+                        color = Color(0xFFB8C4DA), fontSize = 13.sp, style = detailShadow,
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
