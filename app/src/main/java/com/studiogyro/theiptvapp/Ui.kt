@@ -1001,7 +1001,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             Column(Modifier.width(w).fillMaxHeight().background(PanelBody).focusProperties { exit = { dir -> if (dir == androidx.compose.ui.focus.FocusDirection.Up) androidx.compose.ui.focus.FocusRequester.Cancel else androidx.compose.ui.focus.FocusRequester.Default } }) {
                 Row(Modifier.fillMaxWidth().background(PanelHead).padding(start = 18.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
-                    if (canClose) IconButton(onClick = back) { Icon(androidx.compose.material.icons.Icons.Default.Close, "Fermer", tint = Color.White) }
+                    if (canClose) IconButton(onClick = back) { Icon(Icons.Default.Close, "Fermer", tint = Color.White) }
                 }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
                     when {
