@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.media3.common.C
@@ -245,14 +246,15 @@ fun PlayerScreen(vm: MainVm) {
 
     fun openMenu(stage: Int) {
         // pas d'historique à montrer : on passe directement aux options
-        menuStage = if (stage == 1 && vm.recentChannels().isEmpty()) 2 else stage
+        menuStage = stage
     }
 
     // Retour : ferme d'abord la liste ou le menu, puis revient à l'aperçu (le flux continue)
     BackHandler(true) {
         when {
             listOpen -> listOpen = false
-            menuStage != 0 -> menuStage = 0
+            menuStage == 2 -> menuStage = 1
+            menuStage == 1 -> menuStage = 0
             else -> vm.stop()
         }
     }
@@ -342,7 +344,7 @@ fun PlayerScreen(vm: MainVm) {
                             val ev = awaitPointerEvent()
                             val c = ev.changes.firstOrNull { it.id == down.id } ?: break
                             if (!c.pressed) {
-                                if (!dragging) showUi = !showUi
+                                if (!dragging) { if (menuStage == 2) menuStage = 1 else showUi = !showUi }
                                 else if (zone == 0 && ch.kind == "live" && abs(total) > 100f) {
                                     vm.step(if (total < 0) 1 else -1)
                                     showUi = true
@@ -407,42 +409,7 @@ fun PlayerScreen(vm: MainVm) {
             ) {
                 fun close() { menuStage = 0 }
                 val recents = vm.recentChannels()
-                // flèche : ouvre ou ferme le menu (téléphone)
-                Box(
-                    Modifier
-                        .width(72.dp)
-                        .height(24.dp)
-                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-                        .background(Color(0xAA000000))
-                        .clickable {
-                            menuStage = when (menuStage) { 0 -> 1; 1 -> 2; else -> 0 }
-                            if (menuStage == 1 && recents.isEmpty()) menuStage = 2
-                            showUi = true
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        if (menuStage == 0) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        "Menu", tint = Color.White,
-                    )
-                }
                 if (menuStage == 1 && recents.isNotEmpty()) {
-                    // raccourcis toujours visibles avec l'historique (sans fond)
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = tvPad + 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
-                    ) {
-                        IconButton(onClick = { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }) {
-                            Icon(if (rec == null) IconRecord else IconStop, if (rec == null) "Enregistrer" else "Arrêter", tint = Color.White)
-                        }
-                        IconButton(onClick = { (activity as? MainActivity)?.enterPip() }) { Icon(IconPip, "Image dans l'image", tint = Color.White) }
-                        IconButton(onClick = { vm.toggleFav(ch) }) {
-                            Icon(
-                                if (vm.isFav(ch)) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                "Favori", tint = Color.White,
-                            )
-                        }
-                    }
                     // historique : une ligne de chaînes récentes, sans fond ; glisser vers le bas ouvre les options
                     LazyRow(
                         Modifier
@@ -468,6 +435,18 @@ fun PlayerScreen(vm: MainVm) {
                             ) { close(); vm.play(vm.playlist, c) }
                         }
                     }
+                }
+                // flèche : seulement sous l'historique ; elle ouvre les options
+                if (menuStage == 1) {
+                    Box(
+                        Modifier
+                            .width(72.dp)
+                            .height(24.dp)
+                            .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                            .background(Color(0xAA000000))
+                            .clickable { menuStage = 2 },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Default.KeyboardArrowDown, "Options", tint = Color.White) }
                 }
                 if (menuStage == 2) {
                     val menuItems = listOf<Triple<String, ImageVector, () -> Unit>>(
@@ -557,6 +536,31 @@ fun PlayerScreen(vm: MainVm) {
 
         if (showUi && !vm.inPip) {
             Row(
+                Modifier.align(Alignment.Center),
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CenterControl(if (playing) IconPause else Icons.Default.PlayArrow, if (playing) "Pause" else "Lecture") {
+                    player.playWhenReady = !player.playWhenReady
+                }
+                if (ch.kind == "live") {
+                    val rec = vm.recording
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CenterControl(
+                            if (rec == null) IconRecord else IconStop,
+                            if (rec == null) "Enregistrer" else "Arrêter",
+                            tint = if (rec == null) Color.White else Color(0xFFFF6B6B),
+                        ) { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }
+                        if (rec != null) {
+                            val secs = ((now - rec.startMs) / 1000).coerceAtLeast(0)
+                            Text("%d:%02d".format(secs / 60, secs % 60), color = Color(0xFFFF6B6B), fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+        }
+        if (showUi && !vm.inPip) {
+            Row(
                 Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
@@ -580,24 +584,6 @@ fun PlayerScreen(vm: MainVm) {
                         if (e.next != null) Text("Ensuite : ${e.next.title}  ${hm(e.next.start)}", color = Color(0xFFAAAAAA), fontSize = 12.sp, maxLines = 1)
                     }
                 }
-                IconButton(onClick = { player.playWhenReady = !player.playWhenReady }) {
-                    Icon(if (playing) IconPause else Icons.Default.PlayArrow, if (playing) "Pause" else "Lecture", tint = Color.White)
-                }
-                if (ch.kind == "live") {
-                    val rec = vm.recording
-                    IconButton(onClick = { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }) {
-                        Icon(
-                            if (rec == null) IconRecord else IconStop,
-                            if (rec == null) "Enregistrer" else "Arrêter",
-                            tint = if (rec == null) Color.White else Color(0xFFFF6B6B),
-                        )
-                    }
-                    if (rec != null) {
-                        val secs = ((now - rec.startMs) / 1000).coerceAtLeast(0)
-                        Text("%d:%02d".format(secs / 60, secs % 60), color = Color(0xFFFF6B6B), fontSize = 13.sp)
-                    }
-                }
-                IconButton(onClick = { (activity as? MainActivity)?.enterPip() }) { Icon(IconPip, "Image dans l'image", tint = Color.White) }
                 val fav = vm.isFav(ch)
                 IconButton(onClick = { vm.toggleFav(ch) }) {
                     Icon(
@@ -644,6 +630,14 @@ private fun ImageVector.Builder.solid(d: String) =
 
 /** Icônes du menu qui n'existent pas dans le jeu de base de Material. */
 private val IconPause = playerIcon("pause") { solid("M6,5h4v14h-4z"); solid("M14,5h4v14h-4z") }
+@Composable
+private fun CenterControl(icon: ImageVector, label: String, tint: Color = Color.White, onClick: () -> Unit) {
+    Box(
+        Modifier.size(76.dp).clip(CircleShape).background(Color(0x99000000)).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, label, tint = tint, modifier = Modifier.size(42.dp)) }
+}
+
 private val IconRecord = playerIcon("record") { solid("M12,4a8,8 0 1 1 -0.01,0z") }
 private val IconStop = playerIcon("stop") { solid("M6,6h12v12h-12z") }
 private val IconPip = playerIcon("pip") { outline("M3,4h18v16h-18z"); solid("M12,12h7v5h-7z") }
