@@ -81,6 +81,35 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     private val store = Store(app)
 
     var sources by mutableStateOf(store.sources()); private set
+    var sourceSortManual by mutableStateOf(store.sourceSortManual()); private set
+    val orderedSources: List<Source> get() = if (sourceSortManual) sources else sources.sortedBy { it.name.lowercase() }
+    fun setSourceSortManual(manual: Boolean) { sourceSortManual = manual; store.saveSourceSortManual(manual) }
+    fun moveSource(id: String, delta: Int) {
+        val list = sources.toMutableList()
+        val from = list.indexOfFirst { it.id == id }
+        if (from < 0) return
+        val to = (from + delta).coerceIn(0, list.lastIndex)
+        if (from == to) return
+        val item = list.removeAt(from); list.add(to, item)
+        sources = list; store.saveSources(list)
+    }
+    var epgSources by mutableStateOf(store.epgSources()); private set
+    fun addEpgSource(name: String, url: String) {
+        val clean = url.trim()
+        if (!clean.startsWith("http", true)) return
+        epgSources = epgSources + EpgSource(UUID.randomUUID().toString(), name.trim().ifBlank { "Source EPG" }, clean)
+        store.saveEpgSources(epgSources)
+    }
+    fun deleteEpgSource(id: String) {
+        epgSources = epgSources.filterNot { it.id == id }; store.saveEpgSources(epgSources)
+        sources = sources.map { if (it.epgSourceId == id) it.copy(epgSourceId = "") else it }; store.saveSources(sources)
+    }
+    fun assignEpgSource(sourceId: String, epgId: String) {
+        sources = sources.map { if (it.id == sourceId) it.copy(epgSourceId = epgId) else it }
+        store.saveSources(sources)
+        if (sourceId == activeId) refreshGuide()
+    }
+
     var activeId by mutableStateOf(store.activeId() ?: store.sources().firstOrNull()?.id); private set
     var favs by mutableStateOf(store.favorites()); private set
     var query by mutableStateOf("")
@@ -360,8 +389,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     /** Télécharge le guide XMLTV de la liste active. auto = déclenché par le réglage (pas d'erreur affichée). */
     fun refreshGuide(auto: Boolean = false) {
-        val url = Repo.xmltvUrl
         val s = activeSource
+        val url = s?.epgSourceId?.let { id -> epgSources.firstOrNull { it.id == id }?.url }.orEmpty().ifBlank { Repo.xmltvUrl }
         if (epgBusy) return
         if (s == null || s.type != SourceType.M3U || url.isBlank()) {
             if (!auto) epgStatus = "Cette liste n'a pas de guide XMLTV."
@@ -388,6 +417,27 @@ class MainVm(app: Application) : AndroidViewModel(app) {
             } finally {
                 epgBusy = false
             }
+        }
+    }
+
+
+    fun updateAllPlaylists() {
+        if (epgBusy) return
+        epgBusy = true
+        epgStatus = "Mise à jour de toutes les listes…"
+        viewModelScope.launch {
+            var ok = 0
+            var failed = 0
+            try {
+                for (src in sources) {
+                    try {
+                        val loaded = Repo.load(src)
+                        if (src.id == activeId) { live.replaceItems(loaded); live.loaded = true; live.error = null }
+                        ok++
+                    } catch (_: Exception) { failed++ }
+                }
+                epgStatus = if (failed == 0) "$ok liste(s) mise(s) à jour." else "$ok liste(s) mise(s) à jour · $failed échec(s)"
+            } finally { epgBusy = false }
         }
     }
 
