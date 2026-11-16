@@ -507,9 +507,9 @@ fun PlayerScreen(vm: MainVm) {
                                     onVerticalDrag = { _, dy -> acc += dy; if (acc < -80f) { menuStage = 1; acc = 0f } },
                                 )
                             }
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = tvPad + 8.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        // toutes les options tiennent à l'écran : pas de défilement, pas de fond
+                        horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
                         menuItems.forEachIndexed { i, (label, icon, action) ->
                             PlayerMenuItem(label, icon, modifier = if (i == 0) Modifier.focusRequester(menuFirst) else Modifier, onClick = action)
@@ -619,7 +619,7 @@ private fun PlayerMenuItem(label: String, icon: ImageVector, modifier: Modifier 
     var focused by remember { mutableStateOf(false) }
     Column(
         modifier
-            .width(104.dp)
+            .widthIn(max = 96.dp)
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(8.dp))
             .background(if (focused) Accent else Color.Transparent)
@@ -627,9 +627,9 @@ private fun PlayerMenuItem(label: String, icon: ImageVector, modifier: Modifier 
             .padding(vertical = 8.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(icon, label, tint = Color.White, modifier = Modifier.size(28.dp))
+        Icon(icon, label, tint = Color.White, modifier = Modifier.size(26.dp))
         Spacer(Modifier.height(4.dp))
-        Text(label, color = Color.White, fontSize = 12.sp, maxLines = 2, textAlign = TextAlign.Center)
+        Text(label, color = Color.White, fontSize = 11.sp, maxLines = 2, textAlign = TextAlign.Center)
     }
 }
 
