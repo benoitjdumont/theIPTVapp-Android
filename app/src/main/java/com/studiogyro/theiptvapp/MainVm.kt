@@ -84,6 +84,10 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     var activeId by mutableStateOf(store.activeId() ?: store.sources().firstOrNull()?.id); private set
     var favs by mutableStateOf(store.favorites()); private set
     var query by mutableStateOf("")
+    /** recherche dans sa propre fenêtre plein écran */
+    var searchOpen by mutableStateOf(false); private set
+    fun openSearch() { searchOpen = true }
+    fun closeSearch() { searchOpen = false; query = "" }
 
     val live = Section()
     val movies = Section()

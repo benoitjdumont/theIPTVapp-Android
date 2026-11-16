@@ -130,7 +130,7 @@ fun AppRoot(vm: MainVm) {
         }
         // Retour sur l'accueil : quitte, ou demande une seconde pression si la confirmation est activée
         var lastBack by remember { mutableStateOf(0L) }
-        val onHome = vm.current == null && vm.movieOpen == null && vm.seriesOpen == null && screen == "home"
+        val onHome = vm.current == null && vm.movieOpen == null && vm.seriesOpen == null && screen == "home" && !vm.searchOpen
         val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
         // le bouton Retour de la manette agit comme la flèche gauche ; quand on est déjà à gauche, il quitte
         BackHandler(enabled = onHome) {
@@ -167,6 +167,7 @@ fun AppRoot(vm: MainVm) {
                     }
                 }
             }
+            if (vm.searchOpen && vm.current == null) SearchOverlay(vm)
         }
     }
     }
@@ -268,6 +269,40 @@ private fun SeriesIcon() = androidx.compose.foundation.Canvas(Modifier.size(24.d
     drawPath(path, c)
 }
 
+/** Recherche dans sa propre fenêtre : un seul champ en haut (clavier texte normal), résultats dessous. */
+@Composable
+private fun SearchOverlay(vm: MainVm) {
+    val sec = vm.section()
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    // un film, une série ou une chaîne lancé : la recherche se ferme
+    LaunchedEffect(vm.current, vm.movieOpen, vm.seriesOpen) {
+        if (vm.current != null || vm.movieOpen != null || vm.seriesOpen != null) vm.closeSearch()
+    }
+    BackHandler(true) { vm.closeSearch() }
+    val q = vm.query.trim()
+    val results = remember(sec.items, q) {
+        if (q.isEmpty()) emptyList() else sec.items.filter { vm.displayName(it).contains(q, ignoreCase = true) }
+    }
+    Column(Modifier.fillMaxSize().background(Color(0xFF0B1220)).safeDrawingPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { vm.closeSearch() }) { Icon(Icons.Default.ArrowBack, "Fermer", tint = Color.White) }
+            OutlinedTextField(
+                value = vm.query,
+                onValueChange = { vm.query = it },
+                singleLine = true,
+                placeholder = { Text("Rechercher une chaîne, un film ou une série") },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                modifier = Modifier.weight(1f).focusRequester(focus),
+            )
+        }
+        Spacer(Modifier.size(8.dp))
+        if (q.isNotEmpty()) Text("${results.size} résultat(s)", color = Color.Gray, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
+        if (vm.tab == 0) ChannelList(vm, results, Modifier.weight(1f)) else PosterWall(vm, results, Modifier.weight(1f))
+    }
+}
+
 /** Rail de gauche : fin au repos, il se déploie par-dessus la liste quand on navigue dessus. */
 @Composable
 private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, searchOpen: Boolean, onSearch: () -> Unit, openSettings: () -> Unit) {
@@ -289,7 +324,6 @@ private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, sear
 @Composable
 private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     val sec = vm.section()
-    var searchOpen by rememberSaveable { mutableStateOf(vm.query.isNotEmpty()) }
     // une fois une catégorie choisie, les colonnes de gauche se replient : la liste prend tout l'écran
     var showCols by rememberSaveable { mutableStateOf(true) }
     LaunchedEffect(vm.tab) { showCols = true }
@@ -319,7 +353,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     if (colsHidden) EdgeHandle(Modifier.align(Alignment.CenterStart).fillMaxHeight().width(14.dp)) { showCols = true }
     Row(Modifier.fillMaxSize()) {
         // rail : grand (avec les noms) au repos ; petit (icônes) quand on parcourt les catégories ; caché une fois une catégorie choisie
-        if (!colsHidden) Rail(vm, railExpanded, { railFocus = it }, searchOpen, { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }, openSettings)
+        if (!colsHidden) Rail(vm, railExpanded, { railFocus = it }, vm.searchOpen, { vm.openSearch() }, openSettings)
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when {
                 vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
@@ -378,16 +412,6 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                             }
                         }
                         Column(Modifier.weight(1f).fillMaxHeight().background(ListBg)) {
-                            if (searchOpen) {
-                                OutlinedTextField(
-                                    value = vm.query,
-                                    onValueChange = { vm.query = it },
-                                    singleLine = true,
-                                    placeholder = { Text("Rechercher") },
-                                    leadingIcon = { Icon(Icons.Default.Search, null) },
-                                    modifier = Modifier.fillMaxWidth().padding(6.dp),
-                                )
-                            }
                             val pv = vm.preview
                             if (vm.tab == 0 && vm.previewMode && pv != null) PreviewHeader(vm, pv)
                             if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f), listFirst) else PosterWall(vm, list, Modifier.weight(1f))
@@ -423,14 +447,8 @@ private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
                 val ok = i == 0 || vm.vodEnabled(i)
                 FilterChip(selected = vm.tab == i, enabled = ok, onClick = { vm.selectTab(i) }, label = { Text(label) })
             }
-            OutlinedTextField(
-                value = vm.query,
-                onValueChange = { vm.query = it },
-                singleLine = true,
-                placeholder = { Text("Rechercher") },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
-                modifier = Modifier.weight(1f),
-            )
+            IconButton(onClick = { vm.openSearch() }) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
+            Spacer(Modifier.weight(1f))
             IconButton(onClick = openSettings) { Icon(Icons.Default.Settings, "Sources", tint = Color.White) }
         }
         Spacer(Modifier.size(8.dp))
