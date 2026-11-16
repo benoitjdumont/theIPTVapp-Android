@@ -145,9 +145,10 @@ fun AppRoot(vm: MainVm) {
                 android.widget.Toast.makeText(ctx, "Appuie encore sur Retour pour quitter", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
+        GlassState.on = vm.bgPath != null
         Surface(Modifier.fillMaxSize().background(BgBrush), color = Color.Transparent) {
             vm.bgPath?.let { path ->
-                AsyncImage(model = java.io.File(path), contentDescription = null, contentScale = ContentScale.Crop, alpha = 0.35f, modifier = Modifier.fillMaxSize())
+                AsyncImage(model = java.io.File(path), contentDescription = null, contentScale = ContentScale.Crop, alpha = 0.6f, modifier = Modifier.fillMaxSize())
             }
             if (vm.current != null) {
                 PlayerScreen(vm)
@@ -213,9 +214,12 @@ private fun tint(c: Long, a: Float) = Color(c or 0xFF000000L).copy(alpha = (a * 
  *  Rail (TV / Films / Séries / Recherche) et Préférences = couleur choisie ; catégories, chaînes et guide = nuance plus foncée. */
 fun darker(c: Color, f: Float): Color = androidx.compose.ui.graphics.lerp(c, Color.Black, f)
 val AccentDark get() = darker(Accent, 0.4f)
-val RailBg get() = Accent
-val GroupBg get() = AccentDark
-val ListBg get() = AccentDark
+/** vrai quand une image de fond personnelle est active : colonnes et préférences deviennent translucides pour la laisser voir */
+object GlassState { var on by mutableStateOf(false) }
+fun glass(c: Color): Color = if (GlassState.on) c.copy(alpha = 0.55f) else c
+val RailBg get() = glass(Accent)
+val GroupBg get() = glass(AccentDark)
+val ListBg get() = glass(AccentDark)
 val CellBg get() = tint(0x3A4A9A, 0.33f)
 
 @Composable
@@ -918,8 +922,8 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
     }
 }
 
-val PanelHead get() = darker(Accent, 0.2f)
-val PanelBody get() = Accent
+val PanelHead get() = glass(darker(Accent, 0.2f))
+val PanelBody get() = glass(Accent)
 
 /** Une ligne d'un panneau de réglages : titre, petit texte, élément à droite (interrupteur, valeur…). */
 @OptIn(ExperimentalFoundationApi::class)
