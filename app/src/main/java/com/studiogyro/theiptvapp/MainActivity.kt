@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         if (android.os.Build.VERSION.SDK_INT >= 28) {
-            window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES }
+            window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS }
         }
         vm.createBackup = { createBackup.launch("theiptvapp-sauvegarde.json") }
         vm.openBackup = { openBackup.launch(arrayOf("application/json", "text/plain", "*/*")) }
