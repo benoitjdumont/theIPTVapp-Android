@@ -79,6 +79,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -1086,9 +1087,14 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(64.dp))
                                 Spacer(Modifier.size(10.dp))
                                 Text("theIPTVapp pour Android", color = Color.White, fontSize = 18.sp)
-                                Text("Créé par Benoît", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+                                Text("Créé par Benoît Dumont à l'aide de l'IA", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
                                 Text("Projet gratuit · lecteur IPTV", color = Color.Gray, fontSize = 13.sp)
                                 Text("Version ${BuildConfig.VERSION_NAME}", color = Color.Gray, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+                                Spacer(Modifier.size(18.dp))
+                                Text("Cette application est gratuite. Si tu veux encourager le projet, tu peux faire un don : ce n'est jamais obligatoire.", color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center)
+                                Spacer(Modifier.size(10.dp))
+                                Image(painterResource(R.drawable.paypal_qr), "Code QR de don PayPal", Modifier.size(180.dp))
+                                Text("Don PayPal (facultatif)", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                             }
                         }
                     }
