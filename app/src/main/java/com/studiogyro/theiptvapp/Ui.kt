@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.key
@@ -358,7 +359,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     }
     // colonne des catégories affichée (retour arrière ou changement d'onglet) : on remet la catégorie choisie au centre
     LaunchedEffect(showCols, vm.tab, vm.tabTick) {
-        if (showCols && sec.top != null) {
+        if (showCols) {
             val i = entries.indexOfFirst { it.first == sec.top }
             if (i >= 0) groupState.scrollToItem(i)
             kotlinx.coroutines.delay(60)
@@ -446,6 +447,30 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
         }
     }
 
+    }
+}
+
+/** Transparence : une seule zone de focus. Gauche / droite = -10 % / +10 % à la manette ; OK = palier de 25 % ; le curseur sert au tactile. */
+@Composable
+private fun GlassSetting(vm: MainVm) {
+    var focused by remember { mutableStateOf(false) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .onKeyEvent { ev ->
+                if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && (ev.key == androidx.compose.ui.input.key.Key.DirectionLeft || ev.key == androidx.compose.ui.input.key.Key.DirectionRight)) {
+                    vm.changeGlass(GlassState.transp + if (ev.key == androidx.compose.ui.input.key.Key.DirectionRight) 0.1f else -0.1f)
+                    true
+                } else false
+            }
+            .clickable { vm.changeGlass(((Math.round(GlassState.transp * 4f) + 1) % 5) / 4f) }
+            .background(if (focused) Color(0x33FFFFFF) else Color.Transparent)
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+    ) {
+        Text("Transparence de l'interface : ${Math.round(GlassState.transp * 100)} %", color = Color.White, fontSize = 16.sp)
+        androidx.compose.material3.Slider(value = GlassState.transp, onValueChange = { vm.changeGlass(it) }, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -1063,22 +1088,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page == "groups" -> GroupsPage(vm)
                         page == "look" -> {
                             PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first, first = true) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
-                            Box(Modifier.onKeyEvent { ev ->
-                                // gauche / droite : -10 % / +10 % à la manette
-                                if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && (ev.key == androidx.compose.ui.input.key.Key.DirectionLeft || ev.key == androidx.compose.ui.input.key.Key.DirectionRight)) {
-                                    vm.changeGlass(GlassState.transp + if (ev.key == androidx.compose.ui.input.key.Key.DirectionRight) 0.1f else -0.1f); true
-                                } else false
-                            }) {
-                                PanelItem("Transparence de l'interface", "${Math.round(GlassState.transp * 100)} %") {
-                                    // OK : avance par paliers de 25 %
-                                    vm.changeGlass(((Math.round(GlassState.transp * 4f) + 1) % 5) / 4f)
-                                }
-                            }
-                            androidx.compose.material3.Slider(
-                                value = GlassState.transp,
-                                onValueChange = { vm.changeGlass(it) },
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-                            )
+                            GlassSetting(vm)
                             PanelItem("Couleur de l'interface", ACCENTS[vm.accentIdx].first) { page = "look_color" }
                             PanelItem("Image de fond", if (vm.bgPath != null) "Une image est active" else "Aucune") { page = "look_bg" }
                             PanelItem("Guide TV") { page = "look_guide" }
