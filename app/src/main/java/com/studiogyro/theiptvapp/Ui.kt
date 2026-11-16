@@ -1063,7 +1063,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
             page == "rename" -> page = "look_guide"
             page.startsWith("look_") -> page = "look"
-            page == "general" || page == "player" || page == "remote" || page == "advanced" || page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
+            page == "general" || page == "player" || page == "remote" || page == "advanced" || page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "epg_sources" || page == "backup" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
             canClose -> back()
         }
     }
@@ -1082,6 +1082,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "network" -> "Réseau"
         page == "rename" -> "Renommer des chaînes"
         page == "epg" -> "Guide (EPG)"
+        page == "epg_sources" -> "Sources EPG"
         page == "backup" -> "Sauvegarde"
         page == "look" -> "Apparence"
         page == "look_color" -> "Couleur de l'interface"
@@ -1125,19 +1126,33 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("À propos") { page = "about" }
                         }
                         page == "lists" -> {
-                            vm.sources.forEachIndexed { i, s ->
-                                PanelItem(
-                                    s.name.ifBlank { "Liste" },
-                                    if (s.type == SourceType.M3U) "M3U" else "Xtream Codes",
-                                    first = i == 0,
-                                    trailing = { if (s.id == vm.activeId) Text("✔", color = Color.White) },
-                                ) { page = "src:" + s.id }
+                            PanelItem("Tri des listes", if (vm.sourceSortManual) "Manuel" else "Par nom", first = true, trailing = { PanelSwitch(vm.sourceSortManual) }) { vm.setSourceSortManual(!vm.sourceSortManual) }
+                            vm.orderedSources.forEachIndexed { i, s ->
+                                PanelItem(s.name.ifBlank { "Liste" }, if (s.type == SourceType.M3U) "M3U" else "Xtream Codes", trailing = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (vm.sourceSortManual) {
+                                            Text("↑", color = Color.White, modifier = Modifier.clickable { vm.moveSource(s.id, -1) }.padding(horizontal = 5.dp))
+                                            Text("↓", color = Color.White, modifier = Modifier.clickable { vm.moveSource(s.id, 1) }.padding(horizontal = 5.dp))
+                                        }
+                                        if (s.id == vm.activeId) Text("✔", color = Color.White)
+                                    }
+                                }) { page = "src:" + s.id }
                             }
+                            PanelItem("Mettre à jour toutes les listes de lecture", "Actualiser chaque liste enregistrée") { vm.updateAllPlaylists() }
                             PanelItem("Ajouter une liste", first = vm.sources.isEmpty()) { page = "add" }
                         }
                         page.startsWith("src:") -> {
                             val id = page.removePrefix("src:")
+                            val selected = vm.sources.firstOrNull { it.id == id }
                             PanelItem("Utiliser cette liste", first = true) { vm.select(id); back() }
+                            if (selected != null) {
+                                PanelLabel("Source EPG attribuée à cette liste")
+                                PanelItem("EPG du fournisseur (" + selected.name + ")", "Source intégrée / automatique", trailing = { PanelSwitch(selected.epgSourceId.isBlank()) }) { vm.assignEpgSource(id, "") }
+                                vm.epgSources.forEach { epgSrc ->
+                                    PanelItem(epgSrc.name, epgSrc.url, trailing = { PanelSwitch(selected.epgSourceId == epgSrc.id) }) { vm.assignEpgSource(id, epgSrc.id) }
+                                }
+                                PanelItem("Gérer les sources EPG") { page = "epg_sources" }
+                            }
                             PanelItem("Supprimer cette liste", "Efface la liste de l'appli") {
                                 vm.deleteSource(id)
                                 if (vm.sources.isEmpty()) page = "add" else page = "lists"
@@ -1181,7 +1196,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         }
                         page == "network" -> NetworkPage(vm)
                         page == "rename" -> RenamePage(vm)
-                        page == "epg" -> EpgPage(vm)
+                        page == "epg" -> EpgPage(vm) { page = "epg_sources" }
+                        page == "epg_sources" -> EpgSourcesPage(vm)
                         page == "backup" -> BackupPage(vm)
                         page == "rec" -> Column(Modifier.padding(horizontal = 12.dp)) { RecordingsSection(vm) }
                         page == "parental" -> Column(Modifier.padding(horizontal = 12.dp)) { ParentalSection(vm) }
@@ -1283,23 +1299,38 @@ private fun StepperRow(label: String, value: String, onMinus: () -> Unit, onPlus
 }
 
 @Composable
-private fun EpgPage(vm: MainVm) {
+private fun EpgPage(vm: MainVm, openSources: () -> Unit) {
     Column(Modifier.padding(horizontal = 6.dp)) {
-        PanelLabel("Statut")
+        PanelItem("Source EPG", "Voir et gérer les sources disponibles", first = true) { openSources() }
+        PanelLabel("Statut de la dernière mise à jour")
         Text(vm.epgStatus, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 18.dp))
         PanelLabel("Conservation")
         StepperRow("Garder le guide", "${vm.epgDays} j", { vm.changeEpgDays(vm.epgDays - 1) }, { vm.changeEpgDays(vm.epgDays + 1) })
-        PanelItem("Stocker les descriptions des émissions", trailing = { PanelSwitch(vm.epgDesc) }) { vm.changeEpgDesc(!vm.epgDesc) }
+        PanelItem("Stocker les descriptions des programmes", trailing = { PanelSwitch(vm.epgDesc) }) { vm.changeEpgDesc(!vm.epgDesc) }
+        Text("Les sources EPG doivent être attribuées dans les paramètres de la liste de lecture.", color = Color(0xFFB8C4EE), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
         PanelLabel("Mise à jour")
-        StepperRow(
-            "Intervalle (heures, 0 = jamais)",
-            if (vm.epgInterval == 0) "aucun" else "${vm.epgInterval} h",
-            { vm.changeEpgInterval(vm.epgInterval - 1) }, { vm.changeEpgInterval(vm.epgInterval + 1) },
-        )
+        StepperRow("Intervalle (heures, 0 = jamais)", if (vm.epgInterval == 0) "aucun" else "${vm.epgInterval} h", { vm.changeEpgInterval(vm.epgInterval - 1) }, { vm.changeEpgInterval(vm.epgInterval + 1) })
         PanelItem("Mise à jour au démarrage de l'appli", trailing = { PanelSwitch(vm.epgOnStart) }) { vm.changeEpgOnStart(!vm.epgOnStart) }
         PanelItem("Mise à jour au changement de liste", trailing = { PanelSwitch(vm.epgOnList) }) { vm.changeEpgOnList(!vm.epgOnList) }
-        PanelItem(if (vm.epgBusy) "Mise à jour en cours…" else "Mettre à jour le guide") { vm.refreshGuide() }
-        PanelItem("Effacer le guide", "Supprime le guide chargé") { vm.clearGuide() }
+        PanelItem(if (vm.epgBusy) "Mise à jour en cours…" else "Mettre à jour EPG") { vm.refreshGuide() }
+        PanelItem("Effacer EPG", "Supprime le guide chargé") { vm.clearGuide() }
+    }
+}
+
+@Composable
+private fun EpgSourcesPage(vm: MainVm) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var url by rememberSaveable { mutableStateOf("") }
+    Column(Modifier.padding(horizontal = 6.dp)) {
+        PanelLabel("Sources EPG enregistrées")
+        if (vm.epgSources.isEmpty()) Text("Aucune source EPG ajoutée.", color = Color(0xFFB8C4EE), modifier = Modifier.padding(18.dp))
+        vm.epgSources.forEach { src -> PanelItem(src.name, src.url, trailing = { Text("×", color = Color.White) }) { vm.deleteEpgSource(src.id) } }
+        PanelLabel("Ajouter une source EPG")
+        Column(Modifier.padding(horizontal = 12.dp)) {
+            OutlinedTextField(name, { name = it }, label = { Text("Nom de la source") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(url, { url = it }, label = { Text("Adresse XMLTV (http…)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+            Button(onClick = { vm.addEpgSource(name, url); name = ""; url = "" }, enabled = url.startsWith("http", true)) { Text("Ajouter une source EPG") }
+        }
     }
 }
 
