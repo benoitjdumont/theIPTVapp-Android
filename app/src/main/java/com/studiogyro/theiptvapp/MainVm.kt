@@ -409,10 +409,10 @@ class MainVm(app: Application) : AndroidViewModel(app) {
                 epg.clear()
                 xmltvReady = true
                 val now = System.currentTimeMillis()
-                epgStatus = "Mis à jour à ${hm(now)} · ${xmltv.size} chaîne(s)"
+                epgStatus = "Mis à jour le ${java.text.SimpleDateFormat("dd/MM/yyyy à HH:mm", java.util.Locale.getDefault()).format(java.util.Date(now))} · ${xmltv.size} chaîne(s)"
                 store.saveEpgStatus(now, epgStatus)
             } catch (e: Exception) {
-                epgStatus = "Échec de la mise à jour : ${e.message ?: "erreur"}"
+                epgStatus = "Échec de la mise à jour le ${java.text.SimpleDateFormat("dd/MM/yyyy à HH:mm", java.util.Locale.getDefault()).format(java.util.Date())} : ${e.message ?: "erreur"}"
                 if (!auto) store.saveEpgStatus(System.currentTimeMillis(), epgStatus)
             } finally {
                 epgBusy = false
