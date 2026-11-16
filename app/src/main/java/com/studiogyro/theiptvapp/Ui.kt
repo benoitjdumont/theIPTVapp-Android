@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -155,12 +156,12 @@ fun AppRoot(vm: MainVm) {
             if (vm.current != null) {
                 PlayerScreen(vm)
             } else if (vm.movieOpen != null) {
-                Box(Modifier.fillMaxSize().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.systemBars).then(safe)) { MovieScreen(vm) }
+                Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars).then(safe)) { MovieScreen(vm) }
             } else if (vm.seriesOpen != null) {
-                Box(Modifier.fillMaxSize().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.systemBars).then(safe)) { SeriesScreen(vm) }
+                Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars).then(safe)) { SeriesScreen(vm) }
             } else {
                 // keep clear of the status bar (battery, clock) and the navigation bar
-                Box(Modifier.fillMaxSize().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.systemBars).then(safe)) {
+                Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars).then(safe)) {
                     // l'accueil reste à sa place ; les préférences glissent par-dessus, de droite à gauche
                     if (vm.sources.isNotEmpty() || screen != "settings") HomeScreen(vm) { screen = "settings" }
                     if (screen == "settings" && vm.sources.isNotEmpty()) Box(Modifier.fillMaxSize().clickable { screen = "home" })
@@ -294,7 +295,7 @@ private fun SearchOverlay(vm: MainVm) {
     val results = remember(sec.items, q) {
         if (q.isEmpty()) emptyList() else sec.items.filter { vm.displayName(it).contains(q, ignoreCase = true) }
     }
-    Column(Modifier.fillMaxSize().background(Color(0xFF0B1220)).windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.systemBars).padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Column(Modifier.fillMaxSize().background(Color(0xFF0B1220)).windowInsetsPadding(WindowInsets.systemBars).padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { vm.closeSearch() }) { Icon(Icons.Default.ArrowBack, "Fermer", tint = Color.White) }
             OutlinedTextField(
