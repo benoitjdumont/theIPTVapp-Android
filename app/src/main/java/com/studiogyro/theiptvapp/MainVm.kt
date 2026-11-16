@@ -167,7 +167,22 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     /** incrémenté à chaque clic sur TV / Films / Séries : le focus passe alors dans la colonne des catégories */
     var tabTick by mutableStateOf(0); private set
 
+    /** « Ma liste » : la colonne des catégories propose les favoris de TV / Films / Séries. */
+    var favMode by mutableStateOf(false)
+
+    fun openFavMode() { favMode = true; tabTick++ }
+
+    fun pickFav(i: Int) {
+        favMode = true
+        tab = i
+        preview = null
+        query = ""
+        ensureLoaded()
+        section().pickTop(GROUP_FAV)
+    }
+
     fun selectTab(i: Int) {
+        favMode = false
         tabTick++
         tab = i
         preview = null

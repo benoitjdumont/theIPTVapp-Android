@@ -361,10 +361,10 @@ private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, sear
         Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(RailBg).padding(vertical = 6.dp).onFocusChanged { onFocus(it.hasFocus) },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        RailItem(vm.tab == 0, focus, "TV", { vm.selectTab(0) }) { TvIcon() }
-        RailItem(vm.tab == 1, focus, "Films", { vm.selectTab(1) }, enabled = vm.vodEnabled(1)) { FilmIcon() }
-        RailItem(vm.tab == 2, focus, "Séries", { vm.selectTab(2) }, enabled = vm.vodEnabled(2)) { SeriesIcon() }
-        RailItem(false, focus, "Ma liste", { vm.section().pickTop(GROUP_FAV) }) { Icon(Icons.Default.Star, "Ma liste", tint = Color.White) }
+        RailItem(!vm.favMode && vm.tab == 0, focus, "TV", { vm.selectTab(0) }) { TvIcon() }
+        RailItem(!vm.favMode && vm.tab == 1, focus, "Films", { vm.selectTab(1) }, enabled = vm.vodEnabled(1)) { FilmIcon() }
+        RailItem(!vm.favMode && vm.tab == 2, focus, "Séries", { vm.selectTab(2) }, enabled = vm.vodEnabled(2)) { SeriesIcon() }
+        RailItem(vm.favMode, focus, "Ma liste", { vm.openFavMode() }) { Icon(Icons.Default.Star, "Ma liste", tint = Color.White) }
         RailItem(false, focus, "Enregistrements", { vm.settingsStart = "rec"; openSettings() }) { Box(Modifier.size(16.dp).background(Color(0xFFE53935), CircleShape)) }
         Spacer(Modifier.weight(1f))
         RailItem(searchOpen, focus, "Rechercher", onSearch) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
@@ -378,7 +378,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     val sec = vm.section()
     // une fois une catégorie choisie, les colonnes de gauche se replient : la liste prend tout l'écran
     var showCols by rememberSaveable { mutableStateOf(true) }
-    LaunchedEffect(vm.tab) { showCols = true }
+    LaunchedEffect(vm.tab) { if (!vm.favMode) showCols = true }
     val colsHidden = !showCols
     var railFocus by remember { mutableStateOf(false) }
     var groupFocus by remember { mutableStateOf(false) }
@@ -439,7 +439,18 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                     val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs) { vm.visible() }
                     val subs = sec.subs()
                     Row(Modifier.fillMaxSize()) {
-                        if (!colsHidden) LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp).onFocusChanged { groupFocus = it.hasFocus }, state = groupState) {
+                        if (!colsHidden && vm.favMode) Column(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp).onFocusChanged { groupFocus = it.hasFocus }) {
+                            listOf(0 to "★ Favoris TV", 1 to "★ Favoris Films", 2 to "★ Favoris Séries").forEach { (i, label) ->
+                                FocusRow(
+                                    selected = vm.tab == i && sec.top == GROUP_FAV,
+                                    onClick = { vm.pickFav(i); showCols = false },
+                                    requester = if (vm.tab == i) selectedRequester else null,
+                                ) {
+                                    Text(label, color = if (vm.tab == i && sec.top == GROUP_FAV) Accent else Color.White, maxLines = 1)
+                                }
+                            }
+                        }
+                        if (!colsHidden && !vm.favMode) LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp).onFocusChanged { groupFocus = it.hasFocus }, state = groupState) {
                             itemsIndexed(entries, key = { _, e -> e.first ?: "\u0001all" }) { _, (g, label) ->
                                 val lock = g != null && (g != GROUP_FAV && g != GROUP_HIST) && vm.catLocked(label)
                                 FocusRow(
@@ -455,7 +466,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                                 }
                             }
                         }
-                        if (subs.isNotEmpty() && !colsHidden) {
+                        if (subs.isNotEmpty() && !colsHidden && !vm.favMode) {
                             LazyColumn(Modifier.width(180.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp)) {
                                 item(key = "\u0001subAll") {
                                     FocusRow(selected = sec.sub == null, onClick = { sec.pickSub(null) }) {
