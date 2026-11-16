@@ -1147,11 +1147,15 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Utiliser cette liste", first = true) { vm.select(id); back() }
                             if (selected != null) {
                                 PanelLabel("Source EPG attribuée à cette liste")
-                                PanelItem("EPG du fournisseur (" + selected.name + ")", "Source intégrée / automatique", trailing = { PanelSwitch(selected.epgSourceId.isBlank()) }) { vm.assignEpgSource(id, "") }
-                                vm.epgSources.forEach { epgSrc ->
-                                    PanelItem(epgSrc.name, epgSrc.url, trailing = { PanelSwitch(selected.epgSourceId == epgSrc.id) }) { vm.assignEpgSource(id, epgSrc.id) }
+                                if (selected.type == SourceType.M3U) {
+                                    PanelItem("EPG du fournisseur (" + selected.name + ")", "Source intégrée / automatique", trailing = { PanelSwitch(selected.epgSourceId.isBlank()) }) { vm.assignEpgSource(id, "") }
+                                    vm.epgSources.forEach { epgSrc ->
+                                        PanelItem(epgSrc.name, epgSrc.url, trailing = { PanelSwitch(selected.epgSourceId == epgSrc.id) }) { vm.assignEpgSource(id, epgSrc.id) }
+                                    }
+                                    PanelItem("Gérer les sources EPG") { page = "epg_sources" }
+                                } else {
+                                    PanelItem("Guide EPG intégré", "Fourni par " + selected.name)
                                 }
-                                PanelItem("Gérer les sources EPG") { page = "epg_sources" }
                             }
                             PanelItem("Supprimer cette liste", "Efface la liste de l'appli") {
                                 vm.deleteSource(id)
