@@ -149,6 +149,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { while (true) { kotlinx.coroutines.delay(60_000); clock = System.currentTimeMillis() } }
         Accent = ACCENTS[store.accent().coerceIn(0, ACCENTS.lastIndex)].second
         UiAlpha = TRANSPS[store.transp().coerceIn(0, TRANSPS.lastIndex)].second
+        GlassState.transp = store.glassPct() / 100f
         reload()
         checkUpdate(silent = true)
         guideTimer()
@@ -300,6 +301,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
             .onSuccess { bgPath = f.absolutePath; store.saveBgPath(bgPath) }
     }
     fun clearBackground() { bgPath = null; store.saveBgPath(null) }
+    /** transparence des colonnes et des préférences : 0 = opaque, 1 = transparent */
+    fun changeGlass(v: Float) { GlassState.transp = v.coerceIn(0f, 1f); store.saveGlassPct(Math.round(GlassState.transp * 100)) }
 
     // ---- préférences générales
     private var guideStarted = false

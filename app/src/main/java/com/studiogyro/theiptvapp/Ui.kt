@@ -145,7 +145,6 @@ fun AppRoot(vm: MainVm) {
                 android.widget.Toast.makeText(ctx, "Appuie encore sur Retour pour quitter", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
-        GlassState.on = vm.bgPath != null
         Surface(Modifier.fillMaxSize().background(BgBrush), color = Color.Transparent) {
             vm.bgPath?.let { path ->
                 AsyncImage(model = java.io.File(path), contentDescription = null, contentScale = ContentScale.Crop, alpha = 0.6f, modifier = Modifier.fillMaxSize())
@@ -214,9 +213,9 @@ private fun tint(c: Long, a: Float) = Color(c or 0xFF000000L).copy(alpha = (a * 
  *  Rail (TV / Films / Séries / Recherche) et Préférences = couleur choisie ; catégories, chaînes et guide = nuance plus foncée. */
 fun darker(c: Color, f: Float): Color = androidx.compose.ui.graphics.lerp(c, Color.Black, f)
 val AccentDark get() = darker(Accent, 0.4f)
-/** vrai quand une image de fond personnelle est active : colonnes et préférences deviennent translucides pour la laisser voir */
-object GlassState { var on by mutableStateOf(false) }
-fun glass(c: Color): Color = if (GlassState.on) c.copy(alpha = 0.55f) else c
+/** transparence des colonnes et des préférences (réglée dans Apparence) : 0 = opaque, 1 = transparent */
+object GlassState { var transp by mutableStateOf(0f) }
+fun glass(c: Color): Color = c.copy(alpha = 1f - GlassState.transp)
 val RailBg get() = glass(Accent)
 val GroupBg get() = glass(AccentDark)
 val ListBg get() = glass(AccentDark)
@@ -1057,7 +1056,20 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page == "groups" -> GroupsPage(vm)
                         page == "look" -> {
                             PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first, first = true) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
-                            PanelItem("Transparence de l'interface", TRANSPS[vm.transpIdx].first) { vm.changeTransp((vm.transpIdx + 1) % TRANSPS.size) }
+                            PanelItem(
+                                "Transparence de l'interface",
+                                "${Math.round(GlassState.transp * 100)} %",
+                                trailing = {
+                                    androidx.compose.material3.Slider(
+                                        value = GlassState.transp,
+                                        onValueChange = { vm.changeGlass(it) },
+                                        modifier = Modifier.width(220.dp),
+                                    )
+                                },
+                            ) {
+                                // une pression fait avancer par paliers de 25 % (utile à la télécommande)
+                                vm.changeGlass(((Math.round(GlassState.transp * 4f) + 1) % 5) / 4f)
+                            }
                             PanelItem("Couleur de l'interface", ACCENTS[vm.accentIdx].first) { page = "look_color" }
                             PanelItem("Image de fond", if (vm.bgPath != null) "Une image est active" else "Aucune") { page = "look_bg" }
                             PanelItem("Guide TV") { page = "look_guide" }

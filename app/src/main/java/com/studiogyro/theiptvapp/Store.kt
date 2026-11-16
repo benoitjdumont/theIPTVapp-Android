@@ -126,6 +126,8 @@ class Store(ctx: Context) {
         m.forEach { (k, v) -> o.put(k, v) }
         sp.edit().putString("renames", o.toString()).apply()
     }
+    fun glassPct(): Int = sp.getInt("glass", 0)
+    fun saveGlassPct(p: Int) = sp.edit().putInt("glass", p).apply()
     fun bgPath(): String? = sp.getString("bg", null)
     fun saveBgPath(p: String?) = sp.edit().putString("bg", p).apply()
 
