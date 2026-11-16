@@ -338,7 +338,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     // une fois une catégorie choisie, les colonnes de gauche se replient : la liste prend tout l'écran
     var showCols by rememberSaveable { mutableStateOf(true) }
     LaunchedEffect(vm.tab) { showCols = true }
-    val colsHidden = !showCols && sec.top != null
+    val colsHidden = !showCols
     var railFocus by remember { mutableStateOf(false) }
     var groupFocus by remember { mutableStateOf(false) }
     val railExpanded = railFocus || (!groupFocus && sec.top == null)
@@ -405,7 +405,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                                     selected = sec.top == g,
                                     onClick = {
                                         if (g == null || (g == GROUP_FAV || g == GROUP_HIST)) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) }
-                                        if (g != null) showCols = false
+                                        showCols = false
                                     },
                                     onLongClick = if (g != null && (g != GROUP_FAV && g != GROUP_HIST)) ({ vm.toggleCatLock(label) }) else null,
                                     requester = if (g == sec.top) selectedRequester else null,
@@ -1017,7 +1017,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         Row(Modifier.fillMaxSize()) {
             if (!docked) Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).clickable(enabled = canClose, onClick = back))
             // la flèche Haut ne sort plus du panneau de réglages (sinon le focus revient à la colonne TV / Films / Séries)
-            Column(Modifier.width(w).fillMaxHeight().background(PanelBody).focusProperties { exit = { dir -> if (dir == androidx.compose.ui.focus.FocusDirection.Up) androidx.compose.ui.focus.FocusRequester.Cancel else androidx.compose.ui.focus.FocusRequester.Default } }) {
+            Column(Modifier.width(w).fillMaxHeight().background(PanelBody).onKeyEvent { ev -> if (canClose && ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && ev.key == androidx.compose.ui.input.key.Key.DirectionLeft) back(); false }.focusProperties { exit = { dir -> if (dir == androidx.compose.ui.focus.FocusDirection.Up) androidx.compose.ui.focus.FocusRequester.Cancel else androidx.compose.ui.focus.FocusRequester.Default } }) {
                 Row(Modifier.fillMaxWidth().background(PanelHead).padding(start = 18.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
                     if (canClose) IconButton(onClick = back) { Icon(Icons.Default.Close, "Fermer", tint = Color.White) }
