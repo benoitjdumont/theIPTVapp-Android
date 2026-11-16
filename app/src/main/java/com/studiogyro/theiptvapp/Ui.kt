@@ -156,14 +156,15 @@ fun AppRoot(vm: MainVm) {
             } else {
                 // keep clear of the status bar (battery, clock) and the navigation bar
                 Box(Modifier.fillMaxSize().safeDrawingPadding().then(safe)) {
-                    if (screen == "settings") {
-                        // les préférences s'ouvrent à droite et poussent l'accueil vers la gauche
-                        Row(Modifier.fillMaxSize()) {
-                            if (vm.sources.isNotEmpty()) Box(Modifier.weight(1f).fillMaxHeight()) { HomeScreen(vm) { } }
-                            SettingsScreen(vm, docked = vm.sources.isNotEmpty()) { screen = "home" }
-                        }
-                    } else {
-                        HomeScreen(vm) { screen = "settings" }
+                    // l'accueil reste à sa place ; les préférences glissent par-dessus, de droite à gauche
+                    if (vm.sources.isNotEmpty() || screen != "settings") HomeScreen(vm) { screen = "settings" }
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = screen == "settings",
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        enter = androidx.compose.animation.slideInHorizontally(initialOffsetX = { it }),
+                        exit = androidx.compose.animation.slideOutHorizontally(targetOffsetX = { it }),
+                    ) {
+                        SettingsScreen(vm, docked = vm.sources.isNotEmpty()) { screen = "home" }
                     }
                 }
             }
