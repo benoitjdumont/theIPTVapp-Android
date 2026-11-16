@@ -13,10 +13,11 @@ data class Source(
     val host: String = "",
     val user: String = "",
     val pass: String = "",
+    val epgSourceId: String = "",
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("name", name).put("type", type.name)
-        .put("url", url).put("host", host).put("user", user).put("pass", pass)
+        .put("url", url).put("host", host).put("user", user).put("pass", pass).put("epgSourceId", epgSourceId)
 
     companion object {
         fun fromJson(o: JSONObject) = Source(
@@ -27,6 +28,7 @@ data class Source(
             host = o.optString("host"),
             user = o.optString("user"),
             pass = o.optString("pass"),
+            epgSourceId = o.optString("epgSourceId"),
         )
     }
 }
@@ -71,3 +73,11 @@ fun parseSources(s: String?): List<Source> {
         (0 until a.length()).map { Source.fromJson(a.getJSONObject(it)) }
     }.getOrDefault(emptyList())
 }
+
+
+data class EpgSource(val id: String, val name: String, val url: String) {
+    fun toJson(): JSONObject = JSONObject().put("id", id).put("name", name).put("url", url)
+    companion object { fun fromJson(o: JSONObject) = EpgSource(o.getString("id"), o.optString("name"), o.optString("url")) }
+}
+fun List<EpgSource>.toEpgJsonString(): String = JSONArray().also { a -> forEach { a.put(it.toJson()) } }.toString()
+fun parseEpgSources(s: String?): List<EpgSource> = if (s.isNullOrBlank()) emptyList() else runCatching { val a = JSONArray(s); (0 until a.length()).map { EpgSource.fromJson(a.getJSONObject(it)) } }.getOrDefault(emptyList())
