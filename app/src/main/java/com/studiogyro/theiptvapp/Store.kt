@@ -8,6 +8,10 @@ class Store(ctx: Context) {
 
     fun sources(): List<Source> = parseSources(sp.getString("sources", null))
     fun saveSources(l: List<Source>) = sp.edit().putString("sources", l.toJsonString()).apply()
+    fun epgSources(): List<EpgSource> = parseEpgSources(sp.getString("epg_sources", null))
+    fun saveEpgSources(l: List<EpgSource>) = sp.edit().putString("epg_sources", l.toEpgJsonString()).apply()
+    fun sourceSortManual(): Boolean = sp.getBoolean("source_sort_manual", false)
+    fun saveSourceSortManual(b: Boolean) = sp.edit().putBoolean("source_sort_manual", b).apply()
 
     fun activeId(): String? = sp.getString("active", null)
     fun saveActive(id: String?) = sp.edit().putString("active", id).apply()
