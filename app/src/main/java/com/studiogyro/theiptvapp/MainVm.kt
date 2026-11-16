@@ -330,6 +330,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     fun changeDoubleBack(b: Boolean) { doubleBack = b; store.saveDoubleBack(b) }
     var bootStart by mutableStateOf(store.bootStart()); private set
     fun changeBootStart(b: Boolean) { bootStart = b; store.saveBootStart(b) }
+    var wakeStart by mutableStateOf(store.wakeStart()); private set
+    fun changeWakeStart(b: Boolean) { wakeStart = b; store.saveWakeStart(b) }
 
     // ---- réseau
     var userAgent by mutableStateOf(store.userAgent()); private set
