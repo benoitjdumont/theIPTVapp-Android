@@ -363,6 +363,8 @@ private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, sear
         RailItem(vm.tab == 0, focus, "TV", { vm.selectTab(0) }) { TvIcon() }
         RailItem(vm.tab == 1, focus, "Films", { vm.selectTab(1) }, enabled = vm.vodEnabled(1)) { FilmIcon() }
         RailItem(vm.tab == 2, focus, "Séries", { vm.selectTab(2) }, enabled = vm.vodEnabled(2)) { SeriesIcon() }
+        RailItem(false, focus, "Ma liste", { vm.section().pickTop(GROUP_FAV) }) { Icon(Icons.Default.Star, "Ma liste", tint = Color.White) }
+        RailItem(false, focus, "Enregistrements", { vm.settingsStart = "rec"; openSettings() }) { Box(Modifier.size(16.dp).background(Color(0xFFE53935), CircleShape)) }
         Spacer(Modifier.weight(1f))
         RailItem(searchOpen, focus, "Rechercher", onSearch) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
         RailItem(false, focus, "Paramètres", openSettings) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
@@ -1041,7 +1043,8 @@ private fun PanelLabel(text: String) {
 /** Panneau de réglages qui glisse par-dessus l'accueil, côté droit. */
 @Composable
 fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
-    var page by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "add" else "root") }
+    var page by rememberSaveable { mutableStateOf(vm.settingsStart ?: if (vm.sources.isEmpty()) "add" else "root") }
+    LaunchedEffect(Unit) { vm.settingsStart = null }
     val canClose = vm.sources.isNotEmpty()
     BackHandler(true) {
         when {
@@ -1297,7 +1300,7 @@ private fun AddSourceForm(vm: MainVm, canCancel: Boolean, done: () -> Unit) {
                 enabled = ok,
                 onClick = {
                     vm.addSource(
-                        Source(vm.newId(), name.ifBlank { if (type == SourceType.M3U) "Ma liste" else "Mon Xtream" }, type, url.trim(), host.trim(), user.trim(), pass),
+                        Source(vm.newId(), name.ifBlank { if (type == SourceType.M3U) "Ma liste" else "Mon Xtream" }, type, url.trim(), host.trim(), user.trim(), pass.trim()),
                     )
                     name = ""; url = ""; host = ""; user = ""; pass = ""
                     done()

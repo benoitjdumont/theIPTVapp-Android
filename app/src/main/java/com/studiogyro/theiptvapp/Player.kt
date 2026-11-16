@@ -480,10 +480,10 @@ fun PlayerScreen(vm: MainVm) {
                             close()
                         },
                         Triple("Multi-vue", IconMultiView) { close(); hud = "Multi-vue : bientôt disponible" },
-                        Triple("Image dans l'image", IconPip) { close(); (activity as? MainActivity)?.enterPip() },
-                        Triple("Résolution", IconScreen) { close(); picker = "video" },
-                        Triple("Sous-titres", IconCaption) { close(); picker = "text" },
-                        Triple("Audio", IconAudio) { close(); picker = "audio" },
+                        Triple("Image dans l'image", IconPip) { (activity as? MainActivity)?.enterPip() },
+                        Triple("Résolution", IconScreen) { picker = "video" },
+                        Triple("Sous-titres", IconCaption) { picker = "text" },
+                        Triple("Audio", IconAudio) { picker = "audio" },
                         Triple("Affichage : " + displayModes[displayMode], IconAspect) {
                             displayMode = (displayMode + 1) % displayModes.size
                         },

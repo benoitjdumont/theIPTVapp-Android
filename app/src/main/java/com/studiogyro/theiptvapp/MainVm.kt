@@ -698,6 +698,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     /** demandé par le menu du lecteur (Préférences) : l'accueil ouvre les réglages */
     var openSettingsRequest by mutableStateOf(false)
+    var settingsStart by mutableStateOf<String?>(null)
 
     /** Retour depuis le plein écran : la chaîne revient en aperçu (elle continue de jouer). */
     fun stop() {
