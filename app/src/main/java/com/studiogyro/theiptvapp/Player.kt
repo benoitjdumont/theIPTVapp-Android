@@ -181,7 +181,16 @@ fun PlayerScreen(vm: MainVm) {
                     status = "Nouvel essai (${idx + 2}/${tries.size})…"
                     idx += 1
                 } else {
-                    status = "Impossible de lire cette chaîne.\n(${error.errorCodeName})"
+                    val code = generateSequence(error.cause) { it.cause }
+                        .filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>()
+                        .firstOrNull()?.responseCode
+                    val hint = when (code) {
+                        401, 403 -> "Accès refusé par le fournisseur : vérifie l'identifiant et le mot de passe, le nombre de connexions permises (un autre appareil regarde-t-il en même temps ?) ou le User-Agent dans Réglages > Réseau."
+                        404 -> "Flux introuvable chez le fournisseur."
+                        in 500..599 -> "Le serveur du fournisseur a un problème."
+                        else -> null
+                    }
+                    status = "Impossible de lire cette chaîne.\n(${error.errorCodeName}${if (code != null) " · HTTP $code" else ""})" + (if (hint != null) "\n$hint" else "")
                 }
             }
 
@@ -214,10 +223,17 @@ fun PlayerScreen(vm: MainVm) {
         }
     }
 
+    // la barre disparaît après un moment sans action ; plus long quand un menu est ouvert, et chaque touche ou toucher repousse le délai
+    val lastTouch = remember { longArrayOf(System.currentTimeMillis()) }
+    fun poke() { lastTouch[0] = System.currentTimeMillis() }
     LaunchedEffect(showUi, ch.id) {
         if (showUi) {
-            delay(4000)
-            showUi = false
+            poke()
+            while (true) {
+                delay(400)
+                val limit = if (menuStage != 0 || listOpen || picker != null) 10_000L else 4_000L
+                if (System.currentTimeMillis() - lastTouch[0] > limit) { showUi = false; break }
+            }
         }
     }
 
@@ -266,6 +282,7 @@ fun PlayerScreen(vm: MainVm) {
             .focusRequester(focus)
             .focusable()
             .onKeyEvent { ev ->
+                poke()
                 // bouton central : le menu s'ouvre au RELÂCHER (sinon le clic arrive sur l'élément focus)
                 if (ev.type == KeyEventType.KeyUp) {
                     val center = ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.NumPadEnter
@@ -404,6 +421,9 @@ fun PlayerScreen(vm: MainVm) {
                 Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope { while (true) { awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial); poke() } }
+                    }
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {

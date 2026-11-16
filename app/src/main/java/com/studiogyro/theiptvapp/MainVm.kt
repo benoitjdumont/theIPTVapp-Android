@@ -184,6 +184,9 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     private fun ensureLoaded() = loadSection(tab, visible = true)
 
+    /** pour la recherche : charge TV, films et séries (en arrière-plan) si ce n'est pas déjà fait */
+    fun loadAllForSearch() { loadSection(0, visible = false); loadSection(1, visible = false); loadSection(2, visible = false) }
+
     /** Charge en arrière-plan films et séries pour que le premier clic soit instantané. */
     fun prefetchCatalogs() {
         val s = activeSource ?: return

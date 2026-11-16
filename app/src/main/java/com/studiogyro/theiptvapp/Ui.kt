@@ -284,21 +284,20 @@ private fun SeriesIcon() = androidx.compose.foundation.Canvas(Modifier.size(24.d
     drawPath(path, c)
 }
 
-/** Recherche dans sa propre fenêtre : un seul champ en haut (clavier texte normal), résultats dessous. */
+/** Recherche dans sa propre fenêtre : cherche dans TV, Films et Séries à la fois et dit où chaque résultat a été trouvé. */
 @Composable
 private fun SearchOverlay(vm: MainVm) {
-    val sec = vm.section()
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    LaunchedEffect(Unit) { vm.loadAllForSearch(); runCatching { focus.requestFocus() } }
     // un film, une série ou une chaîne lancé : la recherche se ferme
     LaunchedEffect(vm.current, vm.movieOpen, vm.seriesOpen) {
         if (vm.current != null || vm.movieOpen != null || vm.seriesOpen != null) vm.closeSearch()
     }
     BackHandler(true) { vm.closeSearch() }
     val q = vm.query.trim()
-    val results = remember(sec.items, q) {
-        if (q.isEmpty()) emptyList() else sec.items.filter { vm.displayName(it).contains(q, ignoreCase = true) }
-    }
+    val liveRes = remember(vm.live.items, q) { if (q.isEmpty()) emptyList() else vm.live.items.filter { vm.displayName(it).contains(q, ignoreCase = true) } }
+    val movieRes = remember(vm.movies.items, q) { if (q.isEmpty()) emptyList() else vm.movies.items.filter { vm.displayName(it).contains(q, ignoreCase = true) } }
+    val seriesRes = remember(vm.series.items, q) { if (q.isEmpty()) emptyList() else vm.series.items.filter { vm.displayName(it).contains(q, ignoreCase = true) } }
     Column(Modifier.fillMaxSize().background(Color(0xFF0B1220)).windowInsetsPadding(WindowInsets.systemBars).padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { vm.closeSearch() }) { Icon(Icons.Default.ArrowBack, "Fermer", tint = Color.White) }
@@ -313,8 +312,43 @@ private fun SearchOverlay(vm: MainVm) {
             )
         }
         Spacer(Modifier.size(8.dp))
-        if (q.isNotEmpty()) Text("${results.size} résultat(s)", color = Color.Gray, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
-        if (vm.tab == 0) ChannelList(vm, results, Modifier.weight(1f)) else PosterWall(vm, results, Modifier.weight(1f))
+        if (q.isEmpty()) {
+            Text("Écris un nom : la recherche couvre les chaînes TV, les films et les séries.", color = Color.Gray, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
+        } else {
+            Text(
+                "J'ai trouvé ${liveRes.size} chaîne(s) TV, ${movieRes.size} film(s) et ${seriesRes.size} série(s) pour « $q ».",
+                color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+            )
+            if (vm.live.loading || vm.movies.loading || vm.series.loading) {
+                Text("Chargement des listes…", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
+            }
+        }
+        LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+            if (q.isNotEmpty()) {
+                searchGroup("Chaînes TV", liveRes, vm) { c -> vm.guard(c) { vm.play(liveRes, c) } }
+                searchGroup("Films", movieRes, vm) { c -> vm.guard(c) { vm.selectTab(1); vm.openMovie(c) } }
+                searchGroup("Séries", seriesRes, vm) { c -> vm.guard(c) { vm.selectTab(2); vm.openSeries(c) } }
+            }
+        }
+    }
+}
+
+/** Un groupe de résultats : titre avec le nombre trouvé, puis chaque résultat avec l'endroit où il a été trouvé. */
+private fun androidx.compose.foundation.lazy.LazyListScope.searchGroup(title: String, found: List<Channel>, vm: MainVm, onOpen: (Channel) -> Unit) {
+    item(key = "h_$title") {
+        Text("$title (${found.size})", color = Accent, fontSize = 16.sp, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 4.dp))
+    }
+    if (found.isEmpty()) item(key = "e_$title") {
+        Text("Rien trouvé dans $title", color = Color.Gray, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp))
+    }
+    items(found.take(80), key = { "${title}_${it.id}" }) { c ->
+        FocusRow(selected = false, onClick = { onOpen(c) }) {
+            Text(vm.displayName(c), color = Color.White, maxLines = 1, modifier = Modifier.weight(1f))
+            Text("dans $title", color = Color(0xFF8A97A6), fontSize = 12.sp, maxLines = 1)
+        }
+    }
+    if (found.size > 80) item(key = "m_$title") {
+        Text("… et ${found.size - 80} autres : précise ta recherche.", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
     }
 }
 
@@ -1045,7 +1079,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         Row(Modifier.fillMaxSize()) {
             if (!docked) Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).clickable(enabled = canClose, onClick = back))
             // la flèche Haut ne sort plus du panneau de réglages (sinon le focus revient à la colonne TV / Films / Séries)
-            Column(Modifier.width(w).fillMaxHeight().background(PanelBody).onKeyEvent { ev -> if (canClose && ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && (ev.key == androidx.compose.ui.input.key.Key.DirectionLeft || ev.key == androidx.compose.ui.input.key.Key.DirectionRight)) back(); false }.focusProperties { exit = { dir -> if (dir == androidx.compose.ui.focus.FocusDirection.Up) androidx.compose.ui.focus.FocusRequester.Cancel else androidx.compose.ui.focus.FocusRequester.Default } }) {
+            Column(Modifier.width(w).fillMaxHeight().background(PanelBody).focusProperties { exit = { androidx.compose.ui.focus.FocusRequester.Cancel } }) {
                 Row(Modifier.fillMaxWidth().background(PanelHead).padding(start = 18.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
                     if (canClose) IconButton(onClick = back) { Icon(Icons.Default.Close, "Fermer", tint = Color.White) }
