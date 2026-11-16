@@ -1063,13 +1063,17 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
             page == "rename" -> page = "look_guide"
             page.startsWith("look_") -> page = "look"
-            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
+            page == "general" || page == "player" || page == "remote" || page == "advanced" || page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
             canClose -> back()
         }
     }
 
     val title = when {
         page == "root" -> "Paramètres"
+        page == "general" -> "Général"
+        page == "player" -> "Lecteur"
+        page == "remote" -> "Télécommande"
+        page == "advanced" -> "Paramètres avancés"
         page == "lists" -> "Listes de lecture"
         page == "add" -> "Ajouter une liste"
         page.startsWith("src:") -> vm.sources.firstOrNull { it.id == page.removePrefix("src:") }?.name?.ifBlank { "Liste" } ?: "Liste"
@@ -1102,13 +1106,19 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
                     when {
                         page == "root" -> {
+                            PanelItem("Général", "Démarrage, lecture, réseau et sauvegarde", first = true) { page = "general" }
+                            PanelItem("Lecteur") { page = "player" }
+                            PanelItem("Télécommande") { page = "remote" }
+                            PanelItem("Paramètres avancés") { page = "advanced" }
+                        }
+                        page == "general" -> GeneralSettingsPage(vm)
+                        page == "player" -> Text("D'autres options pour le lecteur seront ajoutées plus tard.", color = Color(0xFFB8C4EE), modifier = Modifier.padding(18.dp))
+                        page == "remote" -> Text("D'autres options pour la télécommande seront ajoutées plus tard.", color = Color(0xFFB8C4EE), modifier = Modifier.padding(18.dp))
+                        page == "advanced" -> {
                             PanelItem("Listes de lecture", first = true) { page = "lists" }
                             PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
                             PanelItem("Apparence", "${ACCENTS[vm.accentIdx].first} · texte ${TEXT_SIZES[vm.textSizeIdx].first.lowercase()}") { page = "look" }
-                            PanelItem("Préférences générales") { page = "playback" }
-                            PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
                             PanelItem("Guide (EPG)", vm.epgStatus) { page = "epg" }
-                            PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
                             PanelItem("Enregistrements") { page = "rec" }
                             PanelItem("Contrôle parental") { page = "parental" }
                             PanelItem("Mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
@@ -1223,13 +1233,40 @@ private fun RenamePage(vm: MainVm) {
 }
 
 @Composable
+private fun GeneralSettingsPage(vm: MainVm) {
+    PanelLabel("Démarrage")
+    PanelItem("Démarrer automatiquement l'application au démarrage", trailing = { PanelSwitch(vm.bootStart) }) {
+        vm.changeBootStart(!vm.bootStart)
+    }
+    PanelItem(
+        "Démarrer automatiquement l'application au réveil de la mise en veille",
+        "Peut ne pas fonctionner sur tous les appareils",
+        trailing = { PanelSwitch(vm.wakeStart) },
+    ) { vm.changeWakeStart(!vm.wakeStart) }
+    PanelItem("Lancer la dernière chaîne au démarrage de l'application", trailing = { PanelSwitch(vm.autoResume) }) {
+        vm.changeAutoResume(!vm.autoResume)
+    }
+    PanelLabel("Comportement")
+    PanelItem("Passer en mode Image dans l'image en appuyant sur Accueil", trailing = { PanelSwitch(vm.pipOnHome) }) {
+        vm.changePipOnHome(!vm.pipOnHome)
+    }
+    PanelItem("Confirmer la sortie par une seconde pression sur Retour", trailing = { PanelSwitch(vm.doubleBack) }) {
+        vm.changeDoubleBack(!vm.doubleBack)
+    }
+    PanelLabel("Réseau")
+    NetworkPage(vm)
+    PanelLabel("Données")
+    BackupPage(vm)
+}
+
+@Composable
 private fun NetworkPage(vm: MainVm) {
     var ua by rememberSaveable { mutableStateOf(vm.userAgent) }
     var px by rememberSaveable { mutableStateOf(vm.proxy) }
     Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Spacer(Modifier.size(6.dp))
         OutlinedTextField(ua, { ua = it }, label = { Text("User-Agent (vide = par défaut)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(px, { px = it }, label = { Text("Proxy hôte:port (vide = aucun)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(px, { px = it }, label = { Text("UDF Proxy (adresse:port, vide = aucun)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
         Button(onClick = { vm.saveNetwork(ua, px) }) { Text("Enregistrer") }
         if (vm.applyNetworkNote.isNotBlank()) Text(vm.applyNetworkNote, color = Color.White, fontSize = 12.sp)
     }
