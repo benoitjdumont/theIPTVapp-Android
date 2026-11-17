@@ -169,6 +169,9 @@ fun PlayerScreen(vm: MainVm) {
     LaunchedEffect(vm.recording) { while (vm.recording != null) { now = System.currentTimeMillis(); delay(1000) } }
 
     // sous-titres chargés depuis une adresse (.srt / .vtt), valables pour la chaîne en cours
+    val speeds = remember { listOf(0.75f, 1f, 1.25f, 1.5f, 2f) }
+    var speedIdx by remember(ch.id) { mutableStateOf(1) }
+    LaunchedEffect(ch.id) { player.setPlaybackSpeed(1f) }
     var subUrl by remember(ch.id) { mutableStateOf<String?>(null) }
     var subStart by remember(ch.id) { mutableStateOf(0L) }
     LaunchedEffect(ch.id, idx, subUrl) {
@@ -212,6 +215,8 @@ fun PlayerScreen(vm: MainVm) {
                 when (state) {
                     Player.STATE_BUFFERING -> status = "Mise en mémoire…"
                     Player.STATE_READY -> status = ""
+                    // fin d'un épisode : on enchaîne avec le suivant (pas pour un film seul ni le direct)
+                    Player.STATE_ENDED -> if (ch.kind != "live" && vm.playIndex + 1 < vm.playlist.size) vm.step(1)
                     else -> {}
                 }
             }
@@ -495,6 +500,12 @@ fun PlayerScreen(vm: MainVm) {
                         Triple("Affichage : " + displayModes[displayMode], IconAspect) {
                             displayMode = (displayMode + 1) % displayModes.size
                         },
+                        *(if (ch.kind != "live") arrayOf(
+                            Triple("Vitesse ${speeds[speedIdx].let { if (it % 1f == 0f) it.toInt().toString() else it.toString() }}×", IconTimer) {
+                                speedIdx = (speedIdx + 1) % speeds.size
+                                player.setPlaybackSpeed(speeds[speedIdx])
+                            },
+                        ) else emptyArray<Triple<String, ImageVector, () -> Unit>>()),
                         Triple(if (sleepMin == 0) "Minuterie" else "Minuterie $sleepMin min", IconTimer) {
                             sleepMin = sleepSteps[(sleepSteps.indexOf(sleepMin) + 1) % sleepSteps.size]
                         },
