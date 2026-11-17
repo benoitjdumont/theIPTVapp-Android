@@ -27,7 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 /** Petite fenêtre vidéo de l'accueil : la chaîne choisie joue ici avant de passer en plein écran. */
 @OptIn(UnstableApi::class)
 @Composable
-fun PreviewBox(ch: Channel, modifier: Modifier = Modifier) {
+fun PreviewBox(ch: Channel, modifier: Modifier = Modifier, paused: Boolean = false) {
     val ctx = LocalContext.current
     val player = remember {
         val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.streamUa)
@@ -44,7 +44,7 @@ fun PreviewBox(ch: Channel, modifier: Modifier = Modifier) {
         val item = MediaItem.Builder().setUri(a.url).apply { if (a.mime != null) setMimeType(a.mime) }.build()
         player.setMediaItem(item)
         player.prepare()
-        player.playWhenReady = true
+        player.playWhenReady = !paused
     }
     DisposableEffect(player, ch.id) {
         val l = object : Player.Listener {

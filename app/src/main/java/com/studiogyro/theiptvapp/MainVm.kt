@@ -722,8 +722,11 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     var settingsStart by mutableStateOf<String?>(null)
 
     /** Retour depuis le plein écran : la chaîne revient en aperçu (elle continue de jouer). */
-    fun stop() {
+    var previewPausedId by mutableStateOf<String?>(null)
+
+    fun stop(paused: Boolean = false) {
         val c = current
+        previewPausedId = if (paused) c?.id else null
         playIndex = -1
         if (previewMode && c != null && c.kind == "live") preview = c
     }

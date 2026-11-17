@@ -272,7 +272,7 @@ fun PlayerScreen(vm: MainVm) {
             listOpen -> listOpen = false
             menuStage == 2 -> menuStage = 1
             menuStage == 1 -> menuStage = 0
-            else -> vm.stop()
+            else -> vm.stop(!playing)
         }
     }
 
@@ -592,7 +592,7 @@ fun PlayerScreen(vm: MainVm) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                IconButton(onClick = { vm.stop() }, modifier = Modifier.focusRing()) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
+                IconButton(onClick = { vm.stop(!playing) }, modifier = Modifier.focusRing()) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
                 Column(Modifier.weight(1f)) {
                     val pos = vm.playlist.indexOf(ch)
                     Text(

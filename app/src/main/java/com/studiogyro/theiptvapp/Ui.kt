@@ -232,7 +232,7 @@ val ListBg get() = glass(AccentDark)
 val CellBg get() = tint(0x3A4A9A, 0.33f)
 
 @Composable
-private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClick: () -> Unit, enabled: Boolean = true, icon: @Composable () -> Unit) {
+private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClick: () -> Unit, enabled: Boolean = true, requester: androidx.compose.ui.focus.FocusRequester? = null, icon: @Composable () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
     Row(
@@ -243,6 +243,7 @@ private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClic
             .alpha(if (enabled) 1f else 0.3f)
             .clip(shape)
             .background(if (focused) AccentDark else if (selected) Color.White.copy(alpha = 0.18f) else Color.Transparent)
+            .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
             .onFocusChanged { focused = it.isFocused }
             .clickable(enabled = enabled, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
@@ -367,13 +368,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchGroup(title: St
 
 /** Rail de gauche : fin au repos, il se déploie par-dessus la liste quand on navigue dessus. */
 @Composable
-private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, searchOpen: Boolean, onSearch: () -> Unit, openSettings: () -> Unit, onChoose: () -> Unit = {}) {
+private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, searchOpen: Boolean, onSearch: () -> Unit, openSettings: () -> Unit, onChoose: () -> Unit = {}, firstReq: androidx.compose.ui.focus.FocusRequester? = null) {
     val focus = expanded
     Column(
         Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(RailBg).padding(vertical = 6.dp).onFocusChanged { onFocus(it.hasFocus) },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        RailItem(!vm.favMode && vm.tab == 0, focus, "TV", { vm.selectTab(0); onChoose() }) { TvIcon() }
+        RailItem(!vm.favMode && vm.tab == 0, focus, "TV", { vm.selectTab(0); onChoose() }, requester = firstReq) { TvIcon() }
         RailItem(!vm.favMode && vm.tab == 1, focus, "Films", { vm.selectTab(1); onChoose() }, enabled = vm.vodEnabled(1)) { FilmIcon() }
         RailItem(!vm.favMode && vm.tab == 2, focus, "Séries", { vm.selectTab(2); onChoose() }, enabled = vm.vodEnabled(2)) { SeriesIcon() }
         RailItem(vm.favMode, focus, "Ma liste", { vm.openFavMode(); onChoose() }) { Icon(Icons.Default.Star, "Ma liste", tint = Color.White) }
@@ -399,6 +400,12 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     LaunchedEffect(colsHidden) { if (!colsHidden) railBig = true }
     LaunchedEffect(groupFocus) { if (groupFocus) railBig = false }
     val railExpanded = railFocus || railBig
+    val railReq = remember { androidx.compose.ui.focus.FocusRequester() }
+    // Retour : si les colonnes sont ouvertes mais la colonne de gauche est réduite, elle se rouvre (au lieu de quitter)
+    BackHandler(enabled = !colsHidden && !railExpanded) {
+        railBig = true
+        runCatching { railReq.requestFocus() }
+    }
     // la catégorie choisie garde sa place : on y revient (focus + défilement) au lieu de la première
     val selectedRequester = remember { androidx.compose.ui.focus.FocusRequester() }
     val groupState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -431,7 +438,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     if (colsHidden) EdgeHandle(Modifier.align(Alignment.CenterStart).fillMaxHeight().width(14.dp)) { showCols = true }
     Row(Modifier.fillMaxSize()) {
         // rail : grand (avec les noms) au repos ; petit (icônes) quand on parcourt les catégories ; caché une fois une catégorie choisie
-        if (!colsHidden) Rail(vm, railExpanded, { railFocus = it; if (it) railBig = true }, vm.searchOpen, { vm.openSearch() }, openSettings, { railBig = false; railFocus = false })
+        if (!colsHidden) Rail(vm, railExpanded, { railFocus = it; if (it) railBig = true }, vm.searchOpen, { vm.openSearch() }, openSettings, { railBig = false; railFocus = false }, railReq)
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when {
                 vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
@@ -862,7 +869,7 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
                 .clip(RoundedCornerShape(6.dp))
                 .background(Color.Black)
                 .combinedClickable(onClick = {}, onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }),
-        ) { PreviewBox(pv) }
+        ) { PreviewBox(pv, paused = vm.previewPausedId == pv.id) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f).fillMaxHeight()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
