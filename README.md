@@ -5,22 +5,26 @@ Une seule application : tactile sur téléphone, télécommande (flèches, OK, R
 
 *Créé par Benoît Dumont à l'aide de l'IA — Studio Gyro.* theIPTVapp est un lecteur : il ne fournit aucune chaîne.
 
-## Fonctions (version 0.1.x)
-- Sources **M3U** (adresse web) et **Xtream Codes**, plusieurs sources possibles.
-- Catégories (colonne à gauche sur grand écran / puces sur téléphone), recherche, favoris.
-- Lecteur Media3/ExoPlayer : HLS et TS, AC-3 et HEVC décodés par l'appareil quand il en est capable.
-- Lecture : ↑/↓ (ou touches chaîne +/−) pour changer de chaîne, OK pour afficher/masquer les infos, Retour pour revenir à la liste.
-- **Sous-menus** de catégories (« FR | Sports » → préfixe FR, puis sous-catégorie).
-- **Guide EPG** (Xtream) : programme en cours et suivant, dans la liste et pendant la lecture.
-- **Films et séries** (compte Xtream) : murs d'affiches, mêmes sous-menus, saisons et épisodes ; flèches gauche/droite = ±15 s.
-- **Reprise de lecture** des films et épisodes (position mémorisée).
-- **Contrôle parental** : code + mots à verrouiller (nom ou catégorie), déverrouillage par code.
-- Écran toujours à l'horizontale (téléphone et TV).
-- Contenu respectant les barres du téléphone (batterie, heure).
-- Essais automatiques : `.m3u8`, puis `.ts` (Xtream), puis HLS forcé.
+## Aperçu
 
-## À venir
-Guide EPG pour les listes M3U (XMLTV), enregistrements, films et séries avec affiches, reprise de lecture, enregistrements, contrôle parental, sous-menus de catégories (« FR | … »).
+| TV en direct + guide | Séries (affiches) | Ma liste (favoris) |
+|---|---|---|
+| ![TV](screenshots/tv.jpg) | ![Séries](screenshots/series.jpg) | ![Ma liste](screenshots/ma-liste.jpg) |
+
+## Fonctions
+- Sources **M3U** (adresse web) et **Xtream Codes** : plusieurs listes, que l'on peut **modifier** à tout moment.
+- **TV, Films, Séries** : colonne de gauche (noms au départ, icônes une fois un choix fait), catégories, puis liste ou murs d'affiches en plein écran ; poignée sur le bord gauche pour rouvrir les colonnes.
+- **Ma liste** : favoris de la TV, des films et des séries, chacun dans sa propre catégorie. **Enregistrements** : accès direct depuis la colonne.
+- **Recherche** dans sa propre fenêtre : TV, Films et Séries à la fois, avec l'endroit où chaque résultat a été trouvé.
+- **Lecteur** Media3/ExoPlayer (HLS, TS, AC-3, HEVC selon l'appareil) : pause et enregistrement au centre, historique des chaînes, menu d'options (image dans l'image, résolution, sous-titres, audio, minuterie…) accessible à la télécommande comme au toucher.
+- **Guide EPG** (Xtream) en grille ; reprise de lecture des films et épisodes ; saisons et épisodes.
+- **Enregistrement** des chaînes en direct.
+- **Préférences** dans un panneau qui glisse par-dessus l'interface : apparence (taille du texte, couleur, image de fond, transparence réglable à la manette), groupes (masquer ou verrouiller), réseau (User-Agent, proxy), sauvegarde, contrôle parental, mises à jour.
+- Plein écran bord à bord, téléphone (tactile) et Google TV (télécommande).
+- Essais automatiques de lecture : `.m3u8`, puis `.ts`, puis HLS forcé.
+
+## Soutenir le projet
+Facultatif, jamais obligatoire : un don est possible par PayPal (QR code dans **Préférences → À propos**).
 
 ## Installer
 Onglet **Actions** → dernière exécution verte → artefact **theIPTVapp-android-apk** → décompresser → installer `app-debug.apk`
@@ -29,7 +33,5 @@ Onglet **Actions** → dernière exécution verte → artefact **theIPTVapp-andr
 ## Construire soi-même
 Android Studio (ouvrir le dossier) ou `gradle assembleDebug` (Gradle 8.10, JDK 17, Android SDK 35).
 
-> ⚠️ Cette première version n'a pas encore été compilée ni testée sur un appareil : les premiers essais serviront à corriger les erreurs.
-
 ## Mises à jour
-L'appli vérifie les nouvelles versions (GitHub Releases) au démarrage ; Réglages → Mises à jour pour vérifier à la main.
+L'appli vérifie les nouvelles versions (GitHub Releases) au démarrage ; Préférences → Mises à jour pour vérifier à la main.
