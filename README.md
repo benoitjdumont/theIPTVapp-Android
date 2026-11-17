@@ -17,9 +17,6 @@ Une seule application : tactile sur téléphone, télécommande (flèches, OK, R
 - Plein écran bord à bord, téléphone (tactile) et Google TV (télécommande).
 - Essais automatiques de lecture : `.m3u8`, puis `.ts`, puis HLS forcé.
 
-## Soutenir le projet
-Facultatif, jamais obligatoire : un don est possible par PayPal (QR code dans **Préférences → À propos**).
-
 ## Installer
 Onglet **Actions** → dernière exécution verte → artefact **theIPTVapp-android-apk** → décompresser → installer `app-debug.apk`
 (autoriser « sources inconnues » ; sur Google TV, passer par une clé USB ou une application de transfert de fichiers).

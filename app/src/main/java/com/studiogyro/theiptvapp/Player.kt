@@ -167,10 +167,19 @@ fun PlayerScreen(vm: MainVm) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(vm.recording) { while (vm.recording != null) { now = System.currentTimeMillis(); delay(1000) } }
 
-    LaunchedEffect(ch.id, idx) {
+    // sous-titres chargés depuis une adresse (.srt / .vtt), valables pour la chaîne en cours
+    var subUrl by remember(ch.id) { mutableStateOf<String?>(null) }
+    var subStart by remember(ch.id) { mutableStateOf(0L) }
+    LaunchedEffect(ch.id, idx, subUrl) {
         val a = tries[idx]
-        val item = MediaItem.Builder().setUri(a.url).apply { if (a.mime != null) setMimeType(a.mime) }.build()
-        val resume = if (ch.kind != "live" && idx == 0) vm.pos(ch.id) else 0L
+        val item = MediaItem.Builder().setUri(a.url).apply {
+            if (a.mime != null) setMimeType(a.mime)
+            subUrl?.let { s ->
+                val mime = if (s.substringBefore('?').lowercase().endsWith(".vtt")) androidx.media3.common.MimeTypes.TEXT_VTT else androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
+                setSubtitleConfigurations(listOf(MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(s)).setMimeType(mime).setSelectionFlags(C.SELECTION_FLAG_DEFAULT).build()))
+            }
+        }.build()
+        val resume = if (ch.kind != "live") (if (subStart > 0) subStart else if (idx == 0) vm.pos(ch.id) else 0L) else 0L
         if (resume > 0) player.setMediaItem(item, resume) else player.setMediaItem(item)
         player.prepare()
         player.playWhenReady = true
@@ -550,7 +559,13 @@ fun PlayerScreen(vm: MainVm) {
         }
 
         // choix de résolution, sous-titres ou audio
-        picker?.let { kind -> TrackPickerDialog(player, kind) { picker = null } }
+        picker?.let { kind ->
+            TrackPickerDialog(player, kind, onSubUrl = { s ->
+                subStart = if (ch.kind != "live") player.currentPosition else 0L
+                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
+                subUrl = s
+            }) { picker = null }
+        }
 
         if (showUi && !vm.inPip) {
             Row(
@@ -739,7 +754,8 @@ private fun streamInfo(player: ExoPlayer, kind: String): String? {
 
 /** Choix de la résolution, des sous-titres ou de l'audio, selon les pistes du flux. */
 @Composable
-private fun TrackPickerDialog(player: ExoPlayer, kind: String, onDone: () -> Unit) {
+private fun TrackPickerDialog(player: ExoPlayer, kind: String, onSubUrl: (String) -> Unit, onDone: () -> Unit) {
+    var url by remember { mutableStateOf("") }
     val type = when (kind) { "video" -> C.TRACK_TYPE_VIDEO; "audio" -> C.TRACK_TYPE_AUDIO; else -> C.TRACK_TYPE_TEXT }
     val title = when (kind) { "video" -> "Résolution"; "audio" -> "Audio"; else -> "Sous-titres (CC)" }
     val options = remember(kind) {
@@ -758,6 +774,17 @@ private fun TrackPickerDialog(player: ExoPlayer, kind: String, onDone: () -> Uni
             if (kind != "text") {
                 val info = remember(kind) { streamInfo(player, kind) }
                 Text(if (info != null) "Le flux envoie : $info" else "Le flux n'indique pas ses détails (lecture pas encore démarrée ?)", color = Color(0xFFB0BEC5), modifier = Modifier.padding(bottom = 8.dp))
+            }
+            if (kind == "text") {
+                androidx.compose.material3.OutlinedTextField(
+                    value = url, onValueChange = { url = it }, singleLine = true,
+                    label = { Text("Adresse d'un fichier .srt ou .vtt") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TextButton(
+                    enabled = url.trim().startsWith("http"),
+                    onClick = { onSubUrl(url.trim()); onDone() },
+                ) { Text("Charger ces sous-titres") }
             }
             if (options.size <= 1) Text(
                 if (kind == "text") "Cette chaîne n'envoie pas de sous-titres."

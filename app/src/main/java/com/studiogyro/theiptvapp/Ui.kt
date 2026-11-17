@@ -1220,11 +1220,6 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 Text("Créé par Benoît Dumont à l'aide de l'IA", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
                                 Text("Projet gratuit · lecteur IPTV", color = Color.Gray, fontSize = 13.sp)
                                 Text("Version ${BuildConfig.VERSION_NAME}", color = Color.Gray, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
-                                Spacer(Modifier.size(18.dp))
-                                Text("Cette application est gratuite. Si tu veux encourager le projet, tu peux faire un don : ce n'est jamais obligatoire.", color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center)
-                                Spacer(Modifier.size(10.dp))
-                                Image(painterResource(R.drawable.paypal_qr), "Code QR de don PayPal", Modifier.size(180.dp))
-                                Text("Don PayPal (facultatif)", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                             }
                         }
                     }
