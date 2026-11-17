@@ -5,6 +5,12 @@ Une seule application : tactile sur téléphone, télécommande (flèches, OK, R
 
 *Créé par Benoît Dumont à l'aide de l'IA — Studio Gyro.* theIPTVapp est un lecteur : il ne fournit aucune chaîne.
 
+## Aperçu
+
+| TV + guide | Enregistrements | Recherche |
+|---|---|---|
+| ![TV](screenshots/tv.jpg) | ![Enregistrements](screenshots/enregistrements.jpg) | ![Recherche](screenshots/recherche.jpg) |
+
 ## Fonctions
 - Sources **M3U** (adresse web) et **Xtream Codes** : plusieurs listes, que l'on peut **modifier** à tout moment.
 - **TV, Films, Séries** : colonne de gauche (noms au départ, icônes une fois un choix fait), catégories, puis liste ou murs d'affiches en plein écran ; poignée sur le bord gauche pour rouvrir les colonnes.

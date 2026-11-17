@@ -773,6 +773,7 @@ fun MovieScreen(vm: MainVm) {
                         Text(if (pos > 10_000) "Reprendre (" + "%d:%02d".format(pos / 60000, pos / 1000 % 60) + ")" else "▶ Regarder")
                     }
                     OutlinedButton(onClick = { vm.toggleFav(c) }) { Text(if (vm.isFav(c)) "★ Dans ma liste" else "☆ Ma liste") }
+                    OutlinedButton(onClick = { if (vm.recording == null) vm.startRecording(ctx, c) else vm.stopRecording() }) { Text(if (vm.recording == null) "⏺ Enregistrer" else "⏹ Arrêter") }
                     val tr = d?.trailer.orEmpty()
                     if (tr.isNotBlank()) OutlinedButton(onClick = {
                         val url = if (tr.startsWith("http")) tr else "https://www.youtube.com/watch?v=$tr"
@@ -1026,8 +1027,8 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
     }
 }
 
-/** les préférences restent lisibles : jamais plus transparentes que 20 % (sinon la grille du guide passe à travers le texte) */
-private fun panelGlass(c: Color): Color = c.copy(alpha = (1f - GlassState.transp).coerceAtLeast(0.8f))
+/** les préférences restent lisibles : jamais plus transparentes que 8 % (sinon la grille du guide passe à travers le texte) */
+private fun panelGlass(c: Color): Color = c.copy(alpha = (1f - GlassState.transp).coerceAtLeast(0.92f))
 val PanelHead get() = panelGlass(darker(Accent, 0.2f))
 val PanelBody get() = panelGlass(Accent)
 
@@ -1483,18 +1484,16 @@ private fun PlaybackSection(vm: MainVm) {
 private fun RecordingsSection(vm: MainVm) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val files = remember(vm.recVersion, vm.recording) { vm.recordings(ctx) }
-    Spacer(Modifier.size(24.dp))
-    Text("Enregistrements", fontSize = 18.sp, color = Color.White)
     vm.recording?.let { Text("● En cours : ${it.name} (${it.file.length() / 1_000_000} Mo)", color = Color(0xFFFF6B6B), fontSize = 12.sp) }
     if (vm.recMessage.isNotBlank()) Text(vm.recMessage, color = Color(0xFFFF8A8A), fontSize = 12.sp)
-    if (files.isEmpty()) Text("Aucun enregistrement. Ouvre une chaîne en direct et touche ⏺ REC.", color = Color.Gray, fontSize = 12.sp)
+    if (files.isEmpty()) Text("Aucun enregistrement. Dans le lecteur, touche le bouton rouge ⏺ (chaîne, film ou épisode).", color = Color.Gray, fontSize = 12.sp)
     files.forEach { f ->
         FocusRow(selected = false, onClick = {
-            val ch = Channel(id = "r" + f.name, name = f.name.removeSuffix(".ts"), url = f.toURI().toString(), kind = "movie")
+            val ch = Channel(id = "r" + f.name, name = f.name.substringBeforeLast('.'), url = f.toURI().toString(), kind = "movie")
             vm.play(listOf(ch), ch)
         }) {
             Column(Modifier.weight(1f)) {
-                Text(f.name.removeSuffix(".ts"), color = Color.White, maxLines = 1)
+                Text(f.name.substringBeforeLast('.'), color = Color.White, maxLines = 1)
                 Text("${f.length() / 1_000_000} Mo", color = Color.Gray, fontSize = 12.sp)
             }
             IconButton(onClick = { vm.deleteRecording(f) }) { Icon(Icons.Default.Delete, "Supprimer", tint = Color(0xFFFF8A8A)) }

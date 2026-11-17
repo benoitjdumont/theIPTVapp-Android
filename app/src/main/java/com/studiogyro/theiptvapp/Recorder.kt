@@ -38,6 +38,11 @@ object Recorder {
 
     private fun request(url: String) = Request.Builder().url(url).header("User-Agent", Repo.streamUa).build()
 
+    /** requête réseau en cours : annulée à l'arrêt pour débloquer tout de suite la lecture */
+    @Volatile private var active: okhttp3.Call? = null
+    fun cancelCurrent() { active?.cancel() }
+    private fun newCall(url: String): okhttp3.Call = Repo.client.newCall(request(url)).also { active = it }
+
     suspend fun record(c: Channel, file: File, onBytes: (Long) -> Unit) {
         val url = c.alt.firstOrNull { it.contains(".ts", ignoreCase = true) } ?: c.url
         file.outputStream().buffered().use { out ->
@@ -46,7 +51,7 @@ object Recorder {
     }
 
     private suspend fun progressive(url: String, out: OutputStream, onBytes: (Long) -> Unit) {
-        Repo.client.newCall(request(url)).execute().use { r ->
+        newCall(url).execute().use { r ->
             if (!r.isSuccessful) throw RuntimeException("HTTP ${r.code}")
             val body = r.body ?: throw RuntimeException("réponse vide")
             var total = 0L
@@ -65,7 +70,7 @@ object Recorder {
     }
 
     private fun text(url: String): String =
-        Repo.client.newCall(request(url)).execute().use { r ->
+        newCall(url).execute().use { r ->
             if (!r.isSuccessful) throw RuntimeException("HTTP ${r.code}")
             r.body?.string() ?: ""
         }
@@ -89,7 +94,7 @@ object Recorder {
                     if (l.startsWith("#")) continue
                     val seg = URI(playlist).resolve(l).toString()
                     if (!seen.add(seg)) continue
-                    Repo.client.newCall(request(seg)).execute().use { r ->
+                    newCall(seg).execute().use { r ->
                         if (!r.isSuccessful) throw RuntimeException("HTTP ${r.code}")
                         val b = r.body?.bytes() ?: ByteArray(0)
                         out.write(b)

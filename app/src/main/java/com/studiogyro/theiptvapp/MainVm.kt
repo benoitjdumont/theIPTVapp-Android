@@ -442,7 +442,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         if (recording != null) return
         val safe = c.name.replace(Regex("[^A-Za-z0-9À-ÿ _-]"), "").trim().ifEmpty { "chaine" }.replace(' ', '_')
         val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmm", java.util.Locale.US).format(java.util.Date())
-        val f = java.io.File(Recorder.dir(ctx), "${safe}_$stamp.ts")
+        val ext = Regex("\\.(mp4|mkv|avi|mov|ts)(\\?|$)", RegexOption.IGNORE_CASE).find(c.url)?.groupValues?.get(1)?.lowercase() ?: "ts"
+        val f = java.io.File(Recorder.dir(ctx), "${safe}_$stamp.$ext")
         recording = Rec(c.name, f, System.currentTimeMillis())
         recBytes = 0
         recMessage = ""
@@ -463,12 +464,17 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun stopRecording() { recJob?.cancel() }
+    fun stopRecording() {
+        recJob?.cancel()
+        Recorder.cancelCurrent()
+        recording = null
+        recVersion++
+    }
 
     fun deleteRecording(f: java.io.File) { f.delete(); recVersion++ }
 
     fun recordings(ctx: android.content.Context): List<java.io.File> =
-        Recorder.dir(ctx).listFiles { x -> x.isFile && x.name.endsWith(".ts") }?.sortedByDescending { it.lastModified() } ?: emptyList()
+        Recorder.dir(ctx).listFiles { x -> x.isFile && x.name.substringAfterLast('.').lowercase() in setOf("ts", "mp4", "mkv", "avi", "mov") }?.sortedByDescending { it.lastModified() } ?: emptyList()
 
     fun addSource(s: Source) {
         sources = sources + s
