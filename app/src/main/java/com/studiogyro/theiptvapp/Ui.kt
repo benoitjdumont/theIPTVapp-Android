@@ -1126,7 +1126,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("À propos") { page = "about" }
                         }
                         page == "lists" -> {
-                            PanelItem("Tri des listes", if (vm.sourceSortManual) "Manuel" else "Par nom", first = true, trailing = { PanelSwitch(vm.sourceSortManual) }) { vm.setSourceSortManual(!vm.sourceSortManual) }
+                            PanelItem("Tri des listes", if (vm.sourceSortManual) "Manuel" else "Par nom", first = true, trailing = { PanelSwitch(vm.sourceSortManual) }) { vm.updateSourceSortManual(!vm.sourceSortManual) }
                             vm.orderedSources.forEachIndexed { i, s ->
                                 PanelItem(s.name.ifBlank { "Liste" }, if (s.type == SourceType.M3U) "M3U" else "Xtream Codes", trailing = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
