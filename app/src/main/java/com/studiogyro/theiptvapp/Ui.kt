@@ -367,20 +367,20 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchGroup(title: St
 
 /** Rail de gauche : fin au repos, il se déploie par-dessus la liste quand on navigue dessus. */
 @Composable
-private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, searchOpen: Boolean, onSearch: () -> Unit, openSettings: () -> Unit) {
+private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, searchOpen: Boolean, onSearch: () -> Unit, openSettings: () -> Unit, onChoose: () -> Unit = {}) {
     val focus = expanded
     Column(
         Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(RailBg).padding(vertical = 6.dp).onFocusChanged { onFocus(it.hasFocus) },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        RailItem(!vm.favMode && vm.tab == 0, focus, "TV", { vm.selectTab(0) }) { TvIcon() }
-        RailItem(!vm.favMode && vm.tab == 1, focus, "Films", { vm.selectTab(1) }, enabled = vm.vodEnabled(1)) { FilmIcon() }
-        RailItem(!vm.favMode && vm.tab == 2, focus, "Séries", { vm.selectTab(2) }, enabled = vm.vodEnabled(2)) { SeriesIcon() }
-        RailItem(vm.favMode, focus, "Ma liste", { vm.openFavMode() }) { Icon(Icons.Default.Star, "Ma liste", tint = Color.White) }
-        RailItem(false, focus, "Enregistrements", { vm.settingsStart = "rec"; openSettings() }) { Box(Modifier.size(16.dp).background(Color(0xFFE53935), CircleShape)) }
+        RailItem(!vm.favMode && vm.tab == 0, focus, "TV", { vm.selectTab(0); onChoose() }) { TvIcon() }
+        RailItem(!vm.favMode && vm.tab == 1, focus, "Films", { vm.selectTab(1); onChoose() }, enabled = vm.vodEnabled(1)) { FilmIcon() }
+        RailItem(!vm.favMode && vm.tab == 2, focus, "Séries", { vm.selectTab(2); onChoose() }, enabled = vm.vodEnabled(2)) { SeriesIcon() }
+        RailItem(vm.favMode, focus, "Ma liste", { vm.openFavMode(); onChoose() }) { Icon(Icons.Default.Star, "Ma liste", tint = Color.White) }
+        RailItem(false, focus, "Enregistrements", { vm.settingsStart = "rec"; openSettings(); onChoose() }) { Box(Modifier.size(16.dp).background(Color(0xFFE53935), CircleShape)) }
         Spacer(Modifier.weight(1f))
-        RailItem(searchOpen, focus, "Rechercher", onSearch) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
-        RailItem(false, focus, "Paramètres", openSettings) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
+        RailItem(searchOpen, focus, "Rechercher", { onSearch(); onChoose() }) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
+        RailItem(false, focus, "Paramètres", { openSettings(); onChoose() }) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
     }
 }
 
@@ -394,7 +394,11 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     val colsHidden = !showCols
     var railFocus by remember { mutableStateOf(false) }
     var groupFocus by remember { mutableStateOf(false) }
-    val railExpanded = railFocus
+    // grand au départ (noms visibles, aussi au toucher) ; il rétrécit en icônes dès qu'un choix est fait
+    var railBig by remember { mutableStateOf(true) }
+    LaunchedEffect(colsHidden) { if (!colsHidden) railBig = true }
+    LaunchedEffect(groupFocus) { if (groupFocus) railBig = false }
+    val railExpanded = railFocus || railBig
     // la catégorie choisie garde sa place : on y revient (focus + défilement) au lieu de la première
     val selectedRequester = remember { androidx.compose.ui.focus.FocusRequester() }
     val groupState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -427,7 +431,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     if (colsHidden) EdgeHandle(Modifier.align(Alignment.CenterStart).fillMaxHeight().width(14.dp)) { showCols = true }
     Row(Modifier.fillMaxSize()) {
         // rail : grand (avec les noms) au repos ; petit (icônes) quand on parcourt les catégories ; caché une fois une catégorie choisie
-        if (!colsHidden) Rail(vm, railExpanded, { railFocus = it }, vm.searchOpen, { vm.openSearch() }, openSettings)
+        if (!colsHidden) Rail(vm, railExpanded, { railFocus = it; if (it) railBig = true }, vm.searchOpen, { vm.openSearch() }, openSettings, { railBig = false; railFocus = false })
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when {
                 vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
