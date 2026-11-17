@@ -1154,7 +1154,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                     }
                                     PanelItem("Gérer les sources EPG") { page = "epg_sources" }
                                 } else {
-                                    PanelItem("Guide EPG intégré", "Fourni par " + selected.name)
+                                    PanelItem("Guide EPG intégré", "Fourni par " + selected.name) { }
                                 }
                             }
                             PanelItem("Supprimer cette liste", "Efface la liste de l'appli") {
