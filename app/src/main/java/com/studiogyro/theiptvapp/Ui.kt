@@ -1019,8 +1019,10 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
     }
 }
 
-val PanelHead get() = glass(darker(Accent, 0.2f))
-val PanelBody get() = glass(Accent)
+/** les préférences restent lisibles : jamais plus transparentes que 20 % (sinon la grille du guide passe à travers le texte) */
+private fun panelGlass(c: Color): Color = c.copy(alpha = (1f - GlassState.transp).coerceAtLeast(0.8f))
+val PanelHead get() = panelGlass(darker(Accent, 0.2f))
+val PanelBody get() = panelGlass(Accent)
 
 /** Une ligne d'un panneau de réglages : titre, petit texte, élément à droite (interrupteur, valeur…). */
 @OptIn(ExperimentalFoundationApi::class)
