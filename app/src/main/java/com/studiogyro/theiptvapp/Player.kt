@@ -706,6 +706,37 @@ private fun trackLabel(f: Format): String {
     return parts.joinToString(" · ").ifEmpty { "Piste" }
 }
 
+private fun codecName(mime: String?): String? = when {
+    mime == null -> null
+    mime.contains("avc") -> "H.264"
+    mime.contains("hevc") -> "H.265 (HEVC)"
+    mime.contains("av01") -> "AV1"
+    mime.contains("mpeg2") || mime.contains("mpeg-2") -> "MPEG-2"
+    mime.contains("mp4a") || mime.contains("aac") -> "AAC"
+    mime.contains("ac-3") && !mime.contains("eac") -> "AC-3"
+    mime.contains("eac3") || mime.contains("e-ac-3") -> "E-AC-3"
+    mime.contains("mpeg") -> "MP3/MPEG"
+    else -> mime.substringAfter('/').uppercase()
+}
+
+/** Ce que le flux envoie réellement (résolution, images/s, codec, débit, canaux audio). */
+private fun streamInfo(player: ExoPlayer, kind: String): String? {
+    val f = player.currentTracks.groups.filter { it.isSelected && it.type == (if (kind == "video") C.TRACK_TYPE_VIDEO else C.TRACK_TYPE_AUDIO) }
+        .firstNotNullOfOrNull { g -> (0 until g.length).firstOrNull { g.isTrackSelected(it) }?.let { g.getTrackFormat(it) } } ?: return null
+    val parts = mutableListOf<String>()
+    if (kind == "video") {
+        if (f.height > 0) parts += "${f.width}×${f.height}" + (if (f.height >= 100) " (${f.height}p)" else "")
+        if (f.frameRate > 0) parts += "${f.frameRate.let { if (it % 1f == 0f) it.toInt().toString() else "%.2f".format(it) }} im/s"
+    } else {
+        if (f.language != null && f.language != "und") parts += f.language!!
+        if (f.channelCount > 0) parts += when (f.channelCount) { 1 -> "mono"; 2 -> "stéréo"; 6 -> "5.1"; else -> "${f.channelCount} canaux" }
+        if (f.sampleRate > 0) parts += "${f.sampleRate / 1000.0} kHz"
+    }
+    codecName(f.sampleMimeType)?.let { parts += it }
+    if (f.bitrate > 0) parts += "${f.bitrate / 1000} kb/s"
+    return parts.joinToString(" · ").ifEmpty { null }
+}
+
 /** Choix de la résolution, des sous-titres ou de l'audio, selon les pistes du flux. */
 @Composable
 private fun TrackPickerDialog(player: ExoPlayer, kind: String, onDone: () -> Unit) {
@@ -723,7 +754,15 @@ private fun TrackPickerDialog(player: ExoPlayer, kind: String, onDone: () -> Uni
         onDismissRequest = onDone,
         title = { Text(title) },
         text = {
-            if (options.size <= 1 && kind != "text") Text("Aucune piste disponible sur cette chaîne.")
+            Column {
+            if (kind != "text") {
+                val info = remember(kind) { streamInfo(player, kind) }
+                Text(if (info != null) "Le flux envoie : $info" else "Le flux n'indique pas ses détails (lecture pas encore démarrée ?)", color = Color(0xFFB0BEC5), modifier = Modifier.padding(bottom = 8.dp))
+            }
+            if (options.size <= 1) Text(
+                if (kind == "text") "Cette chaîne n'envoie pas de sous-titres."
+                else "Un seul choix : la chaîne n'offre pas d'autre " + (if (kind == "video") "qualité." else "piste audio."),
+            )
             else LazyColumn(Modifier.heightIn(max = 300.dp)) {
                 items(options) { (label, group, index) ->
                     Text(
@@ -746,6 +785,7 @@ private fun TrackPickerDialog(player: ExoPlayer, kind: String, onDone: () -> Uni
                             .padding(horizontal = 10.dp, vertical = 10.dp),
                     )
                 }
+            }
             }
         },
         confirmButton = { TextButton(onClick = onDone) { Text("Fermer") } },
