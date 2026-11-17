@@ -162,7 +162,8 @@ fun PlayerScreen(vm: MainVm) {
     }
     LaunchedEffect(hud) { if (hud.isNotEmpty()) { delay(900); hud = "" } }
     // le menu disparaît en même temps que la barre (après le même délai)
-    LaunchedEffect(showUi) { if (!showUi) menuStage = 0 }
+    // l'interface (pause / enregistrer / titre) s'affiche avec l'historique et la flèche des options ; tout disparaît ensemble
+    LaunchedEffect(showUi) { if (!showUi) menuStage = 0 else if (ch.kind == "live" && menuStage == 0) menuStage = 1 }
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(vm.recording) { while (vm.recording != null) { now = System.currentTimeMillis(); delay(1000) } }
 
@@ -232,7 +233,7 @@ fun PlayerScreen(vm: MainVm) {
             poke()
             while (true) {
                 delay(400)
-                val limit = if (menuStage != 0 || listOpen || picker != null) 10_000L else 4_000L
+                val limit = if (menuStage == 2 || listOpen || picker != null) 10_000L else 6_000L
                 if (System.currentTimeMillis() - lastTouch[0] > limit) { showUi = false; break }
             }
         }
@@ -271,7 +272,7 @@ fun PlayerScreen(vm: MainVm) {
         when {
             listOpen -> listOpen = false
             menuStage == 2 -> menuStage = 1
-            menuStage == 1 -> menuStage = 0
+            menuStage == 1 -> { showUi = false; menuStage = 0 }
             else -> vm.stop(!playing)
         }
     }
@@ -363,10 +364,6 @@ fun PlayerScreen(vm: MainVm) {
                             val c = ev.changes.firstOrNull { it.id == down.id } ?: break
                             if (!c.pressed) {
                                 if (!dragging) { if (menuStage == 2) menuStage = 1 else showUi = !showUi }
-                                else if (zone == 0 && ch.kind == "live" && abs(total) > 100f) {
-                                    vm.step(if (total < 0) 1 else -1)
-                                    showUi = true
-                                }
                                 break
                             }
                             val dy = c.position.y - lastY

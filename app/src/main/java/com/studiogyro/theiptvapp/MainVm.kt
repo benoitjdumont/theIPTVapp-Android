@@ -726,7 +726,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     fun stop(paused: Boolean = false) {
         val c = current
-        previewPausedId = if (paused) c?.id else null
+        if (c != null) previewPausedId = if (paused) c.id else null
         playIndex = -1
         if (previewMode && c != null && c.kind == "live") preview = c
     }
