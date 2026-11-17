@@ -41,7 +41,7 @@ class Section {
 
     fun replaceItems(l: List<Channel>) {
         items = l
-        top = null
+        if (top != GROUP_FAV && top != GROUP_HIST) top = null
         sub = null
         val prefixes = LinkedHashMap<String, Boolean>()
         val subs = LinkedHashMap<String, LinkedHashMap<String, String>>()
@@ -474,6 +474,12 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         sources = sources + s
         store.saveSources(sources)
         select(s.id)
+    }
+
+    fun updateSource(s: Source) {
+        sources = sources.map { if (it.id == s.id) s else it }
+        store.saveSources(sources)
+        if (s.id == activeId) reload()
     }
 
     fun deleteSource(id: String) {

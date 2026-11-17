@@ -189,13 +189,13 @@ fun AppRoot(vm: MainVm) {
 /** A row that is clearly highlighted when focused with a remote control. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FocusRow(selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, requester: androidx.compose.ui.focus.FocusRequester? = null, content: @Composable RowScope.() -> Unit) {
+fun FocusRow(selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, requester: androidx.compose.ui.focus.FocusRequester? = null, blockUp: Boolean = true, content: @Composable RowScope.() -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
     Row(
         Modifier
             .fillMaxWidth()
-            .then(if (requester != null) Modifier.focusRequester(requester).focusProperties { up = androidx.compose.ui.focus.FocusRequester.Cancel } else Modifier)
+            .then(if (requester != null) Modifier.focusRequester(requester).then(if (blockUp) Modifier.focusProperties { up = androidx.compose.ui.focus.FocusRequester.Cancel } else Modifier) else Modifier)
             .clip(shape)
             .background(if (focused) Accent.copy(alpha = 0.35f) else if (selected) Accent.copy(alpha = 0.18f) else Color.Transparent)
             .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
@@ -445,6 +445,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                                     selected = vm.tab == i && sec.top == GROUP_FAV,
                                     onClick = { vm.pickFav(i); showCols = false },
                                     requester = if (vm.tab == i) selectedRequester else null,
+                                    blockUp = false,
                                 ) {
                                     Text(label, color = if (vm.tab == i && sec.top == GROUP_FAV) Accent else Color.White, maxLines = 1)
                                 }
@@ -487,7 +488,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                         Column(Modifier.weight(1f).fillMaxHeight().background(ListBg)) {
                             val pv = vm.preview
                             if (vm.tab == 0 && vm.previewMode && pv != null) PreviewHeader(vm, pv)
-                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f), listFirst) else PosterWall(vm, list, Modifier.weight(1f))
+                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f), listFirst) else PosterWall(vm, list, Modifier.weight(1f), listFirst)
                         }
                     }
                 }
@@ -648,7 +649,7 @@ private fun topEntries(sec: Section, live: Boolean): List<Pair<String?, String>>
 
 /** Films et séries : fiche du titre survolé en haut, murs d'affiches en dessous. */
 @Composable
-private fun PosterWall(vm: MainVm, list: List<Channel>, modifier: Modifier) {
+private fun PosterWall(vm: MainVm, list: List<Channel>, modifier: Modifier, first: androidx.compose.ui.focus.FocusRequester? = null) {
     if (list.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) { Text("Rien à afficher.", color = Color.Gray) }
         return
@@ -672,24 +673,25 @@ private fun PosterWall(vm: MainVm, list: List<Channel>, modifier: Modifier) {
             Text(plot, color = Color(0xFFB8C4DA), fontSize = 12.sp, maxLines = 3, modifier = Modifier.padding(top = 3.dp))
         }
         }
-        PosterGrid(vm, list, Modifier.weight(1f).padding(6.dp)) { sel = it }
+        PosterGrid(vm, list, Modifier.weight(1f).padding(6.dp), first) { sel = it }
     }
 }
 
 /** Poster wall for movies and series. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, onFocus: (Channel) -> Unit = {}) {
+private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, first: androidx.compose.ui.focus.FocusRequester? = null, onFocus: (Channel) -> Unit = {}) {
     if (list.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) { Text("Rien à afficher.", color = Color.Gray) }
         return
     }
     LazyVerticalGrid(columns = GridCells.Adaptive(120.dp), modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(list, key = { it.id }) { c ->
+        itemsIndexed(list, key = { _, it -> it.id }) { idx, c ->
             var focused by remember { mutableStateOf(false) }
             val shape = RoundedCornerShape(10.dp)
             Column(
                 Modifier
+                    .then(if (idx == 0 && first != null) Modifier.focusRequester(first) else Modifier)
                     .clip(shape)
                     .background(if (focused) Accent.copy(alpha = 0.35f) else Panel)
                     .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
@@ -1013,6 +1015,7 @@ private fun PanelItem(
     first: Boolean = false,
     onLong: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    selected: Boolean = false,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -1024,7 +1027,8 @@ private fun PanelItem(
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 1.dp)
             .clip(shape)
-            .background(if (focused) AccentDark else Color.Transparent)
+            .background(if (focused) AccentDark else if (selected) Color.White.copy(alpha = 0.22f) else Color.Transparent)
+            .then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier)
             .androidx_focusRequester(fr)
             .onFocusChanged { focused = it.isFocused }
             .combinedClickable(onClick = onClick, onLongClick = onLong)
@@ -1060,6 +1064,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
     val canClose = vm.sources.isNotEmpty()
     BackHandler(true) {
         when {
+            page.startsWith("edit:") -> page = "lists"
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
             page == "rename" -> page = "look_guide"
             page.startsWith("look_") -> page = "look"
@@ -1072,6 +1077,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "root" -> "Paramètres"
         page == "lists" -> "Listes de lecture"
         page == "add" -> "Ajouter une liste"
+        page.startsWith("edit:") -> "Modifier la liste"
         page.startsWith("src:") -> vm.sources.firstOrNull { it.id == page.removePrefix("src:") }?.name?.ifBlank { "Liste" } ?: "Liste"
         page == "groups" -> "Groupes"
         page == "playback" -> "Préférences générales"
@@ -1128,12 +1134,17 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page.startsWith("src:") -> {
                             val id = page.removePrefix("src:")
                             PanelItem("Utiliser cette liste", first = true) { vm.select(id); back() }
+                            PanelItem("Modifier cette liste", "Nom, adresse, identifiants") { page = "edit:" + id }
                             PanelItem("Supprimer cette liste", "Efface la liste de l'appli") {
                                 vm.deleteSource(id)
                                 if (vm.sources.isEmpty()) page = "add" else page = "lists"
                             }
                         }
                         page == "add" -> AddSourceForm(vm, canClose) { page = "lists"; back() }
+                        page.startsWith("edit:") -> {
+                            val es = vm.sources.firstOrNull { it.id == page.removePrefix("edit:") }
+                            if (es != null) AddSourceForm(vm, true, es) { page = "lists" }
+                        }
                         page == "groups" -> GroupsPage(vm)
                         page == "look" -> {
                             PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first, first = true) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
@@ -1276,16 +1287,16 @@ private fun BackupPage(vm: MainVm) {
 }
 
 @Composable
-private fun AddSourceForm(vm: MainVm, canCancel: Boolean, done: () -> Unit) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var type by rememberSaveable { mutableStateOf(SourceType.M3U) }
-    var url by rememberSaveable { mutableStateOf("") }
-    var host by rememberSaveable { mutableStateOf("") }
-    var user by rememberSaveable { mutableStateOf("") }
-    var pass by rememberSaveable { mutableStateOf("") }
+private fun AddSourceForm(vm: MainVm, canCancel: Boolean, edit: Source? = null, done: () -> Unit) {
+    var name by rememberSaveable { mutableStateOf(edit?.name ?: "") }
+    var type by rememberSaveable { mutableStateOf(edit?.type ?: SourceType.M3U) }
+    var url by rememberSaveable { mutableStateOf(edit?.url ?: "") }
+    var host by rememberSaveable { mutableStateOf(edit?.host ?: "") }
+    var user by rememberSaveable { mutableStateOf(edit?.user ?: "") }
+    var pass by rememberSaveable { mutableStateOf(edit?.pass ?: "") }
     PanelLabel("Type de liste")
-    PanelItem("Liste M3U", first = true, trailing = { PanelSwitch(type == SourceType.M3U) }) { type = SourceType.M3U }
-    PanelItem("Xtream Codes", trailing = { PanelSwitch(type == SourceType.XTREAM) }) { type = SourceType.XTREAM }
+    PanelItem(if (type == SourceType.M3U) "✔ Liste M3U" else "Liste M3U", first = true, selected = type == SourceType.M3U, trailing = { PanelSwitch(type == SourceType.M3U) }) { type = SourceType.M3U }
+    PanelItem(if (type == SourceType.XTREAM) "✔ Xtream Codes" else "Xtream Codes", selected = type == SourceType.XTREAM, trailing = { PanelSwitch(type == SourceType.XTREAM) }) { type = SourceType.XTREAM }
     Column(Modifier.padding(horizontal = 12.dp)) {
         Spacer(Modifier.size(6.dp))
         OutlinedTextField(name, { name = it }, label = { Text("Nom") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -1311,13 +1322,12 @@ private fun AddSourceForm(vm: MainVm, canCancel: Boolean, done: () -> Unit) {
             Button(
                 enabled = ok,
                 onClick = {
-                    vm.addSource(
-                        Source(vm.newId(), name.ifBlank { if (type == SourceType.M3U) "Ma liste" else "Mon Xtream" }, type, url.trim(), host.trim(), user.trim(), pass.trim()),
-                    )
-                    name = ""; url = ""; host = ""; user = ""; pass = ""
+                    val s = Source(edit?.id ?: vm.newId(), name.ifBlank { if (type == SourceType.M3U) "Ma liste" else "Mon Xtream" }, type, url.trim(), host.trim(), user.trim(), pass.trim())
+                    if (edit != null) vm.updateSource(s) else vm.addSource(s)
+                    if (edit == null) { name = ""; url = ""; host = ""; user = ""; pass = "" }
                     done()
                 },
-            ) { Text("Ajouter") }
+            ) { Text(if (edit != null) "Enregistrer" else "Ajouter") }
         }
     }
 }

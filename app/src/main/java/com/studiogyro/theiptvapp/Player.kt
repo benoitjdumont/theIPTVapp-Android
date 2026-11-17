@@ -45,6 +45,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -591,7 +592,7 @@ fun PlayerScreen(vm: MainVm) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                IconButton(onClick = { vm.stop() }) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
+                IconButton(onClick = { vm.stop() }, modifier = Modifier.focusRing()) { Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White) }
                 Column(Modifier.weight(1f)) {
                     val pos = vm.playlist.indexOf(ch)
                     Text(
@@ -605,7 +606,7 @@ fun PlayerScreen(vm: MainVm) {
                     }
                 }
                 val fav = vm.isFav(ch)
-                IconButton(onClick = { vm.toggleFav(ch) }) {
+                IconButton(onClick = { vm.toggleFav(ch) }, modifier = Modifier.focusRing()) {
                     Icon(
                         if (fav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         "Favori",
@@ -629,6 +630,7 @@ private fun PlayerMenuItem(label: String, icon: ImageVector, modifier: Modifier 
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(8.dp))
             .background(if (focused) Accent else Color.Transparent)
+            .then(if (focused) Modifier.border(3.dp, Color.White, RoundedCornerShape(8.dp)) else Modifier)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -650,10 +652,18 @@ private fun ImageVector.Builder.solid(d: String) =
 
 /** Icônes du menu qui n'existent pas dans le jeu de base de Material. */
 private val IconPause = playerIcon("pause") { solid("M6,5h4v14h-4z"); solid("M14,5h4v14h-4z") }
+/** Anneau blanc bien visible autour du bouton qui a le focus (manette). */
+@Composable
+private fun Modifier.focusRing(): Modifier {
+    var f by remember { mutableStateOf(false) }
+    return this.onFocusChanged { f = it.isFocused }
+        .then(if (f) Modifier.border(3.dp, Color.White, CircleShape).background(Color(0x66FFFFFF), CircleShape) else Modifier)
+}
+
 @Composable
 private fun CenterControl(icon: ImageVector, label: String, tint: Color = Color.White, onClick: () -> Unit) {
     Box(
-        Modifier.size(76.dp).clip(CircleShape).background(Color(0x99000000)).clickable(onClick = onClick),
+        Modifier.size(76.dp).clip(CircleShape).background(Color(0x99000000)).focusRing().clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, label, tint = tint, modifier = Modifier.size(42.dp)) }
 }
