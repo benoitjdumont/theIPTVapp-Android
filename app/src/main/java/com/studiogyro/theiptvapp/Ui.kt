@@ -286,6 +286,17 @@ private fun SeriesIcon() = androidx.compose.foundation.Canvas(Modifier.size(24.d
     drawPath(path, c)
 }
 
+/** Filtre hors du fil principal, après une courte pause de frappe : le clavier ne saccade plus sur les grosses listes. */
+@Composable
+private fun searchResults(vm: MainVm, items: List<Channel>, q: String): List<Channel> {
+    val state = androidx.compose.runtime.produceState(emptyList<Channel>(), items, q) {
+        if (q.isEmpty()) { value = emptyList(); return@produceState }
+        kotlinx.coroutines.delay(250)
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { items.filter { vm.displayName(it).contains(q, ignoreCase = true) } }
+    }
+    return state.value
+}
+
 /** Recherche dans sa propre fenêtre : cherche dans TV, Films et Séries à la fois et dit où chaque résultat a été trouvé. */
 @Composable
 private fun SearchOverlay(vm: MainVm) {
@@ -297,9 +308,9 @@ private fun SearchOverlay(vm: MainVm) {
     }
     BackHandler(true) { vm.closeSearch() }
     val q = vm.query.trim()
-    val liveRes = remember(vm.live.items, q) { if (q.isEmpty()) emptyList() else vm.live.items.filter { vm.displayName(it).contains(q, ignoreCase = true) } }
-    val movieRes = remember(vm.movies.items, q) { if (q.isEmpty()) emptyList() else vm.movies.items.filter { vm.displayName(it).contains(q, ignoreCase = true) } }
-    val seriesRes = remember(vm.series.items, q) { if (q.isEmpty()) emptyList() else vm.series.items.filter { vm.displayName(it).contains(q, ignoreCase = true) } }
+    val liveRes = searchResults(vm, vm.live.items, q)
+    val movieRes = searchResults(vm, vm.movies.items, q)
+    val seriesRes = searchResults(vm, vm.series.items, q)
     Column(Modifier.fillMaxSize().background(Color(0xFF0B1220)).windowInsetsPadding(WindowInsets.systemBars).padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { vm.closeSearch() }) { Icon(Icons.Default.ArrowBack, "Fermer", tint = Color.White) }
@@ -437,7 +448,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                     }
                 }
                 else -> {
-                    val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs) { vm.visible() }
+                    val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs, vm.history, vm.hiddenCats, vm.tab) { vm.visible() }
                     val subs = sec.subs()
                     Row(Modifier.fillMaxSize()) {
                         if (!colsHidden && vm.favMode) Column(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp).onFocusChanged { groupFocus = it.hasFocus }) {
@@ -571,7 +582,7 @@ private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
                 }
             }
             else -> BoxWithConstraints(Modifier.fillMaxSize()) {
-                val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs) { vm.visible() }
+                val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs, vm.history, vm.hiddenCats, vm.tab) { vm.visible() }
                 val subs = sec.subs()
                 val content: @Composable (Modifier) -> Unit = { m ->
                     if (vm.tab == 0) ChannelList(vm, list, m) else PosterGrid(vm, list, m)
@@ -976,7 +987,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
                             fontSize = 13.sp, maxLines = 1,
                             modifier = Modifier.width(128.dp),
                         )
-                        val progs = (e?.list ?: emptyList()).filter { it.stop > ws && it.start < ws + winMin * 60_000L }
+                        val progs = remember(e?.list, ws, winMin) { (e?.list ?: emptyList()).filter { it.stop > ws && it.start < ws + winMin * 60_000L } }
                         Box(Modifier.width(gridW).height(36.dp).clip(RoundedCornerShape(4.dp))) {
                             if (progs.isEmpty()) {
                                 EpgCell(e?.now?.title, null, null, Modifier.fillMaxSize())
