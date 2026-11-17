@@ -83,7 +83,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     var sources by mutableStateOf(store.sources()); private set
     var sourceSortManual by mutableStateOf(store.sourceSortManual()); private set
     val orderedSources: List<Source> get() = if (sourceSortManual) sources else sources.sortedBy { it.name.lowercase() }
-    fun setSourceSortManual(manual: Boolean) { sourceSortManual = manual; store.saveSourceSortManual(manual) }
+    fun updateSourceSortManual(manual: Boolean) { sourceSortManual = manual; store.saveSourceSortManual(manual) }
     fun moveSource(id: String, delta: Int) {
         val list = sources.toMutableList()
         val from = list.indexOfFirst { it.id == id }
