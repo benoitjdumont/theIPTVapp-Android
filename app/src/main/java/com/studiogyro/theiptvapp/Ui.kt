@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
@@ -686,7 +687,7 @@ private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, firs
         return
     }
     LazyVerticalGrid(columns = GridCells.Adaptive(120.dp), modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        itemsIndexed(list, key = { _, it -> it.id }) { idx, c ->
+        gridItemsIndexed(list, key = { _, it -> it.id }) { idx, c ->
             var focused by remember { mutableStateOf(false) }
             val shape = RoundedCornerShape(10.dp)
             Column(
