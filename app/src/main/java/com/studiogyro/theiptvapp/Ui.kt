@@ -249,7 +249,7 @@ private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClic
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(44.dp), contentAlignment = Alignment.Center) { icon() }
-        if (expanded) Text(label, color = Color.White, fontSize = 14.sp, maxLines = 1, softWrap = false)
+        if (expanded) Text(label, color = Color.White, fontSize = 14.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
 
@@ -768,7 +768,7 @@ fun MovieScreen(vm: MainVm) {
                         color = Color(0xFFB8C4DA), fontSize = 13.sp, style = detailShadow,
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp).background(Color(0xCC0B1220), RoundedCornerShape(12.dp)).padding(8.dp)) {
                     Button(onClick = { vm.play(listOf(c), c) }, modifier = Modifier.androidx_focusRequester(fr)) {
                         Text(if (pos > 10_000) "Reprendre (" + "%d:%02d".format(pos / 60000, pos / 1000 % 60) + ")" else "▶ Regarder")
                     }

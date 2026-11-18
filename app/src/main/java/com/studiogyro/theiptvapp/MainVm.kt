@@ -112,6 +112,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     var updateDismissed by mutableStateOf(false)
 
     fun checkUpdate(silent: Boolean) {
+        // version de test (APK debug) : pas de proposition automatique de remplacer par la version publiée
+        if (silent && BuildConfig.DEBUG) return
         if (!silent) updateInfo = "Vérification…"
         viewModelScope.launch {
             try {
