@@ -1101,7 +1101,9 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
             page == "rename" -> page = "look_guide"
             page.startsWith("look_") -> page = "look"
-            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
+            // Retour dans Enregistrements : ferme tout le panneau (les enregistrements restent dans la liste)
+            page == "rec" -> back()
+            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" -> page = "root"
             canClose -> back()
         }
     }

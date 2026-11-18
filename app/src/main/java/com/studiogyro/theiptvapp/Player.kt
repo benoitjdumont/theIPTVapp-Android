@@ -534,7 +534,6 @@ fun PlayerScreen(vm: MainVm) {
                         Triple(if (vm.isFav(ch)) "Retirer favori" else "Favoris", if (vm.isFav(ch)) Icons.Default.Favorite else Icons.Default.FavoriteBorder) {
                             vm.toggleFav(ch)
                         },
-                        Triple("Préférences", Icons.Default.Settings) { close(); vm.stop(); vm.openSettingsRequest = true },
                     )
                     Row(
                         Modifier
