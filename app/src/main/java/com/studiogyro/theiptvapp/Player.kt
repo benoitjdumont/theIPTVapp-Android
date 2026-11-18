@@ -135,7 +135,14 @@ fun PlayerScreen(vm: MainVm) {
 
     val player = remember {
         val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.streamUa)
-        ExoPlayer.Builder(ctx).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build()
+        // grosse mémoire tampon (≈ 100 Mo) : on peut mettre le direct en pause longtemps et, sur les flux qui le permettent, reculer
+        val lc = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(30_000, 600_000, 2_500, 5_000)
+            .setTargetBufferBytes(100 * 1024 * 1024)
+            .setPrioritizeTimeOverSizeThresholds(false)
+            .setBackBuffer(300_000, true)
+            .build()
+        ExoPlayer.Builder(ctx).setLoadControl(lc).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build()
     }
     DisposableEffect(Unit) { onDispose { player.release() } }
 
@@ -172,6 +179,14 @@ fun PlayerScreen(vm: MainVm) {
     val speeds = remember { listOf(0.75f, 1f, 1.25f, 1.5f, 2f) }
     var speedIdx by remember(ch.id) { mutableStateOf(1) }
     LaunchedEffect(ch.id) { player.setPlaybackSpeed(1f) }
+    // décalage par rapport au direct (flux qui le permettent) ; on le lit chaque seconde
+    var liveOffsetMs by remember(ch.id) { mutableStateOf(0L) }
+    LaunchedEffect(ch.id) {
+        while (ch.kind == "live") {
+            liveOffsetMs = player.currentLiveOffset.takeIf { it != C.TIME_UNSET } ?: 0L
+            kotlinx.coroutines.delay(1000)
+        }
+    }
     var subUrl by remember(ch.id) { mutableStateOf<String?>(null) }
     var subStart by remember(ch.id) { mutableStateOf(0L) }
     LaunchedEffect(ch.id, idx, subUrl) {
@@ -585,8 +600,23 @@ fun PlayerScreen(vm: MainVm) {
                 horizontalArrangement = Arrangement.spacedBy(32.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (ch.kind == "live") CenterControl(IconRewind, "Reculer de 15 s") {
+                    poke()
+                    if (player.isCurrentMediaItemSeekable) player.seekTo((player.currentPosition - 15_000).coerceAtLeast(0L))
+                    else hud = "Retour en arrière impossible sur ce flux (pause possible)"
+                }
                 CenterControl(if (playing) IconPause else Icons.Default.PlayArrow, if (playing) "Pause" else "Lecture") {
                     player.playWhenReady = !player.playWhenReady
+                }
+                if (ch.kind == "live") CenterControl(
+                    if (liveOffsetMs > 5_000) IconForward else IconForward,
+                    if (liveOffsetMs > 5_000) "Retour au direct" else "Avancer de 15 s",
+                    tint = if (liveOffsetMs > 5_000) Color(0xFFFF6B6B) else Color.White,
+                ) {
+                    poke()
+                    if (liveOffsetMs > 5_000 && player.isCurrentMediaItemSeekable) player.seekToDefaultPosition()
+                    else if (player.isCurrentMediaItemSeekable) player.seekTo(player.currentPosition + 15_000)
+                    else hud = "Déjà au direct"
                 }
                 run {
                     val rec = vm.recording
@@ -693,6 +723,8 @@ private fun CenterControl(icon: ImageVector, label: String, tint: Color = Color.
     ) { Icon(icon, label, tint = tint, modifier = Modifier.size(42.dp)) }
 }
 
+private val IconRewind = playerIcon("rewind") { solid("M11,6l-8,6l8,6z"); solid("M21,6l-8,6l8,6z") }
+private val IconForward = playerIcon("forward") { solid("M13,6l8,6l-8,6z"); solid("M3,6l8,6l-8,6z") }
 private val IconRecord = playerIcon("record") { solid("M12,4a8,8 0 1 1 -0.01,0z") }
 private val IconStop = playerIcon("stop") { solid("M6,6h12v12h-12z") }
 private val IconPip = playerIcon("pip") { outline("M3,4h18v16h-18z"); solid("M12,12h7v5h-7z") }
