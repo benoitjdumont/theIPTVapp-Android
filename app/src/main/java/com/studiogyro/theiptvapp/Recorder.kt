@@ -115,10 +115,26 @@ object Recorder {
         val seen = LinkedHashSet<String>()
         var total = 0L
         var failures = 0
+        var initDone = false
         while (true) {
             currentCoroutineContext().ensureActive()
             try {
                 val lines = text(playlist).lines().map { it.trim() }.filter { it.isNotEmpty() }
+                // flux fMP4 (CMAF) : le segment d'initialisation (#EXT-X-MAP) doit être écrit en premier, sinon l'image reste noire
+                if (!initDone) {
+                    lines.firstOrNull { it.startsWith("#EXT-X-MAP") }?.let { m ->
+                        Regex("URI=\"([^\"]+)\"").find(m)?.groupValues?.get(1)?.let { uri ->
+                            newCall(URI(playlist).resolve(uri).toString()).execute().use { r ->
+                                if (!r.isSuccessful) throw RuntimeException("HTTP ${r.code}")
+                                val b = r.body?.bytes() ?: ByteArray(0)
+                                out.write(b)
+                                total += b.size
+                                onBytes(total)
+                            }
+                        }
+                    }
+                    initDone = true
+                }
                 val variant = lines.indexOfFirst { it.startsWith("#EXT-X-STREAM-INF") }
                 if (variant >= 0) {
                     val next = lines.drop(variant + 1).firstOrNull { !it.startsWith("#") } ?: throw RuntimeException("liste vide")
