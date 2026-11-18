@@ -1263,14 +1263,72 @@ private fun RenamePage(vm: MainVm) {
     }
 }
 
+/**
+ * Champ de saisie pour la TV : on voit le champ (titre + texte actuel). Appui OK/Entrée : une fenêtre
+ * s'ouvre avec le nom du réglage en titre et le texte écrit en gros, pour savoir exactement où l'on écrit.
+ */
+@Composable
+fun TvField(
+    value: String,
+    onValue: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    secret: Boolean = false,
+    keyboard: KeyboardType = KeyboardType.Text,
+) {
+    var open by remember { mutableStateOf(false) }
+    var draft by remember { mutableStateOf("") }
+    var focused by remember { mutableStateOf(false) }
+    val shown = if (secret) "•".repeat(value.length) else value
+    Column(modifier.fillMaxWidth()) {
+        Text(label, color = Color(0xFFB8C4EE), fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = Color(0x22FFFFFF),
+            border = androidx.compose.foundation.BorderStroke(if (focused) 3.dp else 1.dp, if (focused) Color.White else Color(0x66FFFFFF)),
+            modifier = Modifier.fillMaxWidth()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable { draft = value; open = true },
+        ) {
+            Text(
+                shown.ifEmpty { "Appuie sur OK pour écrire" },
+                color = if (shown.isEmpty()) Color.Gray else Color.White,
+                fontSize = 16.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            )
+        }
+    }
+    if (open) {
+        val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+        LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(label) },
+            text = {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = if (keyboard == KeyboardType.NumberPassword) it.filter(Char::isDigit) else it },
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 22.sp),
+                    visualTransformation = if (secret) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+                    keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                )
+            },
+            confirmButton = { Button(onClick = { onValue(draft.trim()); open = false }) { Text("OK") } },
+            dismissButton = { OutlinedButton(onClick = { open = false }) { Text("Annuler") } },
+        )
+    }
+}
+
 @Composable
 private fun NetworkPage(vm: MainVm) {
     var ua by rememberSaveable { mutableStateOf(vm.userAgent) }
     var px by rememberSaveable { mutableStateOf(vm.proxy) }
     Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Spacer(Modifier.size(6.dp))
-        OutlinedTextField(ua, { ua = it }, label = { Text("User-Agent (vide = par défaut)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(px, { px = it }, label = { Text("Proxy hôte:port (vide = aucun)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+        TvField(ua, { ua = it }, "Préférences › Réseau › User-Agent (vide = par défaut)")
+        TvField(px, { px = it }, "Préférences › Réseau › Proxy hôte:port (vide = aucun)", keyboard = KeyboardType.Uri)
         Button(onClick = { vm.saveNetwork(ua, px) }) { Text("Enregistrer") }
         if (vm.applyNetworkNote.isNotBlank()) Text(vm.applyNetworkNote, color = Color.White, fontSize = 12.sp)
     }
@@ -1329,22 +1387,13 @@ private fun AddSourceForm(vm: MainVm, canCancel: Boolean, edit: Source? = null, 
     PanelItem(if (type == SourceType.XTREAM) "✔ Xtream Codes" else "Xtream Codes", selected = type == SourceType.XTREAM, trailing = { PanelSwitch(type == SourceType.XTREAM) }) { type = SourceType.XTREAM }
     Column(Modifier.padding(horizontal = 12.dp)) {
         Spacer(Modifier.size(6.dp))
-        OutlinedTextField(name, { name = it }, label = { Text("Nom") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        TvField(name, { name = it }, "Nom de la liste")
         if (type == SourceType.M3U) {
-            OutlinedTextField(
-                url, { url = it }, label = { Text("Adresse de la liste (http…)") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
-            )
+            TvField(url, { url = it }, "Adresse de la liste (http…)", keyboard = KeyboardType.Uri)
         } else {
-            OutlinedTextField(
-                host, { host = it }, label = { Text("Serveur (http://exemple.com:8080)") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(user, { user = it }, label = { Text("Identifiant") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(
-                pass, { pass = it }, label = { Text("Mot de passe") }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(),
-            )
+            TvField(host, { host = it }, "Serveur (http://exemple.com:8080)", keyboard = KeyboardType.Uri)
+            TvField(user, { user = it }, "Identifiant")
+            TvField(pass, { pass = it }, "Mot de passe", secret = true)
         }
         Spacer(Modifier.size(10.dp))
         val ok = if (type == SourceType.M3U) url.isNotBlank() else host.isNotBlank() && user.isNotBlank() && pass.isNotBlank()
@@ -1430,12 +1479,8 @@ private fun ParentalSection(vm: MainVm) {
         Text("Appui long sur une catégorie (colonne de gauche) pour la verrouiller ou la déverrouiller.", color = Color.Gray, fontSize = 12.sp)
         if (!vm.unlocked) Text("Ouvre un élément verrouillé et entre le code pour modifier ces réglages.", color = Color.Gray, fontSize = 12.sp)
     } else {
-        OutlinedTextField(kw, { kw = it }, label = { Text("Mots à verrouiller (séparés par des virgules)") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(
-            pin, { pin = it.filter(Char::isDigit) }, label = { Text("Nouveau code (4 chiffres ou plus)") }, singleLine = true,
-            visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        TvField(kw, { kw = it }, "Mots à verrouiller (séparés par des virgules)")
+        TvField(pin, { pin = it.filter(Char::isDigit) }, "Nouveau code (4 chiffres ou plus)", secret = true, keyboard = KeyboardType.NumberPassword)
         Button(
             enabled = pin.length >= 4 && kw.isNotBlank(),
             onClick = { vm.setParental(pin, kw.split(',')); pin = "" },
