@@ -179,6 +179,9 @@ fun PlayerScreen(vm: MainVm) {
     val speeds = remember { listOf(0.75f, 1f, 1.25f, 1.5f, 2f) }
     var speedIdx by remember(ch.id) { mutableStateOf(1) }
     LaunchedEffect(ch.id) { player.setPlaybackSpeed(1f) }
+    // DVR : le canal en direct s'enregistre en continu (2 h / 6 Go) pendant qu'il joue
+    LaunchedEffect(ch.id) { Dvr.start(ctx, ch) }
+    DisposableEffect(Unit) { onDispose { Dvr.stop() } }
     // décalage par rapport au direct (flux qui le permettent) ; on le lit chaque seconde
     var liveOffsetMs by remember(ch.id) { mutableStateOf(0L) }
     LaunchedEffect(ch.id) {
