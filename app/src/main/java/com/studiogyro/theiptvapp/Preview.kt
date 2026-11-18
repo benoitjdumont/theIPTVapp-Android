@@ -55,16 +55,12 @@ fun PreviewBox(ch: Channel, modifier: Modifier = Modifier, paused: Boolean = fal
         player.addListener(l)
         onDispose { player.removeListener(l) }
     }
+    // TextureView (et non SurfaceView) : une SurfaceView reste noire dans une case arrondie ou sous des calques Compose
     Box(modifier.fillMaxSize()) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
-            factory = { c ->
-                PlayerView(c).apply {
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    this.player = player
-                }
-            },
+            factory = { c -> android.view.TextureView(c).also { player.setVideoTextureView(it) } },
+            onRelease = { v -> player.clearVideoTextureView(v) },
         )
     }
 }
