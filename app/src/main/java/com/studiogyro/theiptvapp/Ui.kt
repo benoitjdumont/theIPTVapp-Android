@@ -1000,6 +1000,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
                             modifier = Modifier.width(128.dp),
                         )
                         val progs = remember(e?.list, ws, winMin) { (e?.list ?: emptyList()).filter { it.stop > ws && it.start < ws + winMin * 60_000L } }
+                        val sctx = androidx.compose.ui.platform.LocalContext.current
                         Box(Modifier.width(gridW).height(36.dp).clip(RoundedCornerShape(4.dp))) {
                             if (progs.isEmpty()) {
                                 EpgCell(e?.now?.title, null, null, Modifier.fillMaxSize())
@@ -1011,7 +1012,13 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
                                     val frac = if (isNow) ((nowMs - p.start).toFloat() / (p.stop - p.start).coerceAtLeast(1)) else null
                                     EpgCell(
                                         p.title, null, frac,
-                                        Modifier.offset(x = x0).width(w).fillMaxHeight(),
+                                        Modifier.offset(x = x0).width(w).fillMaxHeight().combinedClickable(
+                                            onClick = {},
+                                            onLongClick = {
+                                                val ok = vm.schedule(sctx, c, p)
+                                                android.widget.Toast.makeText(sctx, if (ok) "Enregistrement programmé : ${p.title}" else "Émission terminée", android.widget.Toast.LENGTH_SHORT).show()
+                                            },
+                                        ),
                                         highlight = isNow && vm.opt("highlight") && !vm.opt("progonly", false),
                                         twoLines = vm.opt("twolines", false),
                                     )
@@ -1485,6 +1492,17 @@ private fun RecordingsSection(vm: MainVm) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val files = remember(vm.recVersion, vm.recording) { vm.recordings(ctx) }
     vm.recording?.let { Text("● En cours : ${it.name} (${it.file.length() / 1_000_000} Mo)", color = Color(0xFFFF6B6B), fontSize = 12.sp) }
+    val sched = vm.scheduled(ctx)
+    if (sched.isNotEmpty()) {
+        Text("Programmés", color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp))
+        val fmt = java.text.SimpleDateFormat("EEE d MMM HH:mm", java.util.Locale.CANADA_FRENCH)
+        sched.forEach { s ->
+            FocusRow(selected = false, onClick = { vm.cancelSched(ctx, s.id) }) {
+                Text("${s.title.ifEmpty { s.chName }} · ${s.chName} · ${fmt.format(java.util.Date(s.start))}", color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 2)
+                Text("Annuler", color = Color(0xFFFF8A8A), fontSize = 12.sp)
+            }
+        }
+    }
     if (vm.recMessage.isNotBlank()) Text(vm.recMessage, color = Color(0xFFFF8A8A), fontSize = 12.sp)
     if (files.isEmpty()) Text("Aucun enregistrement. Dans le lecteur, touche le bouton rouge ⏺ (chaîne, film ou épisode).", color = Color.Gray, fontSize = 12.sp)
     files.forEach { f ->

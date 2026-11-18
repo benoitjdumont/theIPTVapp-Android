@@ -473,6 +473,16 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     fun deleteRecording(f: java.io.File) { f.delete(); recVersion++ }
 
+    var schedVersion by mutableStateOf(0); private set
+    fun scheduled(ctx: android.content.Context): List<Sched> { schedVersion.hashCode(); return Scheduler.list(ctx) }
+    fun schedule(ctx: android.content.Context, c: Channel, p: Prog): Boolean {
+        if (p.stop <= System.currentTimeMillis()) return false
+        Scheduler.add(ctx, Sched("${c.id}|${p.start}", c.name, c.url, p.title, p.start, p.stop))
+        schedVersion++
+        return true
+    }
+    fun cancelSched(ctx: android.content.Context, id: String) { Scheduler.cancel(ctx, id); schedVersion++ }
+
     fun recordings(ctx: android.content.Context): List<java.io.File> =
         Recorder.dir(ctx).listFiles { x -> x.isFile && x.name.substringAfterLast('.').lowercase() in setOf("ts", "mp4", "mkv", "avi", "mov") }?.sortedByDescending { it.lastModified() } ?: emptyList()
 

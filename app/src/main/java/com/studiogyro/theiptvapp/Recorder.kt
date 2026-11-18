@@ -16,10 +16,44 @@ import okhttp3.Request
 import java.io.File
 import java.io.OutputStream
 import java.net.URI
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /** Keeps the process alive while a recording runs in the background. */
 class RecordService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    override fun onDestroy() { scope.cancel(); super.onDestroy() }
+
+    /** enregistrement programmé : écrit le flux jusqu'à l'heure de fin, puis s'arrête */
+    private fun runScheduled(i: Intent) {
+        val id = i.getStringExtra("id") ?: return
+        val url = i.getStringExtra("url") ?: return
+        val name = i.getStringExtra("ch") ?: "chaine"
+        val title = i.getStringExtra("t").orEmpty()
+        val stop = i.getLongExtra("e", 0L)
+        val safe = (title.ifEmpty { name }).replace(Regex("[^A-Za-z0-9À-ÿ _-]"), "").trim().ifEmpty { "emission" }.replace(' ', '_')
+        val stamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date())
+        val ext = Regex("\\.(mp4|mkv|avi|mov|ts)(\\?|$)", RegexOption.IGNORE_CASE).find(url)?.groupValues?.get(1)?.lowercase() ?: "ts"
+        val f = File(Recorder.dir(this), "${safe}_$stamp.$ext")
+        val ch = Channel(id = id, name = name, url = url, alt = listOf(url))
+        scope.launch {
+            val job = launch(Dispatchers.IO) { runCatching { Recorder.record(ch, f) { } } }
+            val left = stop - System.currentTimeMillis()
+            if (left > 0) delay(left)
+            Recorder.cancelCurrent()
+            job.cancel()
+            Scheduler.done(this@RecordService, id)
+            if (f.exists() && f.length() < 1024) f.delete()
+            stopSelf()
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -27,6 +61,7 @@ class RecordService : Service() {
         val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, "rec") else Notification.Builder(this)
         val n = b.setContentTitle("theIPTVapp").setContentText("Enregistrement en cours…").setSmallIcon(R.mipmap.ic_launcher).setOngoing(true).build()
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(1, n)
+        if (intent?.hasExtra("url") == true) runScheduled(intent)
         return START_NOT_STICKY
     }
 }
