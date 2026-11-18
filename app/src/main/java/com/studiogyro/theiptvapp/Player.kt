@@ -599,7 +599,7 @@ fun PlayerScreen(vm: MainVm) {
                         ) { if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording() }
                         if (rec != null) {
                             val secs = ((now - rec.startMs) / 1000).coerceAtLeast(0)
-                            Text("%d:%02d".format(secs / 60, secs % 60), color = Color(0xFFFF6B6B), fontSize = 13.sp, modifier = Modifier.align(Alignment.BottomCenter).offset(y = 20.dp))
+                            Text("%d:%02d".format(secs / 60, secs % 60), color = Color(0xFFFF6B6B), fontSize = 13.sp, modifier = Modifier.align(Alignment.BottomCenter).offset(y = 34.dp))
                         }
                     }
                 }
