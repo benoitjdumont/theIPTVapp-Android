@@ -549,8 +549,10 @@ fun PlayerScreen(vm: MainVm) {
                                     onVerticalDrag = { _, dy -> acc += dy; if (acc < -80f) { menuStage = 1; acc = 0f } },
                                 )
                             }
+                            // même teinte noire que la barre du haut ; l'historique, lui, reste sans fond
+                            .background(Color(0xAA000000))
                             .padding(horizontal = 12.dp, vertical = 6.dp),
-                        // toutes les options tiennent à l'écran : pas de défilement, pas de fond
+                        // toutes les options tiennent à l'écran : pas de défilement
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
                         menuItems.forEachIndexed { i, (label, icon, action) ->
