@@ -183,7 +183,14 @@ fun PlayerScreen(vm: MainVm) {
     var liveOffsetMs by remember(ch.id) { mutableStateOf(0L) }
     LaunchedEffect(ch.id) {
         while (ch.kind == "live") {
-            liveOffsetMs = player.currentLiveOffset.takeIf { it != C.TIME_UNSET } ?: 0L
+            // retard réel = décalage actuel moins le décalage normal du direct (les flux HLS ont déjà 10 à 30 s de marge)
+            val off = player.currentLiveOffset.takeIf { it != C.TIME_UNSET } ?: 0L
+            val tl = player.currentTimeline
+            val normal = if (tl.isEmpty) 0L else androidx.media3.common.Timeline.Window().let { w ->
+                tl.getWindow(player.currentMediaItemIndex, w)
+                w.liveConfiguration?.targetOffsetMs?.takeIf { it != C.TIME_UNSET } ?: 0L
+            }
+            liveOffsetMs = (off - normal).coerceAtLeast(0L)
             kotlinx.coroutines.delay(1000)
         }
     }
@@ -609,12 +616,12 @@ fun PlayerScreen(vm: MainVm) {
                     player.playWhenReady = !player.playWhenReady
                 }
                 if (ch.kind == "live") CenterControl(
-                    if (liveOffsetMs > 5_000) IconForward else IconForward,
-                    if (liveOffsetMs > 5_000) "Retour au direct" else "Avancer de 15 s",
-                    tint = if (liveOffsetMs > 5_000) Color(0xFFFF6B6B) else Color.White,
+                    IconForward,
+                    if (liveOffsetMs > 8_000) "Retour au direct" else "Avancer de 15 s",
+                    tint = if (liveOffsetMs > 8_000) Color(0xFFFF6B6B) else Color.White,
                 ) {
                     poke()
-                    if (liveOffsetMs > 5_000 && player.isCurrentMediaItemSeekable) player.seekToDefaultPosition()
+                    if (liveOffsetMs > 8_000 && player.isCurrentMediaItemSeekable) player.seekToDefaultPosition()
                     else if (player.isCurrentMediaItemSeekable) player.seekTo(player.currentPosition + 15_000)
                     else hud = "Déjà au direct"
                 }
