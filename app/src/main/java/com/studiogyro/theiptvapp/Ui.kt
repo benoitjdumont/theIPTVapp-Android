@@ -1638,6 +1638,18 @@ private fun ScheduleForm(vm: MainVm) {
             } else "Impossible de programmer."
         },
     ) { Text("Programmer") }
+    // enregistrer tout de suite, pendant 30 min, 1 h ou 2 h (comme la version PC)
+    Text("Enregistrer maintenant :", color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(30, 60, 120).forEach { mins ->
+            OutlinedButton(enabled = match != null, onClick = {
+                val now = System.currentTimeMillis()
+                val label = if (mins < 60) "$mins min" else "${mins / 60} h"
+                msg = if (vm.scheduleManual(ctx, match!!, now, now + mins * 60_000L, false)) "Enregistrement lancé : ${vm.displayName(match)} pendant $label."
+                else "Impossible de lancer l'enregistrement."
+            }) { Text(if (mins < 60) "$mins min" else "${mins / 60} h") }
+        }
+    }
     if (msg.isNotBlank()) Text(msg, color = Color.White, fontSize = 12.sp)
 }
 
