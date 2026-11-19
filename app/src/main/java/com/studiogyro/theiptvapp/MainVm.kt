@@ -148,6 +148,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     init {
         Repo.configure(store.userAgent(), store.proxy())
+        Repo.cacheDir = java.io.File(getApplication<Application>().cacheDir, "listes")
         viewModelScope.launch { while (true) { kotlinx.coroutines.delay(60_000); clock = System.currentTimeMillis() } }
         Accent = ACCENTS[store.accent().coerceIn(0, ACCENTS.lastIndex)].second
         UiAlpha = TRANSPS[store.transp().coerceIn(0, TRANSPS.lastIndex)].second

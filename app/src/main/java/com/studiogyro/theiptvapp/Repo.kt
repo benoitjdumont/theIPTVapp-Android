@@ -53,7 +53,7 @@ object Repo {
         val p = encCred(src.pass)
         val api = "$base/player_api.php?username=$u&password=$p"
         val cats = categoryMap("$api&action=get_vod_categories")
-        val a = readJsonArray("$api&action=get_vod_streams")
+        val a = readJsonArrayCached("$api&action=get_vod_streams")
         val out = ArrayList<Channel>(a.length())
         for (i in 0 until a.length()) {
             val o = a.getJSONObject(i)
@@ -79,7 +79,7 @@ object Repo {
         val p = encCred(src.pass)
         val api = "$base/player_api.php?username=$u&password=$p"
         val cats = categoryMap("$api&action=get_series_categories")
-        val a = readJsonArray("$api&action=get_series")
+        val a = readJsonArrayCached("$api&action=get_series")
         val out = ArrayList<Channel>(a.length())
         for (i in 0 until a.length()) {
             val o = a.getJSONObject(i)
@@ -359,12 +359,39 @@ object Repo {
         return s
     }
 
-    private fun readJsonArray(url: String): JSONArray {
+    private fun readJsonArray(url: String): JSONArray = JSONArray(fetchJsonText(url))
+
+    private fun fetchJsonText(url: String): String {
         var txt = ""
         open(url) { r -> txt = r.body?.string() ?: "" }
         val t = txt.trim()
         if (!t.startsWith("[")) throw RuntimeException("Réponse inattendue du serveur (identifiants refusés ?)")
-        return JSONArray(t)
+        return t
+    }
+
+    /** dossier du cache des listes Films et Séries (défini au démarrage) */
+    @Volatile var cacheDir: java.io.File? = null
+
+    private const val LIST_CACHE_MS = 12L * 3600_000L
+
+    /**
+     * Liste Xtream (films ou séries) gardée sur le disque 12 h : l'ouverture suivante est immédiate.
+     * La clé contient l'adresse complète (avec identifiants) : changer de compte ne réutilise pas l'ancien cache.
+     */
+    private fun readJsonArrayCached(url: String): JSONArray {
+        val dir = cacheDir ?: return readJsonArray(url)
+        val f = java.io.File(dir, "list_${url.hashCode()}.json")
+        if (f.isFile && System.currentTimeMillis() - f.lastModified() < LIST_CACHE_MS) {
+            runCatching { return JSONArray(f.readText()) }
+        }
+        val txt = fetchJsonText(url)
+        runCatching {
+            dir.mkdirs()
+            val tmp = java.io.File(dir, "list_${url.hashCode()}.tmp")
+            tmp.writeText(txt)
+            tmp.renameTo(f)
+        }
+        return JSONArray(txt)
     }
 
     private fun loadXtream(src: Source): List<Channel> {
