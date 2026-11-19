@@ -171,7 +171,8 @@ fun PlayerScreen(vm: MainVm) {
     LaunchedEffect(hud) { if (hud.isNotEmpty()) { delay(900); hud = "" } }
     // le menu disparaît en même temps que la barre (après le même délai)
     // l'interface (pause / enregistrer / titre) s'affiche avec l'historique et la flèche des options ; tout disparaît ensemble
-    LaunchedEffect(showUi) { if (!showUi) menuStage = 0 else if (ch.kind == "live" && menuStage == 0) menuStage = 1 }
+    // même affichage que la TV en direct : la barre d'options (fond sombre, enregistrer, favoris, PIP…) apparaît avec les commandes
+    LaunchedEffect(showUi) { if (!showUi) menuStage = 0 else if (menuStage == 0) menuStage = if (ch.kind == "live") 1 else 2 }
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(vm.recording) { while (vm.recording != null) { now = System.currentTimeMillis(); delay(1000) } }
 
@@ -343,7 +344,7 @@ fun PlayerScreen(vm: MainVm) {
     BackHandler(true) {
         when {
             listOpen -> listOpen = false
-            menuStage == 2 -> menuStage = if (ch.kind == "live") 1 else 0
+            menuStage == 2 -> if (ch.kind == "live") menuStage = 1 else { showUi = false; menuStage = 0 }
             menuStage == 1 -> { showUi = false; menuStage = 0 }
             else -> vm.stop(!playing)
         }
@@ -707,10 +708,6 @@ fun PlayerScreen(vm: MainVm) {
                         Text("${e.now.title}  ${hm(e.now.start)}–${hm(e.now.stop)}", color = Color(0xFFCCDDFF), fontSize = 13.sp, maxLines = 1)
                         if (e.next != null) Text("Ensuite : ${e.next.title}  ${hm(e.next.start)}", color = Color(0xFFAAAAAA), fontSize = 12.sp, maxLines = 1)
                     }
-                }
-                if (ch.kind != "live") {
-                    // films et séries : le menu d'options (Sous-titres, Audio, Résolution…) s'ouvre ici
-                    OutlinedButton(onClick = { poke(); openMenu(2) }, modifier = Modifier.focusRing()) { Text("Options", fontSize = 13.sp) }
                 }
                 if (ch.kind == "live") {
                     OutlinedButton(onClick = { poke(); dvrGo(5 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−5 min", fontSize = 13.sp) }
