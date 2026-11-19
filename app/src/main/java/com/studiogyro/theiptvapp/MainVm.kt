@@ -484,6 +484,13 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         return true
     }
     fun cancelSched(ctx: android.content.Context, id: String) { Scheduler.cancel(ctx, id); schedVersion++ }
+    /** enregistrement programmé à la main (heures choisies dans Préférences › Enregistrements) */
+    fun scheduleManual(ctx: android.content.Context, c: Channel, start: Long, stop: Long): Boolean {
+        if (stop <= System.currentTimeMillis()) return false
+        Scheduler.add(ctx, Sched("${c.id}|$start", c.name, c.url, "", start, stop))
+        schedVersion++
+        return true
+    }
 
     fun recordings(ctx: android.content.Context): List<java.io.File> =
         Recorder.dir(ctx).listFiles { x -> x.isFile && x.name.substringAfterLast('.').lowercase() in setOf("ts", "mp4", "mkv", "avi", "mov") }?.sortedByDescending { it.lastModified() } ?: emptyList()

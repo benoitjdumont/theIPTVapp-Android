@@ -1534,6 +1534,59 @@ private fun PlaybackSection(vm: MainVm) {
     }
 }
 
+/** Programme un enregistrement à la main : chaîne (nom), jour, heure de début et de fin. */
+@Composable
+private fun ScheduleForm(vm: MainVm) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var chName by rememberSaveable { mutableStateOf("") }
+    var day by rememberSaveable { mutableStateOf("0") }
+    var from by rememberSaveable { mutableStateOf("") }
+    var to by rememberSaveable { mutableStateOf("") }
+    var msg by rememberSaveable { mutableStateOf("") }
+    val match = if (chName.isBlank()) null else vm.live.items.firstOrNull { it.name.contains(chName, ignoreCase = true) || vm.displayName(it).contains(chName, ignoreCase = true) }
+    fun parseHm(s: String): Pair<Int, Int>? {
+        val m = Regex("^(\\d{1,2}):(\\d{2})$").find(s.trim()) ?: return null
+        val h = m.groupValues[1].toInt(); val mi = m.groupValues[2].toInt()
+        return if (h in 0..23 && mi in 0..59) h to mi else null
+    }
+    val a = parseHm(from)
+    val b = parseHm(to)
+    Spacer(Modifier.size(12.dp))
+    Text("Programmer un enregistrement", color = Color.White, fontSize = 15.sp)
+    TvField(chName, { chName = it; msg = "" }, "Nom de la chaîne (une partie du nom suffit)")
+    if (chName.isNotBlank()) Text(
+        if (match != null) "Chaîne trouvée : ${vm.displayName(match)}" else "Aucune chaîne ne correspond",
+        color = if (match != null) Color(0xFFB8F5C8) else Color(0xFFFF8A8A), fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp),
+    )
+    TvField(day, { day = it.filter(Char::isDigit).take(1) }, "Jour : 0 = aujourd'hui, 1 = demain")
+    TvField(from, { from = it; msg = "" }, "Heure de début (hh:mm, ex. 20:00)")
+    TvField(to, { to = it; msg = "" }, "Heure de fin (hh:mm, ex. 22:00)")
+    Button(
+        enabled = match != null && a != null && b != null,
+        onClick = {
+            val (ah, am) = a!!
+            val (bh, bm) = b!!
+            val cal = java.util.Calendar.getInstance()
+            cal.add(java.util.Calendar.DAY_OF_YEAR, day.toIntOrNull() ?: 0)
+            cal.set(java.util.Calendar.HOUR_OF_DAY, ah)
+            cal.set(java.util.Calendar.MINUTE, am)
+            cal.set(java.util.Calendar.SECOND, 0)
+            cal.set(java.util.Calendar.MILLISECOND, 0)
+            val start = cal.timeInMillis
+            var diff = (bh * 60 + bm) - (ah * 60 + am)
+            if (diff <= 0) diff += 24 * 60 // fin après minuit
+            val stop = start + diff * 60_000L
+            msg = if (stop <= System.currentTimeMillis()) "Cette heure est déjà passée."
+            else if (vm.scheduleManual(ctx, match!!, start, stop)) {
+                val txt = "Programmé : ${vm.displayName(match)} de ${"%02d:%02d".format(ah, am)} à ${"%02d:%02d".format(bh, bm)}"
+                chName = ""; from = ""; to = ""
+                txt
+            } else "Impossible de programmer."
+        },
+    ) { Text("Programmer") }
+    if (msg.isNotBlank()) Text(msg, color = Color.White, fontSize = 12.sp)
+}
+
 @Composable
 private fun RecordingsSection(vm: MainVm) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -1550,6 +1603,7 @@ private fun RecordingsSection(vm: MainVm) {
             }
         }
     }
+    ScheduleForm(vm)
     if (vm.recMessage.isNotBlank()) Text(vm.recMessage, color = Color(0xFFFF8A8A), fontSize = 12.sp)
     if (files.isEmpty()) Text("Aucun enregistrement. Dans le lecteur, touche le bouton rouge ⏺ (chaîne, film ou épisode).", color = Color.Gray, fontSize = 12.sp)
     files.forEach { f ->
