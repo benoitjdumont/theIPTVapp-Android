@@ -710,7 +710,7 @@ fun PlayerScreen(vm: MainVm) {
                 }
                 if (ch.kind == "live") {
                     OutlinedButton(onClick = { poke(); dvrGo(5 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−5 min", fontSize = 13.sp) }
-                    OutlinedButton(onClick = { poke(); dvrGo(15 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−15 min", fontSize = 13.sp) }
+                    OutlinedButton(onClick = { poke(); dvrGo(60 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−1 h", fontSize = 13.sp) }
                 }
                 val fav = vm.isFav(ch)
                 IconButton(onClick = { vm.toggleFav(ch) }, modifier = Modifier.focusRing()) {

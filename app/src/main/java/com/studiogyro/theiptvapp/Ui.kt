@@ -1543,6 +1543,7 @@ private fun ScheduleForm(vm: MainVm) {
     var from by rememberSaveable { mutableStateOf("") }
     var to by rememberSaveable { mutableStateOf("") }
     var msg by rememberSaveable { mutableStateOf("") }
+    var asDvr by rememberSaveable { mutableStateOf(false) }
     val match = if (chName.isBlank()) null else vm.live.items.firstOrNull { it.name.contains(chName, ignoreCase = true) || vm.displayName(it).contains(chName, ignoreCase = true) }
     fun parseHm(s: String): Pair<Int, Int>? {
         val m = Regex("^(\\d{1,2}):(\\d{2})$").find(s.trim()) ?: return null
@@ -1561,6 +1562,9 @@ private fun ScheduleForm(vm: MainVm) {
     TvField(day, { day = it.filter(Char::isDigit).take(1) }, "Jour : 0 = aujourd'hui, 1 = demain")
     TvField(from, { from = it; msg = "" }, "Heure de début (hh:mm, ex. 20:00)")
     TvField(to, { to = it; msg = "" }, "Heure de fin (hh:mm, ex. 22:00)")
+    OutlinedButton(onClick = { asDvr = !asDvr; msg = "" }) {
+        Text(if (asDvr) "Mode : DVR (garder dans le DVR, 2 h max)" else "Mode : fichier (enregistrer l'émission)")
+    }
     Button(
         enabled = match != null && a != null && b != null,
         onClick = {
@@ -1577,7 +1581,8 @@ private fun ScheduleForm(vm: MainVm) {
             if (diff <= 0) diff += 24 * 60 // fin après minuit
             val stop = start + diff * 60_000L
             msg = if (stop <= System.currentTimeMillis()) "Cette heure est déjà passée."
-            else if (vm.scheduleManual(ctx, match!!, start, stop)) {
+            else if (asDvr && diff > 120) "Le DVR garde 2 h : pour plus long, choisis le mode fichier."
+            else if (vm.scheduleManual(ctx, match!!, start, stop, asDvr)) {
                 val txt = "Programmé : ${vm.displayName(match)} de ${"%02d:%02d".format(ah, am)} à ${"%02d:%02d".format(bh, bm)}"
                 chName = ""; from = ""; to = ""
                 txt

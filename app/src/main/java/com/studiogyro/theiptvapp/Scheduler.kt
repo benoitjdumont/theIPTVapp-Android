@@ -71,6 +71,7 @@ class SchedReceiver : BroadcastReceiver() {
         val svc = Intent(context, RecordService::class.java)
             .putExtra("id", s.id).putExtra("ch", s.chName).putExtra("url", s.url)
             .putExtra("t", s.title).putExtra("s", s.start).putExtra("e", s.stop)
+            .putExtra("dvr", s.id.startsWith("dvr|"))
         runCatching { ContextCompat.startForegroundService(context, svc) }
     }
 }

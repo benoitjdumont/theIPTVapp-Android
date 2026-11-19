@@ -55,13 +55,33 @@ class RecordService : Service() {
         }
     }
 
+    /** DVR programmé : la chaîne s'enregistre dans le DVR jusqu'à l'heure de fin (même si on ne la regarde pas) */
+    private fun runDvr(i: Intent) {
+        val id = i.getStringExtra("id") ?: return
+        val url = i.getStringExtra("url") ?: return
+        val name = i.getStringExtra("ch") ?: "chaine"
+        val stop = i.getLongExtra("e", 0L)
+        val chId = id.removePrefix("dvr|").substringBeforeLast('|')
+        val ch = Channel(id = chId, name = name, url = url, alt = listOf(url))
+        scope.launch {
+            Dvr.start(this@RecordService, ch)
+            val left = stop - System.currentTimeMillis()
+            if (left > 0) delay(left)
+            Dvr.stop()
+            Scheduler.done(this@RecordService, id)
+            stopSelf()
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(NotificationChannel("rec", "Enregistrement", NotificationManager.IMPORTANCE_LOW))
         val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, "rec") else Notification.Builder(this)
         val n = b.setContentTitle("theIPTVapp").setContentText("Enregistrement en cours…").setSmallIcon(R.mipmap.ic_launcher).setOngoing(true).build()
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(1, n)
-        if (intent?.hasExtra("url") == true) runScheduled(intent)
+        if (intent?.hasExtra("url") == true) {
+            if (intent.getBooleanExtra("dvr", false)) runDvr(intent) else runScheduled(intent)
+        }
         return START_NOT_STICKY
     }
 }

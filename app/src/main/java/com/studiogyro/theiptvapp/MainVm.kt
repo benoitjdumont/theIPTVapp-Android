@@ -486,9 +486,10 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     }
     fun cancelSched(ctx: android.content.Context, id: String) { Scheduler.cancel(ctx, id); schedVersion++ }
     /** enregistrement programmé à la main (heures choisies dans Préférences › Enregistrements) */
-    fun scheduleManual(ctx: android.content.Context, c: Channel, start: Long, stop: Long): Boolean {
+    fun scheduleManual(ctx: android.content.Context, c: Channel, start: Long, stop: Long, asDvr: Boolean): Boolean {
         if (stop <= System.currentTimeMillis()) return false
-        Scheduler.add(ctx, Sched("${c.id}|$start", c.name, c.url, "", start, stop))
+        val id = if (asDvr) "dvr|${c.id}|$start" else "${c.id}|$start"
+        Scheduler.add(ctx, Sched(id, c.name, c.url, if (asDvr) "DVR" else "", start, stop))
         schedVersion++
         return true
     }
