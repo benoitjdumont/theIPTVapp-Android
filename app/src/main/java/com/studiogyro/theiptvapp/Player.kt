@@ -9,6 +9,8 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.AlertDialog
@@ -671,11 +673,15 @@ fun PlayerScreen(vm: MainVm) {
 
         // choix de résolution, sous-titres ou audio
         picker?.let { kind ->
-            TrackPickerDialog(player, kind, onSubUrl = { s ->
-                subStart = if (ch.kind != "live") player.currentPosition else 0L
-                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
-                subUrl = s
-            }) { picker = null }
+            TrackPickerDialog(
+                player, kind,
+                query = cleanTitle(ch.name), year = yearOf(ch.name), key = vm.osKey(),
+                onSubUrl = { s ->
+                    subStart = if (ch.kind != "live") player.currentPosition else 0L
+                    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
+                    subUrl = s
+                },
+            ) { picker = null }
         }
 
         if (showUi && !vm.inPip) {
@@ -903,8 +909,17 @@ private fun streamInfo(player: ExoPlayer, kind: String): String? {
 
 /** Choix de la résolution, des sous-titres ou de l'audio, selon les pistes du flux. */
 @Composable
-private fun TrackPickerDialog(player: ExoPlayer, kind: String, onSubUrl: (String) -> Unit, onDone: () -> Unit) {
+private fun TrackPickerDialog(
+    player: ExoPlayer, kind: String,
+    query: String = "", year: String = "", key: String = "",
+    onSubUrl: (String) -> Unit, onDone: () -> Unit,
+) {
     var url by remember { mutableStateOf("") }
+    // recherche en ligne (OpenSubtitles, français)
+    var online by remember { mutableStateOf<List<OpenSubs.Sub>?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var err by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
     val type = when (kind) { "video" -> C.TRACK_TYPE_VIDEO; "audio" -> C.TRACK_TYPE_AUDIO; else -> C.TRACK_TYPE_TEXT }
     val title = when (kind) { "video" -> "Résolution"; "audio" -> "Audio"; else -> "Sous-titres (CC)" }
     val options = remember(kind) {
@@ -934,6 +949,44 @@ private fun TrackPickerDialog(player: ExoPlayer, kind: String, onSubUrl: (String
                     enabled = url.trim().startsWith("http"),
                     onClick = { onSubUrl(url.trim()); onDone() },
                 ) { Text("Charger ces sous-titres") }
+
+                Text("Sous-titres en français (en ligne)", color = Color.White, modifier = Modifier.padding(top = 10.dp))
+                if (key.isBlank()) Text(
+                    "Ajoute ta clé OpenSubtitles dans Préférences › Réseau pour chercher en français.",
+                    color = Color(0xFFB0BEC5), fontSize = 12.sp,
+                )
+                else {
+                    TextButton(enabled = !busy && query.isNotBlank(), onClick = {
+                        busy = true; err = ""; online = null
+                        scope.launch {
+                            try { online = OpenSubs.search(key, query, year) }
+                            catch (e: Exception) { err = e.message ?: "Recherche impossible" }
+                            finally { busy = false }
+                        }
+                    }) { Text(if (busy) "Recherche…" else "Chercher « $query » en français") }
+                    if (err.isNotEmpty()) Text(err, color = Color(0xFFFF8A80), fontSize = 12.sp)
+                    online?.let { list ->
+                        if (list.isEmpty()) Text("Aucun sous-titre français trouvé pour ce titre.", color = Color(0xFFB0BEC5), fontSize = 12.sp)
+                        else LazyColumn(Modifier.heightIn(max = 240.dp)) {
+                            items(list) { s ->
+                                Text(
+                                    "${s.release} · ${s.downloads} téléchargements",
+                                    color = Color.White, fontSize = 13.sp, maxLines = 2,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(enabled = !busy) {
+                                            busy = true; err = ""
+                                            scope.launch {
+                                                try { onSubUrl(OpenSubs.link(key, s.fileId)); onDone() }
+                                                catch (e: Exception) { err = e.message ?: "Téléchargement impossible"; busy = false }
+                                            }
+                                        }
+                                        .padding(vertical = 8.dp),
+                                )
+                            }
+                        }
+                    }
+                }
             }
             if (options.size <= 1) Text(
                 if (kind == "text") "Cette chaîne n'envoie pas de sous-titres."
