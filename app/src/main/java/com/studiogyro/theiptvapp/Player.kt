@@ -221,7 +221,6 @@ fun PlayerScreen(vm: MainVm) {
 
     /** revient en arrière de [backMs] dans le DVR (la lecture part de la playlist des morceaux enregistrés) */
     fun dvrGo(backMs: Long) {
-        poke()
         val segs = Dvr.segments(ctx, ch.id)
         if (segs.isEmpty()) { hud = "DVR : rien d'enregistré encore, attends une minute"; return }
         val pos = Dvr.positionFor(segs, System.currentTimeMillis() - backMs)
@@ -710,8 +709,8 @@ fun PlayerScreen(vm: MainVm) {
                     }
                 }
                 if (ch.kind == "live") {
-                    OutlinedButton(onClick = { dvrGo(5 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−5 min", fontSize = 13.sp) }
-                    OutlinedButton(onClick = { dvrGo(15 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−15 min", fontSize = 13.sp) }
+                    OutlinedButton(onClick = { poke(); dvrGo(5 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−5 min", fontSize = 13.sp) }
+                    OutlinedButton(onClick = { poke(); dvrGo(15 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−15 min", fontSize = 13.sp) }
                 }
                 val fav = vm.isFav(ch)
                 IconButton(onClick = { vm.toggleFav(ch) }, modifier = Modifier.focusRing()) {
