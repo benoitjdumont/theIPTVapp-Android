@@ -375,7 +375,8 @@ fun PlayerScreen(vm: MainVm) {
                             showUi = true
                             true
                         }
-                        Key.DirectionDown, Key.DirectionUp -> { showUi = true; true }
+                        Key.DirectionDown -> { openMenu(2); showUi = true; true }
+                        Key.DirectionUp -> { openMenu(2); showUi = true; true }
                         else -> false
                     }
                 }

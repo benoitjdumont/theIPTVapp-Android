@@ -145,7 +145,7 @@ fun AppRoot(vm: MainVm) {
         val onHome = vm.current == null && vm.movieOpen == null && vm.seriesOpen == null && screen == "home" && !vm.searchOpen
         val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
         // le bouton Retour de la manette agit comme la flèche gauche ; quand on est déjà à gauche, il quitte
-        BackHandler(enabled = onHome) {
+        BackHandler(enabled = onHome && !Nav.settingsOpen) {
             if (focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)) return@BackHandler
             val now = System.currentTimeMillis()
             if (!vm.doubleBack || now - lastBack < 2000) {
@@ -171,6 +171,7 @@ fun AppRoot(vm: MainVm) {
                     // l'accueil reste à sa place ; les préférences glissent par-dessus, de droite à gauche
                     if (vm.sources.isNotEmpty() || screen != "settings") HomeScreen(vm) { screen = "settings" }
                     if (screen == "settings" && vm.sources.isNotEmpty()) Box(Modifier.fillMaxSize().clickable { screen = "home" })
+                    Nav.settingsOpen = screen == "settings"
                     androidx.compose.animation.AnimatedVisibility(
                         visible = screen == "settings",
                         modifier = Modifier.align(Alignment.CenterEnd),
@@ -225,6 +226,8 @@ fun darker(c: Color, f: Float): Color = androidx.compose.ui.graphics.lerp(c, Col
 val AccentDark get() = darker(Accent, 0.4f)
 /** transparence des colonnes et des préférences (réglée dans Apparence) : 0 = opaque, 1 = transparent */
 object GlassState { var transp by mutableStateOf(0f) }
+/** vrai quand le panneau Préférences est ouvert : les autres « Retour » ne doivent pas le court-circuiter */
+object Nav { var settingsOpen by mutableStateOf(false) }
 fun glass(c: Color): Color = c.copy(alpha = 1f - GlassState.transp)
 val RailBg get() = glass(Accent)
 val GroupBg get() = glass(AccentDark)
@@ -402,7 +405,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     val railExpanded = railFocus || railBig
     val railReq = remember { androidx.compose.ui.focus.FocusRequester() }
     // Retour : si les colonnes sont ouvertes mais la colonne de gauche est réduite, elle se rouvre (au lieu de quitter)
-    BackHandler(enabled = !colsHidden && !railExpanded) {
+    BackHandler(enabled = !colsHidden && !railExpanded && !Nav.settingsOpen) {
         railBig = true
         runCatching { railReq.requestFocus() }
     }
@@ -433,7 +436,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
             runCatching { listFirst.requestFocus() }
         }
     }
-    BackHandler(enabled = colsHidden) { showCols = true }
+    BackHandler(enabled = colsHidden && !Nav.settingsOpen) { showCols = true }
     Box(Modifier.fillMaxSize()) {
     if (colsHidden) EdgeHandle(Modifier.align(Alignment.CenterStart).fillMaxHeight().width(14.dp)) { showCols = true }
     Row(Modifier.fillMaxSize()) {
