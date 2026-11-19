@@ -39,9 +39,36 @@ object Dvr {
 
     class Seg(val start: Long, val len: Long, val file: File)
 
+    private fun root(ctx: Context): File = File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "dvr")
+
     fun dirFor(ctx: Context, channelId: String): File {
         val safe = channelId.replace(Regex("[^A-Za-z0-9_-]"), "_")
-        return File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "dvr/$safe")
+        return File(root(ctx), safe)
+    }
+
+    /** une chaîne ayant un DVR : nom affiché, durée et place utilisées */
+    class Info(val dirName: String, val name: String, val totalMs: Long, val bytes: Long, val recording: Boolean)
+
+    fun infos(ctx: Context): List<Info> {
+        val now = channelId
+        val activeDir = now?.let { dirFor(ctx, it).name }
+        return root(ctx).listFiles { f -> f.isDirectory }.orEmpty().map { d ->
+            val name = File(d, "name.txt").takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.isNotEmpty() } ?: d.name
+            Info(
+                dirName = d.name,
+                name = name,
+                totalMs = totalMs(segmentsIn(d)),
+                bytes = d.listFiles().orEmpty().sumOf { it.length() },
+                recording = d.name == activeDir,
+            )
+        }.sortedBy { it.name.lowercase() }
+    }
+
+    /** efface le DVR d'une chaîne ; arrête son enregistrement s'il est en cours */
+    fun clearDir(ctx: Context, dirName: String) {
+        val cur = channelId
+        if (cur != null && dirFor(ctx, cur).name == dirName) stop()
+        File(root(ctx), dirName).deleteRecursively()
     }
 
     fun playlistFile(ctx: Context, channelId: String): File = File(dirFor(ctx, channelId), "index.m3u8")
@@ -82,6 +109,7 @@ object Dvr {
         // seuls les flux TS sont enregistrés pour l'instant (pas les flux HLS .m3u8)
         if (url.contains(".m3u8", ignoreCase = true)) return
         val dir = dirFor(ctx, c.id).apply { mkdirs() }
+        File(dir, "name.txt").writeText(c.name)
         channelId = c.id
         job = scope.launch {
             var failures = 0

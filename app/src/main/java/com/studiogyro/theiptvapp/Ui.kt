@@ -1592,6 +1592,20 @@ private fun RecordingsSection(vm: MainVm) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val files = remember(vm.recVersion, vm.recording) { vm.recordings(ctx) }
     vm.recording?.let { Text("● En cours : ${it.name} (${it.file.length() / 1_000_000} Mo)", color = Color(0xFFFF6B6B), fontSize = 12.sp) }
+    // DVR : ce qui est gardé pour chaque chaîne en direct (2 h / 6 Go max)
+    var dvrTick by remember { mutableStateOf(0) }
+    val dvrInfos = remember(dvrTick, vm.recVersion, vm.recording) { Dvr.infos(ctx) }
+    Text("DVR (chaînes en direct)", color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp))
+    if (dvrInfos.isEmpty()) Text("Rien d'enregistré. Le DVR se remplit quand une chaîne en direct joue.", color = Color.Gray, fontSize = 12.sp)
+    dvrInfos.forEach { d ->
+        FocusRow(selected = false, onClick = { Dvr.clearDir(ctx, d.dirName); dvrTick++ }) {
+            Column(Modifier.weight(1f)) {
+                Text(d.name + if (d.recording) "  (en cours)" else "", color = Color.White, maxLines = 1)
+                Text("${d.totalMs / 60_000} min gardées · ${d.bytes / 1_000_000} Mo", color = Color.Gray, fontSize = 12.sp)
+            }
+            Text("Effacer", color = Color(0xFFFF8A8A), fontSize = 12.sp)
+        }
+    }
     val sched = vm.scheduled(ctx)
     if (sched.isNotEmpty()) {
         Text("Programmés", color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp))
