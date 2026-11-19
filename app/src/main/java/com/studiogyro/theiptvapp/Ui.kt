@@ -1103,7 +1103,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("look_") -> page = "look"
             // Retour dans Enregistrements : ferme tout le panneau (les enregistrements restent dans la liste)
             page == "rec" -> back()
-            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" -> page = "root"
+            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "profiles" -> page = "root"
             canClose -> back()
         }
     }
@@ -1117,6 +1117,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "groups" -> "Groupes"
         page == "playback" -> "Préférences générales"
         page == "network" -> "Réseau"
+        page == "profiles" -> "Profils"
         page == "rename" -> "Renommer des chaînes"
         page == "epg" -> "Guide (EPG)"
         page == "backup" -> "Sauvegarde"
@@ -1148,6 +1149,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Apparence", "${ACCENTS[vm.accentIdx].first} · texte ${TEXT_SIZES[vm.textSizeIdx].first.lowercase()}") { page = "look" }
                             PanelItem("Préférences générales") { page = "playback" }
                             PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
+                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX})") { page = "profiles" }
                             PanelItem("Guide (EPG)", vm.epgStatus) { page = "epg" }
                             PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
                             PanelItem("Enregistrements") { page = "rec" }
@@ -1216,6 +1218,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Démarrer au démarrage d'Android", "Ouvre l'appli quand l'appareil démarre", trailing = { PanelSwitch(vm.bootStart) }) { vm.changeBootStart(!vm.bootStart) }
                         }
                         page == "network" -> NetworkPage(vm)
+                        page == "profiles" -> ProfilesPage(vm)
                         page == "rename" -> RenamePage(vm)
                         page == "epg" -> EpgPage(vm)
                         page == "backup" -> BackupPage(vm)
@@ -1318,6 +1321,44 @@ fun TvField(
             confirmButton = { Button(onClick = { onValue(draft.trim()); open = false }) { Text("OK") } },
             dismissButton = { OutlinedButton(onClick = { open = false }) { Text("Annuler") } },
         )
+    }
+}
+
+@Composable
+private fun ProfilesPage(vm: MainVm) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var tick by remember { mutableStateOf(0) }
+    val list = remember(tick) { Profiles.list(ctx) }
+    val active = remember(tick) { Profiles.activeId(ctx) }
+    var newName by rememberSaveable { mutableStateOf("") }
+    var renameTo by rememberSaveable { mutableStateOf("") }
+    var msg by rememberSaveable { mutableStateOf("") }
+    Column(Modifier.padding(horizontal = 6.dp)) {
+        PanelLabel("Chaque profil a ses propres listes, favoris, historique et réglages. Toucher un profil : on y passe (l'appli redémarre). Appui long : supprimer.")
+        list.forEachIndexed { i, p ->
+            PanelItem(
+                (if (p.id == active) "✔ " else "") + p.name,
+                if (p.id == active) "Profil actif" else "Toucher : passer à ce profil",
+                first = i == 0,
+                onLong = {
+                    msg = if (Profiles.delete(ctx, p.id)) { tick++; "Profil « ${p.name} » supprimé." }
+                    else "Impossible de supprimer ce profil (actif ou principal)."
+                },
+            ) { if (p.id != active) Profiles.switchTo(ctx, p.id) }
+        }
+        PanelLabel("Ajouter un profil (${list.size}/${Profiles.MAX})")
+        TvField(newName, { newName = it }, "Nom du nouveau profil")
+        Button(
+            enabled = newName.isNotBlank() && list.size < Profiles.MAX,
+            onClick = { if (Profiles.add(ctx, newName)) { newName = ""; tick++; msg = "Profil ajouté. Touche-le pour y passer." } },
+        ) { Text("Ajouter") }
+        PanelLabel("Renommer le profil actif")
+        TvField(renameTo, { renameTo = it }, "Nouveau nom")
+        Button(
+            enabled = renameTo.isNotBlank(),
+            onClick = { Profiles.rename(ctx, active, renameTo); renameTo = ""; tick++; msg = "Renommé." },
+        ) { Text("Renommer") }
+        if (msg.isNotBlank()) Text(msg, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(18.dp))
     }
 }
 

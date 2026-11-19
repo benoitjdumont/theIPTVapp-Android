@@ -4,7 +4,7 @@ import android.content.Context
 
 /** Small persistent storage: sources, favourites, active source. */
 class Store(ctx: Context) {
-    private val sp = ctx.getSharedPreferences("theiptvapp", Context.MODE_PRIVATE)
+    private val sp = ctx.getSharedPreferences(Profiles.prefsName(ctx), Context.MODE_PRIVATE)
 
     fun sources(): List<Source> = parseSources(sp.getString("sources", null))
     fun saveSources(l: List<Source>) = sp.edit().putString("sources", l.toJsonString()).apply()
