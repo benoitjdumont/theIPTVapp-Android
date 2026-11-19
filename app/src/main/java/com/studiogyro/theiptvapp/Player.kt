@@ -343,7 +343,7 @@ fun PlayerScreen(vm: MainVm) {
     BackHandler(true) {
         when {
             listOpen -> listOpen = false
-            menuStage == 2 -> menuStage = 1
+            menuStage == 2 -> menuStage = if (ch.kind == "live") 1 else 0
             menuStage == 1 -> { showUi = false; menuStage = 0 }
             else -> vm.stop(!playing)
         }
@@ -707,6 +707,10 @@ fun PlayerScreen(vm: MainVm) {
                         Text("${e.now.title}  ${hm(e.now.start)}–${hm(e.now.stop)}", color = Color(0xFFCCDDFF), fontSize = 13.sp, maxLines = 1)
                         if (e.next != null) Text("Ensuite : ${e.next.title}  ${hm(e.next.start)}", color = Color(0xFFAAAAAA), fontSize = 12.sp, maxLines = 1)
                     }
+                }
+                if (ch.kind != "live") {
+                    // films et séries : le menu d'options (Sous-titres, Audio, Résolution…) s'ouvre ici
+                    OutlinedButton(onClick = { poke(); openMenu(2) }, modifier = Modifier.focusRing()) { Text("Options", fontSize = 13.sp) }
                 }
                 if (ch.kind == "live") {
                     OutlinedButton(onClick = { poke(); dvrGo(5 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−5 min", fontSize = 13.sp) }
