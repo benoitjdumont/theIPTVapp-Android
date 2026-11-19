@@ -1378,6 +1378,9 @@ private fun NetworkPage(vm: MainVm) {
         Spacer(Modifier.size(6.dp))
         TvField(ua, { ua = it }, "Préférences › Réseau › User-Agent (vide = par défaut)")
         TvField(px, { px = it }, "Préférences › Réseau › Proxy hôte:port (vide = aucun)", keyboard = KeyboardType.Uri)
+        Text("Sous-titres en ligne : mets TA clé OpenSubtitles (gratuite, à créer sur opensubtitles.com). Elle reste sur cet appareil.", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
+        var osk by rememberSaveable { mutableStateOf(vm.osKey()) }
+        TvField(osk, { osk = it; vm.saveOsKey(it) }, "Clé API OpenSubtitles (ta clé personnelle)", secret = true)
         Button(onClick = { vm.saveNetwork(ua, px) }) { Text("Enregistrer") }
         if (vm.applyNetworkNote.isNotBlank()) Text(vm.applyNetworkNote, color = Color.White, fontSize = 12.sp)
     }

@@ -61,6 +61,10 @@ class Store(ctx: Context) {
     fun proxy(): String = sp.getString("proxy", "") ?: ""
     fun saveProxy(s: String) = sp.edit().putString("proxy", s).apply()
 
+    /** clé API OpenSubtitles : personnelle à chaque personne, jamais fournie par l'appli */
+    fun osKey(): String = sp.getString("os_key", "") ?: ""
+    fun saveOsKey(s: String) = sp.edit().putString("os_key", s.trim()).apply()
+
     // ---- guide (EPG)
     fun epgDays(): Int = sp.getInt("epg_days", 1).coerceIn(1, 30)
     fun saveEpgDays(n: Int) = sp.edit().putInt("epg_days", n.coerceIn(1, 30)).apply()
