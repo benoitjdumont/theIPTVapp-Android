@@ -89,7 +89,7 @@ class RecordService : Service() {
 /** Records a live channel to a .ts file (progressive TS streams, or HLS playlists segment by segment). */
 object Recorder {
     fun dir(ctx: Context): File =
-        File(ctx.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES) ?: ctx.filesDir, "theIPTVapp").apply { mkdirs() }
+        File(StorageChoice.current(ctx), "theIPTVapp").apply { mkdirs() }
 
     private fun request(url: String) = Request.Builder().url(url).header("User-Agent", Repo.streamUa).build()
 

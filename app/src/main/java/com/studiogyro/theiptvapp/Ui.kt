@@ -1659,6 +1659,19 @@ private fun ScheduleForm(vm: MainVm) {
 @Composable
 private fun RecordingsSection(vm: MainVm) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    // où sauvegarder films enregistrés, émissions et DVR (clé USB possible)
+    val storageOpts = remember { StorageChoice.options(ctx) }
+    var storagePath by remember { mutableStateOf(StorageChoice.current(ctx).absolutePath) }
+    Text("Où sauvegarder (enregistrements et DVR) :", color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
+    storageOpts.forEach { o ->
+        FocusRow(selected = o.root.absolutePath == storagePath, onClick = { StorageChoice.set(ctx, o.root); storagePath = o.root.absolutePath }) {
+            Column(Modifier.weight(1f)) {
+                Text(o.label + if (o.root.absolutePath == storagePath) "  (choisi)" else "", color = Color.White, maxLines = 1)
+                Text(o.root.absolutePath, color = Color.Gray, fontSize = 11.sp, maxLines = 1)
+            }
+        }
+    }
+    Text("Les fichiers déjà enregistrés restent dans l'ancien dossier.", color = Color.Gray, fontSize = 12.sp)
     val files = remember(vm.recVersion, vm.recording) { vm.recordings(ctx) }
     vm.recording?.let { Text("● En cours : ${it.name} (${it.file.length() / 1_000_000} Mo)", color = Color(0xFFFF6B6B), fontSize = 12.sp) }
     // DVR : ce qui est gardé pour chaque chaîne en direct (2 h / 6 Go max)

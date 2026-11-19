@@ -39,7 +39,7 @@ object Dvr {
 
     class Seg(val start: Long, val len: Long, val file: File)
 
-    private fun root(ctx: Context): File = File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "dvr")
+    private fun root(ctx: Context): File = File(StorageChoice.current(ctx), "dvr")
 
     fun dirFor(ctx: Context, channelId: String): File {
         val safe = channelId.replace(Regex("[^A-Za-z0-9_-]"), "_")
