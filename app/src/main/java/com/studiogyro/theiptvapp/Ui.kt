@@ -81,6 +81,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.scale
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
@@ -714,22 +717,57 @@ private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, firs
     LazyVerticalGrid(columns = GridCells.Adaptive(120.dp), modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         gridItemsIndexed(list, key = { _, it -> it.id }) { idx, c ->
             var focused by remember { mutableStateOf(false) }
+            val grow by animateFloatAsState(if (focused) 1.07f else 1f, label = "posterGrow")
             val shape = RoundedCornerShape(10.dp)
             Column(
                 Modifier
                     .then(if (idx == 0 && first != null) Modifier.focusRequester(first) else Modifier)
+                    .scale(grow)
                     .clip(shape)
                     .background(if (focused) Accent.copy(alpha = 0.35f) else Panel)
-                    .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
+                    .then(if (focused) Modifier.border(3.dp, Color.White, shape) else Modifier)
                     .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus(c) }
                     .combinedClickable(onClick = { vm.guard(c) { if (c.kind == "series") vm.openSeries(c) else vm.openMovie(c) } }, onLongClick = { vm.toggleFav(c) })
                     .padding(6.dp),
             ) {
                 Poster(c.logo, Modifier.fillMaxWidth().aspectRatio(2f / 3f), c.name)
-                Text((if (vm.isLocked(c)) "🔒 " else "") + (if (vm.isFav(c)) "★ " else "") + c.name, color = Color.White, fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
+                // hauteur fixe pour le titre : toutes les affiches gardent la même dimension
+                Box(Modifier.fillMaxWidth().height(40.dp).padding(top = 4.dp)) {
+                    Text(
+                        (if (vm.isLocked(c)) "🔒 " else "") + (if (vm.isFav(c)) "★ " else "") + c.name,
+                        color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
+}
+
+/** Bouton de saison : celui qui a le focus grossit et s'illumine, celui choisi reste en couleur pleine. */
+@Composable
+private fun SeasonChip(selected: Boolean, label: String, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val grow by animateFloatAsState(if (focused) 1.1f else 1f, label = "chipGrow")
+    val bg by animateColorAsState(
+        when {
+            selected -> Accent
+            focused -> Accent.copy(alpha = 0.35f)
+            else -> Panel
+        },
+        label = "chipBg",
+    )
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        Modifier
+            .scale(grow)
+            .clip(shape)
+            .background(bg)
+            .then(if (focused) Modifier.border(3.dp, Color.White, shape) else Modifier)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) { Text(label, color = Color.White, fontSize = 14.sp, maxLines = 1) }
 }
 
 @Composable
@@ -830,7 +868,7 @@ fun SeriesScreen(vm: MainVm) {
                 Column(Modifier.weight(1f).fillMaxSize()) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(keys, key = { it }) { k ->
-                            FilterChip(selected = k == cur, onClick = { season = k }, label = { Text("Saison $k") })
+                            SeasonChip(selected = k == cur, label = "Saison $k") { season = k }
                         }
                     }
                     Spacer(Modifier.size(6.dp))
