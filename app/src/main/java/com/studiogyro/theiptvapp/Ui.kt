@@ -1348,6 +1348,7 @@ private fun ProfilesPage(vm: MainVm) {
                 if (p.id == active) "Profil actif" else "Toucher : passer à ce profil",
                 first = i == 0,
                 onLong = { editId = p.id; editName = p.name; msg = "" },
+                trailing = { OutlinedButton(onClick = { editId = p.id; editName = p.name; msg = "" }) { Text("Modifier", fontSize = 13.sp) } },
             ) { if (p.id != active) Profiles.switchTo(ctx, p.id) }
         }
         if (editId.isNotEmpty()) {

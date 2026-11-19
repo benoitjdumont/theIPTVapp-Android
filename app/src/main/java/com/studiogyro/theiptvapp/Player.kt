@@ -408,6 +408,11 @@ fun PlayerScreen(vm: MainVm) {
             },
             update = {
                 it.useController = ch.kind != "live"
+                // films et séries : nos propres boutons (reculer, lecture, avancer) suffisent ; pas de précédent/suivant
+                it.setShowPreviousButton(false)
+                it.setShowNextButton(false)
+                it.setShowRewindButton(false)
+                it.setShowFastForwardButton(false)
                 it.resizeMode = if (displayMode == 1) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
             },
         )
@@ -589,7 +594,8 @@ fun PlayerScreen(vm: MainVm) {
                         // toutes les options tiennent à l'écran : pas de défilement
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
-                        menuItems.forEachIndexed { i, (label, icon, action) ->
+                        menuItems.filter { ch.kind == "live" || it.first !in setOf("Rechercher", "Liste des chaînes", "Multi-vue") }
+                            .forEachIndexed { i, (label, icon, action) ->
                             PlayerMenuItem(label, icon, modifier = if (i == 0) Modifier.focusRequester(menuFirst) else Modifier, onClick = action)
                         }
                     }
@@ -645,7 +651,7 @@ fun PlayerScreen(vm: MainVm) {
                 horizontalArrangement = Arrangement.spacedBy(32.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (ch.kind == "live") CenterControl(IconRewind, "Reculer de 15 s") {
+                CenterControl(IconRewind, "Reculer de 15 s") {
                     poke()
                     if (player.isCurrentMediaItemSeekable) player.seekTo((player.currentPosition - 15_000).coerceAtLeast(0L))
                     else hud = "Retour en arrière impossible sur ce flux (pause possible)"
@@ -653,7 +659,7 @@ fun PlayerScreen(vm: MainVm) {
                 CenterControl(if (playing) IconPause else Icons.Default.PlayArrow, if (playing) "Pause" else "Lecture") {
                     player.playWhenReady = !player.playWhenReady
                 }
-                if (ch.kind == "live") CenterControl(
+                CenterControl(
                     IconForward,
                     if (dvrOn || liveOffsetMs > 8_000) "Retour au direct" else "Avancer de 15 s",
                     tint = if (dvrOn || liveOffsetMs > 8_000) Color(0xFFFF6B6B) else Color.White,
