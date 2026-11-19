@@ -1331,20 +1331,34 @@ private fun ProfilesPage(vm: MainVm) {
     val list = remember(tick) { Profiles.list(ctx) }
     val active = remember(tick) { Profiles.activeId(ctx) }
     var newName by rememberSaveable { mutableStateOf("") }
-    var renameTo by rememberSaveable { mutableStateOf("") }
+    var editId by rememberSaveable { mutableStateOf("") }
+    var editName by rememberSaveable { mutableStateOf("") }
     var msg by rememberSaveable { mutableStateOf("") }
     Column(Modifier.padding(horizontal = 6.dp)) {
-        PanelLabel("Chaque profil a ses propres listes, favoris, historique et réglages. Toucher un profil : on y passe (l'appli redémarre). Appui long : supprimer.")
+        PanelLabel("Toucher un profil : on y passe (l'appli redémarre). Appui long : modifier le nom ou supprimer.")
         list.forEachIndexed { i, p ->
             PanelItem(
                 (if (p.id == active) "✔ " else "") + p.name,
                 if (p.id == active) "Profil actif" else "Toucher : passer à ce profil",
                 first = i == 0,
-                onLong = {
-                    msg = if (Profiles.delete(ctx, p.id)) { tick++; "Profil « ${p.name} » supprimé." }
-                    else "Impossible de supprimer ce profil (actif ou principal)."
-                },
+                onLong = { editId = p.id; editName = p.name; msg = "" },
             ) { if (p.id != active) Profiles.switchTo(ctx, p.id) }
+        }
+        if (editId.isNotEmpty()) {
+            PanelLabel("Modifier le profil")
+            TvField(editName, { editName = it }, "Nom du profil")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    enabled = editName.isNotBlank(),
+                    onClick = { Profiles.rename(ctx, editId, editName); editId = ""; tick++; msg = "Nom enregistré." },
+                ) { Text("Enregistrer") }
+                if (editId != active && editId != "p0") OutlinedButton(onClick = {
+                    val n = list.firstOrNull { it.id == editId }?.name ?: ""
+                    msg = if (Profiles.delete(ctx, editId)) "Profil « $n » supprimé." else "Suppression impossible."
+                    editId = ""; tick++
+                }) { Text("Supprimer") }
+                OutlinedButton(onClick = { editId = "" }) { Text("Annuler") }
+            }
         }
         PanelLabel("Ajouter un profil (${list.size}/${Profiles.MAX})")
         TvField(newName, { newName = it }, "Nom du nouveau profil")
@@ -1352,12 +1366,6 @@ private fun ProfilesPage(vm: MainVm) {
             enabled = newName.isNotBlank() && list.size < Profiles.MAX,
             onClick = { if (Profiles.add(ctx, newName)) { newName = ""; tick++; msg = "Profil ajouté. Touche-le pour y passer." } },
         ) { Text("Ajouter") }
-        PanelLabel("Renommer le profil actif")
-        TvField(renameTo, { renameTo = it }, "Nouveau nom")
-        Button(
-            enabled = renameTo.isNotBlank(),
-            onClick = { Profiles.rename(ctx, active, renameTo); renameTo = ""; tick++; msg = "Renommé." },
-        ) { Text("Renommer") }
         if (msg.isNotBlank()) Text(msg, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(18.dp))
     }
 }
