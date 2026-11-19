@@ -199,7 +199,12 @@ fun PlayerScreen(vm: MainVm) {
     }
     var subUrl by remember(ch.id) { mutableStateOf<String?>(null) }
     var subStart by remember(ch.id) { mutableStateOf(0L) }
-    LaunchedEffect(ch.id, idx, subUrl) {
+    // DVR : état du retour en arrière (liveKick relance le direct)
+    var dvrOn by remember(ch.id) { mutableStateOf(false) }
+    var liveKick by remember(ch.id) { mutableStateOf(0) }
+    var dvrTotal by remember(ch.id) { mutableStateOf(0L) }
+    var dvrBehind by remember(ch.id) { mutableStateOf(0L) }
+    LaunchedEffect(ch.id, idx, subUrl, liveKick) {
         val a = tries[idx]
         val item = MediaItem.Builder().setUri(a.url).apply {
             if (a.mime != null) setMimeType(a.mime)
@@ -212,6 +217,34 @@ fun PlayerScreen(vm: MainVm) {
         if (resume > 0) player.setMediaItem(item, resume) else player.setMediaItem(item)
         player.prepare()
         player.playWhenReady = true
+    }
+
+    /** revient en arrière de [backMs] dans le DVR (la lecture part de la playlist des morceaux enregistrés) */
+    fun dvrGo(backMs: Long) {
+        poke()
+        val segs = Dvr.segments(ctx, ch.id)
+        if (segs.isEmpty()) { hud = "DVR : rien d'enregistré encore, attends une minute"; return }
+        val pos = Dvr.positionFor(segs, System.currentTimeMillis() - backMs)
+        dvrTotal = Dvr.totalMs(segs)
+        player.setMediaItem(
+            MediaItem.Builder().setUri(android.net.Uri.fromFile(Dvr.playlistFile(ctx, ch.id)))
+                .setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8).build(),
+            pos,
+        )
+        player.prepare()
+        player.playWhenReady = true
+        dvrOn = true
+    }
+
+    fun goLive() { dvrOn = false; liveKick++ }
+
+    // suivi du retard pendant le DVR ; à la fin de l'enregistrement lu, retour automatique au direct
+    LaunchedEffect(dvrOn) {
+        while (dvrOn) {
+            dvrBehind = (dvrTotal - player.currentPosition).coerceAtLeast(0L)
+            if (player.playbackState == Player.STATE_ENDED) { goLive(); break }
+            delay(1000)
+        }
     }
 
     DisposableEffect(player, ch.id, idx) {
@@ -621,11 +654,12 @@ fun PlayerScreen(vm: MainVm) {
                 }
                 if (ch.kind == "live") CenterControl(
                     IconForward,
-                    if (liveOffsetMs > 8_000) "Retour au direct" else "Avancer de 15 s",
-                    tint = if (liveOffsetMs > 8_000) Color(0xFFFF6B6B) else Color.White,
+                    if (dvrOn || liveOffsetMs > 8_000) "Retour au direct" else "Avancer de 15 s",
+                    tint = if (dvrOn || liveOffsetMs > 8_000) Color(0xFFFF6B6B) else Color.White,
                 ) {
                     poke()
-                    if (liveOffsetMs > 8_000 && player.isCurrentMediaItemSeekable) player.seekToDefaultPosition()
+                    if (dvrOn) goLive()
+                    else if (liveOffsetMs > 8_000 && player.isCurrentMediaItemSeekable) player.seekToDefaultPosition()
                     else if (player.isCurrentMediaItemSeekable) player.seekTo(player.currentPosition + 15_000)
                     else hud = "Déjà au direct"
                 }
@@ -665,11 +699,19 @@ fun PlayerScreen(vm: MainVm) {
                         vm.displayName(ch) + if (pos >= 0 && ch.kind == "live") "   ${pos + 1} / ${vm.playlist.size}" else "",
                         color = Color.White, maxLines = 1,
                     )
+                    if (dvrOn) Text(
+                        "En différé : −%d:%02d".format(dvrBehind / 60_000, (dvrBehind / 1000) % 60),
+                        color = Color(0xFFFFD27F), fontSize = 13.sp, maxLines = 1,
+                    )
                     val e = vm.epg[ch.id]
                     if (e?.now != null) {
                         Text("${e.now.title}  ${hm(e.now.start)}–${hm(e.now.stop)}", color = Color(0xFFCCDDFF), fontSize = 13.sp, maxLines = 1)
                         if (e.next != null) Text("Ensuite : ${e.next.title}  ${hm(e.next.start)}", color = Color(0xFFAAAAAA), fontSize = 12.sp, maxLines = 1)
                     }
+                }
+                if (ch.kind == "live") {
+                    OutlinedButton(onClick = { dvrGo(5 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−5 min", fontSize = 13.sp) }
+                    OutlinedButton(onClick = { dvrGo(15 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−15 min", fontSize = 13.sp) }
                 }
                 val fav = vm.isFav(ch)
                 IconButton(onClick = { vm.toggleFav(ch) }, modifier = Modifier.focusRing()) {
