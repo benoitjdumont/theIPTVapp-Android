@@ -29,6 +29,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -378,6 +381,8 @@ fun PlayerScreen(vm: MainVm) {
                 if (ev.type != KeyEventType.KeyDown) return@onKeyEvent false
                 val vod = ch.kind != "live"
                 if (vod) {
+                    // menu ouvert : les flèches et OK doivent déplacer le focus dans le menu, pas faire avancer la vidéo
+                    if (menuStage != 0 || listOpen) return@onKeyEvent false
                     return@onKeyEvent when (ev.key) {
                         Key.DirectionRight -> { player.seekTo(player.currentPosition + 15_000); showUi = true; true }
                         Key.DirectionLeft -> { player.seekTo((player.currentPosition - 15_000).coerceAtLeast(0)); showUi = true; true }
@@ -698,7 +703,8 @@ fun PlayerScreen(vm: MainVm) {
                     else if (player.isCurrentMediaItemSeekable) player.seekTo(player.currentPosition + 15_000)
                     else hud = "Déjà au direct"
                 }
-                run {
+                // enregistrer : seulement en direct (sur un film, c'est dans la rangée d'options)
+                if (ch.kind == "live") run {
                     val rec = vm.recording
                     // la minuterie flotte sous le bouton : elle ne déplace plus pause ni enregistrer
                     Box(contentAlignment = Alignment.Center) {
@@ -773,12 +779,16 @@ private val sleepSteps = listOf(0, 15, 30, 60, 90)
 @Composable
 private fun PlayerMenuItem(label: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    // l'élément qui a le focus grossit et change de couleur : on voit où on est à chaque pression
+    val grow by animateFloatAsState(if (focused) 1.12f else 1f, label = "grow")
+    val tint by animateColorAsState(if (focused) Accent else Color.Transparent, label = "tint")
     Column(
         modifier
             .widthIn(max = 96.dp)
+            .scale(grow)
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(8.dp))
-            .background(if (focused) Accent else Color.Transparent)
+            .background(tint)
             .then(if (focused) Modifier.border(3.dp, Color.White, RoundedCornerShape(8.dp)) else Modifier)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp, horizontal = 4.dp),
