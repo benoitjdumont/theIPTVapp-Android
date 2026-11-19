@@ -1094,6 +1094,9 @@ private fun PanelLabel(text: String) {
 fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
     var page by rememberSaveable { mutableStateOf(vm.settingsStart ?: if (vm.sources.isEmpty()) "add" else "root") }
     LaunchedEffect(Unit) { vm.settingsStart = null }
+    // le joystick reste dans le panneau : quand on change de page, le focus va dans son contenu (pas dans la colonne de gauche)
+    val bodyFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(page) { if (page != "root") runCatching { bodyFocus.requestFocus() } }
     val canClose = vm.sources.isNotEmpty()
     BackHandler(true) {
         when {
@@ -1141,7 +1144,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                     Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
                     if (canClose) IconButton(onClick = back) { Icon(Icons.Default.Close, "Fermer", tint = Color.White) }
                 }
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
+                Column(Modifier.weight(1f).focusRequester(bodyFocus).focusable().verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
                     when {
                         page == "root" -> {
                             PanelItem("Listes de lecture", first = true) { page = "lists" }
