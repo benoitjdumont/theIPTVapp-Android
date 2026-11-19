@@ -312,6 +312,17 @@ fun PlayerScreen(vm: MainVm) {
         }
     }
 
+    // position des films et séries, rafraîchie pendant que la barre est affichée
+    var vodPos by remember { mutableStateOf(0L) }
+    var vodDur by remember { mutableStateOf(0L) }
+    LaunchedEffect(showUi, ch.id) {
+        if (ch.kind != "live" && showUi) while (true) {
+            vodPos = player.currentPosition
+            vodDur = player.duration.coerceAtLeast(0L)
+            delay(500)
+        }
+    }
+
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(showUi) { if (!showUi) runCatching { focus.requestFocus() } }
@@ -407,7 +418,8 @@ fun PlayerScreen(vm: MainVm) {
                 }
             },
             update = {
-                it.useController = ch.kind != "live"
+                // pas de contrôleur natif (Vitesse / Audio / engrenage) : nos propres boutons et options suffisent
+                it.useController = false
                 // films et séries : nos propres boutons (reculer, lecture, avancer) suffisent ; pas de précédent/suivant
                 it.setShowPreviousButton(false)
                 it.setShowNextButton(false)
@@ -492,7 +504,8 @@ fun PlayerScreen(vm: MainVm) {
         }
 
         // bas de l'écran : derniers canaux + une rangée d'icônes ; flèche pour l'ouvrir au téléphone
-        if (ch.kind == "live" && !vm.inPip) {
+        // (films et séries : seulement la rangée d'options, qui s'ouvre au premier clic)
+        if (!vm.inPip) {
             val rec = vm.recording
             Column(
                 Modifier
@@ -506,7 +519,7 @@ fun PlayerScreen(vm: MainVm) {
             ) {
                 fun close() { menuStage = 0 }
                 val recents = vm.recentChannels()
-                if (menuStage == 1 && recents.isNotEmpty()) {
+                if (menuStage == 1 && ch.kind == "live" && recents.isNotEmpty()) {
                     // historique : une ligne de chaînes récentes, sans fond ; glisser vers le bas ouvre les options
                     LazyRow(
                         Modifier
@@ -534,7 +547,7 @@ fun PlayerScreen(vm: MainVm) {
                     }
                 }
                 // flèche : seulement sous l'historique ; elle ouvre les options
-                if (menuStage == 1) {
+                if (menuStage == 1 && ch.kind == "live") {
                     Box(
                         Modifier
                             .width(72.dp)
@@ -544,6 +557,21 @@ fun PlayerScreen(vm: MainVm) {
                             .clickable { menuStage = 2 },
                         contentAlignment = Alignment.Center,
                     ) { Icon(Icons.Default.KeyboardArrowDown, "Options", tint = Color.White) }
+                }
+                // films et séries : temps écoulé et barre de progression au-dessus des options
+                if (ch.kind != "live" && menuStage == 2) {
+                    val frac = if (vodDur > 0) (vodPos.toFloat() / vodDur).coerceIn(0f, 1f) else 0f
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xAA000000))
+                            .padding(horizontal = tvPad + 8.dp, vertical = 4.dp),
+                    ) {
+                        Box(Modifier.fillMaxWidth().height(4.dp).background(Color(0x55FFFFFF))) {
+                            Box(Modifier.fillMaxWidth(frac).height(4.dp).background(Color.White))
+                        }
+                        Text("${mmss(vodPos)} / ${mmss(vodDur)}", color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                    }
                 }
                 if (menuStage == 2) {
                     val menuItems = listOf<Triple<String, ImageVector, () -> Unit>>(
@@ -731,6 +759,12 @@ fun PlayerScreen(vm: MainVm) {
             }
         }
     }
+}
+
+/** temps lisible : m:ss, ou h:mm:ss au-delà d'une heure */
+private fun mmss(ms: Long): String {
+    val s = ms / 1000
+    return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s / 60 % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
 }
 
 private val displayModes = listOf("Normal", "Zoom", "4:3", "16:9")
