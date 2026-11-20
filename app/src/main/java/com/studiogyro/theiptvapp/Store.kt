@@ -15,6 +15,9 @@ class Store(ctx: Context) {
     fun favorites(): Set<String> = sp.getStringSet("favs", emptySet())?.toSet() ?: emptySet()
     fun saveFavorites(s: Set<String>) = sp.edit().putStringSet("favs", s).apply()
 
+    fun termsAccepted(): Boolean = sp.getBoolean("terms_ok", false)
+    fun saveTermsAccepted() = sp.edit().putBoolean("terms_ok", true).apply()
+
     fun lastChannel(): String? = sp.getString("last", null)
     fun saveLast(id: String?) = sp.edit().putString("last", id).apply()
 

@@ -140,7 +140,8 @@ fun AppRoot(vm: MainVm) {
     MaterialTheme(colorScheme = scheme) {
         PinDialog(vm)
         UpdateDialog(vm)
-        var screen by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "settings" else "home") }
+        if (!vm.termsOk) WelcomeDialog(vm)
+        var screen by rememberSaveable { mutableStateOf("home") }
         LaunchedEffect(vm.openSettingsRequest) {
             if (vm.openSettingsRequest) { screen = "settings"; vm.openSettingsRequest = false }
         }
@@ -448,7 +449,10 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
         if (!colsHidden) Rail(vm, railExpanded, { railFocus = it; if (it) railBig = true }, vm.searchOpen, { vm.openSearch() }, openSettings, { railBig = false; railFocus = false }, railReq)
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when {
-                vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
+                vm.sources.isEmpty() -> EmptyLibrary(
+                    onAdd = { vm.settingsStart = "add"; vm.openSettingsRequest = true },
+                    onSettings = { vm.openSettingsRequest = true },
+                )
                 sec.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
@@ -898,6 +902,51 @@ private fun Message(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(text, color = Color.White) }
 }
 
+/** Accueil sans liste : explique quoi faire, avec deux boutons (comme les lecteurs multimédias). */
+@Composable
+private fun EmptyLibrary(onAdd: () -> Unit, onSettings: () -> Unit) {
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Aucune liste de lecture", color = Color.White, fontSize = 22.sp)
+            Spacer(Modifier.size(10.dp))
+            Text(
+                "theIPTVapp est un lecteur : il n'inclut aucune chaîne. Ajoute une liste de lecture (M3U ou Xtream) fournie par ton fournisseur.",
+                color = Color(0xFFB8C4EE), fontSize = 15.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+            Spacer(Modifier.size(24.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = onAdd) { Text("Ajouter une liste de lecture") }
+                Spacer(Modifier.size(12.dp))
+                androidx.compose.material3.OutlinedButton(onClick = onSettings) { Text("Paramètres", color = Color.White) }
+            }
+        }
+    }
+}
+
+/** Avis de première ouverture : le lecteur ne fournit aucun contenu ; l'utilisateur en est responsable. */
+@Composable
+fun WelcomeDialog(vm: MainVm) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = {},
+        properties = androidx.compose.ui.window.DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        title = { Text("Bienvenue dans theIPTVapp", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("theIPTVapp est un lecteur multimédia. Il ne fournit, n'héberge ni ne distribue aucune chaîne, aucun film et aucune série. Pour regarder quoi que ce soit, tu dois ajouter tes propres listes de lecture.")
+                Spacer(Modifier.size(12.dp))
+                Text("Ton contenu, ta responsabilité", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                Spacer(Modifier.size(4.dp))
+                Text("Tu es seul responsable de tout ce que tu ajoutes à l'application. En l'utilisant, tu confirmes que tu as les droits ou les autorisations nécessaires pour ce contenu, et que tu respectes les lois de ton pays.")
+            }
+        },
+        confirmButton = { Button(onClick = { vm.acceptTerms() }) { Text("Accepter") } },
+        dismissButton = {
+            androidx.compose.material3.OutlinedButton(onClick = { (ctx as? android.app.Activity)?.finish() }) { Text("Refuser et quitter") }
+        },
+    )
+}
+
 /** Cadre de télévision autour de l'aperçu : antennes en haut, bezel, pattes en bas. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -1111,7 +1160,8 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
 // le panneau Paramètres reste opaque : le curseur de transparence ne le touche pas
 private fun panelGlass(c: Color): Color = c.copy(alpha = 1f) // totalement opaque, aucune trace de l'image ou du curseur
 // couleurs inversées : en-tête clair (couleur d'accent), corps foncé
-val PanelHead get() = panelGlass(Accent)
+// la barre du titre est un ton plus clair que le corps : elle se distingue du reste des préférences
+val PanelHead get() = androidx.compose.ui.graphics.lerp(panelGlass(Accent), Color.White, 0.18f)
 // couleur de la colonne de gauche, mais opaque : le curseur de transparence ne touche pas la page Paramètres
 val PanelBody get() = panelGlass(Accent)
 

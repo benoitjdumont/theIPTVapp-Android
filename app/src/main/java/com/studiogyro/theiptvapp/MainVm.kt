@@ -85,6 +85,9 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     fun saveSubLang(l: String) = store.saveSubLang(l)
 
     var sources by mutableStateOf(store.sources()); private set
+    /** avis de bienvenue accepté une fois (première ouverture) */
+    var termsOk by mutableStateOf(store.termsAccepted()); private set
+    fun acceptTerms() { store.saveTermsAccepted(); termsOk = true }
     var activeId by mutableStateOf(store.activeId() ?: store.sources().firstOrNull()?.id); private set
     var favs by mutableStateOf(store.favorites()); private set
     var query by mutableStateOf("")
