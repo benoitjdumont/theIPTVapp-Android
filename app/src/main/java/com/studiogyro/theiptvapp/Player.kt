@@ -953,7 +953,7 @@ private fun TrackPickerDialog(
                     onClick = { onSubUrl(url.trim()); onDone() },
                 ) { Text("Charger ces sous-titres") }
 
-                Text("Sous-titres en français (en ligne)", color = Color.White, modifier = Modifier.padding(top = 10.dp))
+                Text("Sous-titres en français et anglais (en ligne)", color = Color.White, modifier = Modifier.padding(top = 10.dp))
                 Text(
                     if (key.isBlank()) "Clé OpenSubtitles absente : ajoute-la dans Préférences › Réseau."
                     else "Clé OpenSubtitles enregistrée. Lance la recherche ci-dessous.",
@@ -967,14 +967,14 @@ private fun TrackPickerDialog(
                             catch (e: Exception) { err = e.message ?: "Recherche impossible" }
                             finally { busy = false }
                         }
-                    }) { Text(if (busy) "Recherche…" else "Chercher « $query » en français") }
+                    }) { Text(if (busy) "Recherche…" else "Chercher « $query » (fr + en)") }
                     if (err.isNotEmpty()) Text(err, color = Color(0xFFFF8A80), fontSize = 12.sp)
                     online?.let { list ->
                         if (list.isEmpty()) Text("Aucun sous-titre français trouvé pour ce titre.", color = Color(0xFFB0BEC5), fontSize = 12.sp)
                         else LazyColumn(Modifier.heightIn(max = 240.dp)) {
                             items(list) { s ->
                                 Text(
-                                    "${s.release} · ${s.downloads} téléchargements",
+                                    "${s.language} · ${s.release} · ${s.downloads} téléchargements",
                                     color = Color.White, fontSize = 13.sp, maxLines = 2,
                                     modifier = Modifier
                                         .fillMaxWidth()

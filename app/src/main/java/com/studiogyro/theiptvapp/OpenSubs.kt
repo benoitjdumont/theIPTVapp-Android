@@ -15,7 +15,7 @@ import java.net.URLEncoder
 object OpenSubs {
     private const val BASE = "https://api.opensubtitles.com/api/v1"
 
-    class Sub(val fileId: Long, val release: String, val downloads: Int)
+    class Sub(val fileId: Long, val release: String, val downloads: Int, val language: String)
 
     private fun req(key: String, url: String): Request.Builder =
         Request.Builder().url(url)
@@ -23,8 +23,8 @@ object OpenSubs {
             .header("User-Agent", "theIPTVapp v1.0")
             .header("Accept", "application/json")
 
-    /** sous-titres dans la langue demandée (fr par défaut), les plus téléchargés d'abord */
-    suspend fun search(key: String, query: String, year: String = "", lang: String = "fr"): List<Sub> =
+    /** sous-titres en français et en anglais (liste séparée par des virgules), les plus téléchargés d'abord */
+    suspend fun search(key: String, query: String, year: String = "", lang: String = "fr,en"): List<Sub> =
         withContext(Dispatchers.IO) {
             val q = URLEncoder.encode(query, "UTF-8")
             var url = "$BASE/subtitles?query=$q&languages=$lang&order_by=download_count&order_direction=desc"
@@ -42,6 +42,7 @@ object OpenSubs {
                         fileId = files.getJSONObject(0).getLong("file_id"),
                         release = a.optString("release").ifBlank { "sans nom" },
                         downloads = a.optInt("download_count"),
+                        language = a.optString("language", "??").uppercase(),
                     )
                 }
             }
