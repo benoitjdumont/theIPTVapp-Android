@@ -1112,8 +1112,8 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
 private fun panelGlass(c: Color): Color = c.copy(alpha = (1f - GlassState.transp).coerceAtLeast(0.97f))
 // couleurs inversées : en-tête clair (couleur d'accent), corps foncé
 val PanelHead get() = panelGlass(Accent)
-// même transparence que la colonne de gauche (RailBg), pour une couleur identique
-val PanelBody get() = glass(Accent)
+// couleur de la colonne de gauche, mais opaque : le curseur de transparence ne touche pas la page Paramètres
+val PanelBody get() = panelGlass(Accent)
 
 /** Une ligne d'un panneau de réglages : titre, petit texte, élément à droite (interrupteur, valeur…). */
 @OptIn(ExperimentalFoundationApi::class)
