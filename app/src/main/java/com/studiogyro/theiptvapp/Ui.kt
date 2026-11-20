@@ -10,6 +10,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -897,23 +898,49 @@ private fun Message(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(text, color = Color.White) }
 }
 
+/** Cadre de télévision autour de l'aperçu : antennes en haut, bezel, pattes en bas. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Composable BoxScope.() -> Unit) {
+    val bezel = Color(0xFF1B1F27)
+    val metal = Color(0xFFCFD6E0)
+    Column(modifier.width(146.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(12.dp)) {
+            val cx = size.width / 2f
+            val sw = 1.5.dp.toPx()
+            drawLine(metal, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx - size.width * 0.3f, 0f), strokeWidth = sw)
+            drawLine(metal, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx + size.width * 0.3f, 0f), strokeWidth = sw)
+        }
+        Column(
+            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(6.dp),
+        ) {
+            Box(
+                Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(3.dp)).background(Color.Black)
+                    .combinedClickable(onClick = {}, onDoubleClick = onDoubleClick),
+            ) { content() }
+            Text(
+                "THEIPTVAPP", color = Color(0xFF8A94A6), fontSize = 6.sp, maxLines = 1,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            )
+        }
+        Row(Modifier.fillMaxWidth().height(6.dp), horizontalArrangement = Arrangement.SpaceAround) {
+            Box(Modifier.width(22.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(bezel))
+            Box(Modifier.width(22.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(bezel))
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PreviewHeader(vm: MainVm, pv: Channel) {
     val e = vm.epg[pv.id]
     var replay by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().height(132.dp).background(GroupBg).padding(8.dp)) {
-        // deux touches sur l'aperçu = plein écran
-        Box(
-            Modifier
-                .fillMaxHeight()
-                .aspectRatio(16f / 9f)
-                .clip(RoundedCornerShape(6.dp))
-                // contour blanc, comme la sélection à la télécommande sur la TV
-                .border(2.dp, Color.White, RoundedCornerShape(6.dp))
-                .background(Color.Black)
-                .combinedClickable(onClick = {}, onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }),
-        ) { PreviewBox(pv, paused = vm.previewPausedId == pv.id) }
+        // deux touches sur l'aperçu = plein écran ; l'aperçu est dans un cadre de télévision
+        TvFrame(Modifier.fillMaxHeight(), onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }) {
+            PreviewBox(pv, paused = vm.previewPausedId == pv.id)
+        }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f).fillMaxHeight()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
