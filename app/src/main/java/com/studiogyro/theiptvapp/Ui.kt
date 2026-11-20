@@ -1109,7 +1109,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
 
 /** les préférences restent lisibles : jamais plus transparentes que 8 % (sinon la grille du guide passe à travers le texte) */
 // le panneau Paramètres reste opaque : le curseur de transparence ne le touche pas
-private fun panelGlass(c: Color): Color = c.copy(alpha = (1f - GlassState.transp).coerceAtLeast(0.97f))
+private fun panelGlass(c: Color): Color = c.copy(alpha = 1f) // totalement opaque, aucune trace de l'image ou du curseur
 // couleurs inversées : en-tête clair (couleur d'accent), corps foncé
 val PanelHead get() = panelGlass(Accent)
 // couleur de la colonne de gauche, mais opaque : le curseur de transparence ne touche pas la page Paramètres
