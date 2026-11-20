@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.style.TextAlign
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.compose.foundation.layout.size
@@ -934,7 +935,7 @@ private fun TrackPickerDialog(
         onDismissRequest = onDone,
         title = { Text(title) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
             if (kind != "text") {
                 val info = remember(kind) { streamInfo(player, kind) }
                 Text(if (info != null) "Le flux envoie : $info" else "Le flux n'indique pas ses détails (lecture pas encore démarrée ?)", color = Color(0xFFB0BEC5), modifier = Modifier.padding(bottom = 8.dp))
@@ -951,12 +952,13 @@ private fun TrackPickerDialog(
                 ) { Text("Charger ces sous-titres") }
 
                 Text("Sous-titres en français (en ligne)", color = Color.White, modifier = Modifier.padding(top = 10.dp))
-                if (key.isBlank()) Text(
-                    "Ajoute ta clé OpenSubtitles dans Préférences › Réseau pour chercher en français.",
+                Text(
+                    if (key.isBlank()) "Clé OpenSubtitles absente : ajoute-la dans Préférences › Réseau."
+                    else "Clé OpenSubtitles enregistrée. Lance la recherche ci-dessous.",
                     color = Color(0xFFB0BEC5), fontSize = 12.sp,
                 )
-                else {
-                    TextButton(enabled = !busy && query.isNotBlank(), onClick = {
+                run {
+                    TextButton(enabled = !busy && key.isNotBlank() && query.isNotBlank(), onClick = {
                         busy = true; err = ""; online = null
                         scope.launch {
                             try { online = OpenSubs.search(key, query, year) }
