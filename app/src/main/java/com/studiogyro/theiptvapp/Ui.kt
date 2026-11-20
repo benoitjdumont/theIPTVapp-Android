@@ -912,16 +912,16 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
             drawLine(metal, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx + size.width * 0.3f, 0f), strokeWidth = sw)
         }
         Column(
-            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(6.dp),
+            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(start = 6.dp, top = 6.dp, end = 6.dp, bottom = 2.dp),
         ) {
             Box(
                 Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(3.dp)).background(Color.Black)
                     .combinedClickable(onClick = {}, onDoubleClick = onDoubleClick),
             ) { content() }
             Text(
-                "THEIPTVAPP", color = Color(0xFF8A94A6), fontSize = 6.sp, maxLines = 1,
+                "THEIPTVAPP", color = Color(0xFF8A94A6), fontSize = 5.sp, maxLines = 1,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 1.dp),
             )
         }
         Row(Modifier.fillMaxWidth().height(6.dp), horizontalArrangement = Arrangement.SpaceAround) {
@@ -1032,7 +1032,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
                     Text(if (vm.guideShiftMin == 0) "▶" else "⟲", color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { vm.shiftGuide(if (vm.guideShiftMin == 0) 60 else 0) }.padding(horizontal = 4.dp, vertical = 2.dp))
                     if (vm.guideShiftMin != 0) Text("▶", color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { vm.shiftGuide(60) }.padding(horizontal = 4.dp, vertical = 2.dp))
                 }
-                Box(Modifier.width(gridW).height(16.dp)) {
+                Box(Modifier.width(gridW).height(22.dp)) {
                     for (k in 0..(winMin / 30)) {
                         val t = ws + k * 30 * 60_000L
                         if (k < winMin / 30 || winMin % 30 == 0) Text(hm(t), color = Color(0xFFB8C4DA), fontSize = 11.sp, maxLines = 1, softWrap = false, modifier = Modifier.offset(x = xOf(t)))
