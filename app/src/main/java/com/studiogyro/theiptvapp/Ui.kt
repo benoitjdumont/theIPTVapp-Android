@@ -936,7 +936,7 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
 private fun PreviewHeader(vm: MainVm, pv: Channel) {
     val e = vm.epg[pv.id]
     var replay by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().height(132.dp).background(RailBg).padding(8.dp)) {
+    Row(Modifier.fillMaxWidth().height(132.dp).background(ListBg).padding(8.dp)) {
         // deux touches sur l'aperçu = plein écran ; l'aperçu est dans un cadre de télévision
         TvFrame(Modifier.fillMaxHeight(), onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }) {
             PreviewBox(pv, paused = vm.previewPausedId == pv.id)
@@ -1024,7 +1024,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
         fun xOf(t: Long) = (((t - ws).coerceIn(0L, winMin * 60_000L)) * dpPerMs).dp
         Column(Modifier.fillMaxSize()) {
             // en-tête : date à gauche, repères horaires au-dessus de la grille
-            Row(Modifier.fillMaxWidth().background(RailBg).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().background(ListBg).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.width(leftW), verticalAlignment = Alignment.CenterVertically) {
                     val label = java.text.SimpleDateFormat("EEE d MMM  HH:mm", java.util.Locale.getDefault()).format(java.util.Date(ws))
                     Text(label, color = Color(0xFF8FB8FF), fontSize = 11.sp, maxLines = 1, modifier = Modifier.weight(1f))
@@ -1111,7 +1111,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
 private fun panelGlass(c: Color): Color = c.copy(alpha = (1f - GlassState.transp).coerceAtLeast(0.97f))
 // couleurs inversées : en-tête clair (couleur d'accent), corps foncé
 val PanelHead get() = panelGlass(Accent)
-val PanelBody get() = panelGlass(darker(Accent, 0.2f))
+val PanelBody get() = panelGlass(Accent)
 
 /** Une ligne d'un panneau de réglages : titre, petit texte, élément à droite (interrupteur, valeur…). */
 @OptIn(ExperimentalFoundationApi::class)
