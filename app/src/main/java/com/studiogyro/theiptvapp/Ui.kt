@@ -909,6 +909,8 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
                 .fillMaxHeight()
                 .aspectRatio(16f / 9f)
                 .clip(RoundedCornerShape(6.dp))
+                // contour blanc, comme la sélection à la télécommande sur la TV
+                .border(2.dp, Color.White, RoundedCornerShape(6.dp))
                 .background(Color.Black)
                 .combinedClickable(onClick = {}, onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }),
         ) { PreviewBox(pv, paused = vm.previewPausedId == pv.id) }
