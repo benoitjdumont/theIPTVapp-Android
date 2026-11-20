@@ -912,7 +912,7 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
             drawLine(bezel, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx + size.width * 0.22f, 0f), strokeWidth = sw)
         }
         Column(
-            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(start = 6.dp, top = 6.dp, end = 6.dp, bottom = 1.dp),
+            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(start = 2.dp, top = 2.dp, end = 2.dp, bottom = 1.dp),
         ) {
             Box(
                 Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(3.dp)).background(Color.Black)
