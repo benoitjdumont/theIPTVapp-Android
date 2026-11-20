@@ -63,6 +63,16 @@ class MainActivity : ComponentActivity() {
         return super.dispatchKeyEvent(mapped)
     }
 
+    override fun onStop() {
+        super.onStop()
+        AppState.stopped.value = true
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AppState.stopped.value = false
+    }
+
     /** Leaving the app while a channel plays shrinks it into a small floating window (si l'option est active). */
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
@@ -80,5 +90,6 @@ class MainActivity : ComponentActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         vm.inPip = isInPictureInPictureMode
+        AppState.pip.value = isInPictureInPictureMode
     }
 }

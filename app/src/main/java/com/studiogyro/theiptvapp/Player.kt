@@ -331,6 +331,10 @@ fun PlayerScreen(vm: MainVm) {
 
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
+    // appli en arrière-plan (hors fenêtre flottante) : la lecture s'arrête, elle ne continue pas en silence
+    LaunchedEffect(AppState.stopped.value) {
+        if (AppState.stopped.value && !AppState.pip.value) player.playWhenReady = false
+    }
     LaunchedEffect(showUi) { if (!showUi) runCatching { focus.requestFocus() } }
     // menu ouvert : le focus va sur le menu (la télécommande le parcourt) ; fermé : retour à la vidéo
     // minuterie : arrête la lecture après le temps choisi
