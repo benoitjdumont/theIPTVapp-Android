@@ -679,6 +679,7 @@ fun PlayerScreen(vm: MainVm) {
                 query = if (ch.seriesName.isNotBlank()) cleanTitle(ch.seriesName) else cleanTitle(ch.name),
                 year = if (ch.seriesName.isNotBlank()) "" else yearOf(ch.name), key = vm.osKey(),
                 season = ch.season, episode = ch.episode,
+                lang = vm.subLang(), onLang = { vm.saveSubLang(it) },
                 live = ch.kind == "live",
                 onSubUrl = { s ->
                     subStart = if (ch.kind != "live") player.currentPosition else 0L
@@ -917,10 +918,12 @@ private fun TrackPickerDialog(
     player: ExoPlayer, kind: String,
     query: String = "", year: String = "", key: String = "", live: Boolean = false,
     season: Int = 0, episode: Int = 0,
+    lang: String = "fr,en", onLang: (String) -> Unit = {},
     onSubUrl: (String) -> Unit, onDone: () -> Unit,
 ) {
     var url by remember { mutableStateOf("") }
-    // recherche en ligne (OpenSubtitles, français)
+    var langSel by remember { mutableStateOf(lang) }
+    // recherche en ligne (OpenSubtitles, langue mémorisée)
     var online by remember { mutableStateOf<List<OpenSubs.Sub>?>(null) }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf("") }
@@ -959,7 +962,14 @@ private fun TrackPickerDialog(
                     onClick = { onSubUrl(url.trim()); onDone() },
                 ) { Text("Charger ces sous-titres") }
 
-                Text("Sous-titres en français et anglais (en ligne)", color = Color.White, modifier = Modifier.padding(top = 10.dp))
+                Text("Sous-titres en ligne (OpenSubtitles)", color = Color.White, modifier = Modifier.padding(top = 10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("fr" to "Français", "en" to "Anglais", "fr,en" to "Les deux").forEach { (code, label) ->
+                        TextButton(onClick = { langSel = code; onLang(code) }) {
+                            Text(if (langSel == code) "✔ $label" else label)
+                        }
+                    }
+                }
                 Text(
                     if (key.isBlank()) "Clé OpenSubtitles absente : ajoute-la dans Préférences › Réseau."
                     else "Clé OpenSubtitles enregistrée. Lance la recherche ci-dessous.",
@@ -969,11 +979,11 @@ private fun TrackPickerDialog(
                     TextButton(enabled = !busy && key.isNotBlank() && query.isNotBlank(), onClick = {
                         busy = true; err = ""; online = null
                         scope.launch {
-                            try { online = OpenSubs.search(key, query, year, season = season, episode = episode) }
+                            try { online = OpenSubs.search(key, query, year, lang = langSel, season = season, episode = episode) }
                             catch (e: Exception) { err = e.message ?: "Recherche impossible" }
                             finally { busy = false }
                         }
-                    }) { Text(if (busy) "Recherche…" else "Chercher « $query » (fr + en)") }
+                    }) { Text(if (busy) "Recherche…" else "Chercher « $query »") }
                     if (err.isNotEmpty()) Text(err, color = Color(0xFFFF8A80), fontSize = 12.sp)
                     online?.let { list ->
                         if (list.isEmpty()) Text("Aucun sous-titre français trouvé pour ce titre.", color = Color(0xFFB0BEC5), fontSize = 12.sp)

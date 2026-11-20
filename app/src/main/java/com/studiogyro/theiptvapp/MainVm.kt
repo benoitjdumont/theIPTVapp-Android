@@ -81,6 +81,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     private val store = Store(app)
     fun osKey(): String = store.osKey()
     fun saveOsKey(k: String) = store.saveOsKey(k)
+    fun subLang(): String = store.subLang()
+    fun saveSubLang(l: String) = store.saveSubLang(l)
 
     var sources by mutableStateOf(store.sources()); private set
     var activeId by mutableStateOf(store.activeId() ?: store.sources().firstOrNull()?.id); private set

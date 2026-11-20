@@ -64,6 +64,9 @@ class Store(ctx: Context) {
     /** clé API OpenSubtitles : personnelle à chaque personne, jamais fournie par l'appli */
     fun osKey(): String = sp.getString("os_key", "") ?: ""
     fun saveOsKey(s: String) = sp.edit().putString("os_key", s.trim()).apply()
+    /** langue(s) des sous-titres en ligne, mémorisée : "fr", "en" ou "fr,en" */
+    fun subLang(): String = sp.getString("sub_lang", "fr,en") ?: "fr,en"
+    fun saveSubLang(l: String) = sp.edit().putString("sub_lang", l).apply()
 
     // ---- guide (EPG)
     fun epgDays(): Int = sp.getInt("epg_days", 1).coerceIn(1, 30)
