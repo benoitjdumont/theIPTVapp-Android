@@ -24,10 +24,12 @@ object OpenSubs {
             .header("Accept", "application/json")
 
     /** sous-titres en français et en anglais (liste séparée par des virgules), les plus téléchargés d'abord */
-    suspend fun search(key: String, query: String, year: String = "", lang: String = "fr,en"): List<Sub> =
+    suspend fun search(key: String, query: String, year: String = "", lang: String = "fr,en", season: Int = 0, episode: Int = 0): List<Sub> =
         withContext(Dispatchers.IO) {
             val q = URLEncoder.encode(query, "UTF-8")
             var url = "$BASE/subtitles?query=$q&languages=$lang&order_by=download_count&order_direction=desc"
+            // épisode : seulement les sous-titres de cette saison et de cet épisode (évite les autres émissions au nom proche)
+            if (season > 0 && episode > 0) url += "&type=episode&season_number=$season&episode_number=$episode"
             if (year.isNotBlank()) url += "&year=$year"
             Repo.client.newCall(req(key, url).build()).execute().use { r ->
                 if (r.code == 401 || r.code == 403) throw RuntimeException("Clé OpenSubtitles refusée : vérifie-la dans Préférences › Réseau")

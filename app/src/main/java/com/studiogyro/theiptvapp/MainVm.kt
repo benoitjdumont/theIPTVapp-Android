@@ -618,7 +618,7 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         seriesOpen = c
         seriesData = null
         viewModelScope.launch {
-            seriesData = runCatching { Repo.seriesInfo(s, c.sid) }.getOrNull() ?: SeriesData("", emptyMap())
+            seriesData = runCatching { Repo.seriesInfo(s, c.sid, c.name) }.getOrNull() ?: SeriesData("", emptyMap())
         }
     }
 
