@@ -26,6 +26,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Android 13+ : demander la permission des notifications (rappels d'émissions), une fois, à l'ouverture
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
         // plein écran : l'interface touche les bords ; la barre du système se montre seulement par un glissement
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).apply {
