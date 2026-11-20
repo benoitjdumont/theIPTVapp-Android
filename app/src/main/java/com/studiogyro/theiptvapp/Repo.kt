@@ -49,11 +49,11 @@ object Repo {
 
     suspend fun loadVod(src: Source): List<Channel> = withContext(Dispatchers.IO) {
         val base = normHost(src.host)
-        val u = java.net.URLEncoder.encode(src.user, "UTF-8")
-        val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
+        val u = encCred(src.user)
+        val p = encCred(src.pass)
         val api = "$base/player_api.php?username=$u&password=$p"
         val cats = categoryMap("$api&action=get_vod_categories")
-        val a = readJsonArray("$api&action=get_vod_streams")
+        val a = readJsonArrayCached("$api&action=get_vod_streams")
         val out = ArrayList<Channel>(a.length())
         for (i in 0 until a.length()) {
             val o = a.getJSONObject(i)
@@ -75,11 +75,11 @@ object Repo {
 
     suspend fun loadSeries(src: Source): List<Channel> = withContext(Dispatchers.IO) {
         val base = normHost(src.host)
-        val u = java.net.URLEncoder.encode(src.user, "UTF-8")
-        val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
+        val u = encCred(src.user)
+        val p = encCred(src.pass)
         val api = "$base/player_api.php?username=$u&password=$p"
         val cats = categoryMap("$api&action=get_series_categories")
-        val a = readJsonArray("$api&action=get_series")
+        val a = readJsonArrayCached("$api&action=get_series")
         val out = ArrayList<Channel>(a.length())
         for (i in 0 until a.length()) {
             val o = a.getJSONObject(i)
@@ -111,8 +111,8 @@ object Repo {
     /** fiche d'un film : résumé, durée, genre, distribution */
     suspend fun vodInfo(src: Source, sid: String): Detail = withContext(Dispatchers.IO) {
         val base = normHost(src.host)
-        val u = java.net.URLEncoder.encode(src.user, "UTF-8")
-        val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
+        val u = encCred(src.user)
+        val p = encCred(src.pass)
         var txt = ""
         open("$base/player_api.php?username=$u&password=$p&action=get_vod_info&vod_id=$sid") { r -> txt = r.body?.string() ?: "" }
         val info = org.json.JSONObject(txt.trim()).optJSONObject("info") ?: return@withContext Detail("", "", "")
@@ -126,8 +126,8 @@ object Repo {
 
     suspend fun seriesInfo(src: Source, sid: String): SeriesData = withContext(Dispatchers.IO) {
         val base = normHost(src.host)
-        val u = java.net.URLEncoder.encode(src.user, "UTF-8")
-        val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
+        val u = encCred(src.user)
+        val p = encCred(src.pass)
         var txt = ""
         open("$base/player_api.php?username=$u&password=$p&action=get_series_info&series_id=$sid") { r -> txt = r.body?.string() ?: "" }
         val root = org.json.JSONObject(txt.trim())
@@ -250,8 +250,8 @@ object Repo {
         epgGate.withPermit {
             runCatching {
                 val base = normHost(src.host)
-                val u = java.net.URLEncoder.encode(src.user, "UTF-8")
-                val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
+                val u = encCred(src.user)
+                val p = encCred(src.pass)
                 var txt = ""
                 open("$base/player_api.php?username=$u&password=$p&action=${if (archive) "get_simple_data_table" else "get_short_epg"}&stream_id=$sid${if (archive) "" else "&limit=8"}") { r -> txt = r.body?.string() ?: "" }
                 val arr = org.json.JSONObject(txt.trim()).optJSONArray("epg_listings") ?: return@runCatching empty
@@ -284,8 +284,8 @@ object Repo {
     /** adresse de rattrapage Xtream pour revoir une émission passée */
     fun timeshiftUrl(src: Source, sid: String, p: Prog): String {
         val base = normHost(src.host)
-        val u = java.net.URLEncoder.encode(src.user, "UTF-8")
-        val pw = java.net.URLEncoder.encode(src.pass, "UTF-8")
+        val u = encCred(src.user)
+        val pw = encCred(src.pass)
         val minutes = ((p.stop - p.start) / 60_000L).coerceAtLeast(1)
         val f = java.text.SimpleDateFormat("yyyy-MM-dd:HH-mm", java.util.Locale.US)
         f.timeZone = java.util.TimeZone.getTimeZone("UTC")
@@ -359,18 +359,45 @@ object Repo {
         return s
     }
 
-    private fun readJsonArray(url: String): JSONArray {
+    private fun readJsonArray(url: String): JSONArray = JSONArray(fetchJsonText(url))
+
+    private fun fetchJsonText(url: String): String {
         var txt = ""
         open(url) { r -> txt = r.body?.string() ?: "" }
         val t = txt.trim()
         if (!t.startsWith("[")) throw RuntimeException("Réponse inattendue du serveur (identifiants refusés ?)")
-        return JSONArray(t)
+        return t
+    }
+
+    /** dossier du cache des listes Films et Séries (défini au démarrage) */
+    @Volatile var cacheDir: java.io.File? = null
+
+    private const val LIST_CACHE_MS = 12L * 3600_000L
+
+    /**
+     * Liste Xtream (films ou séries) gardée sur le disque 12 h : l'ouverture suivante est immédiate.
+     * La clé contient l'adresse complète (avec identifiants) : changer de compte ne réutilise pas l'ancien cache.
+     */
+    private fun readJsonArrayCached(url: String): JSONArray {
+        val dir = cacheDir ?: return readJsonArray(url)
+        val f = java.io.File(dir, "list_${url.hashCode()}.json")
+        if (f.isFile && System.currentTimeMillis() - f.lastModified() < LIST_CACHE_MS) {
+            runCatching { return JSONArray(f.readText()) }
+        }
+        val txt = fetchJsonText(url)
+        runCatching {
+            dir.mkdirs()
+            val tmp = java.io.File(dir, "list_${url.hashCode()}.tmp")
+            tmp.writeText(txt)
+            tmp.renameTo(f)
+        }
+        return JSONArray(txt)
     }
 
     private fun loadXtream(src: Source): List<Channel> {
         val base = normHost(src.host)
-        val u = java.net.URLEncoder.encode(src.user, "UTF-8")
-        val p = java.net.URLEncoder.encode(src.pass, "UTF-8")
+        val u = encCred(src.user)
+        val p = encCred(src.pass)
         val api = "$base/player_api.php?username=$u&password=$p"
         val cats = HashMap<String, String>()
         runCatching {
@@ -404,3 +431,6 @@ object Repo {
         return out
     }
 }
+
+/** Identifiants dans un chemin d URL : espaces en %20 (pas +), blancs de saisie retirés. */
+fun encCred(s: String): String = java.net.URLEncoder.encode(s.trim(), "UTF-8").replace("+", "%20")

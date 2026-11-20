@@ -41,7 +41,7 @@ class Section {
 
     fun replaceItems(l: List<Channel>) {
         items = l
-        top = null
+        if (top != GROUP_FAV && top != GROUP_HIST) top = null
         sub = null
         val prefixes = LinkedHashMap<String, Boolean>()
         val subs = LinkedHashMap<String, LinkedHashMap<String, String>>()
@@ -79,11 +79,17 @@ class Section {
 
 class MainVm(app: Application) : AndroidViewModel(app) {
     private val store = Store(app)
+    fun osKey(): String = store.osKey()
+    fun saveOsKey(k: String) = store.saveOsKey(k)
 
     var sources by mutableStateOf(store.sources()); private set
     var activeId by mutableStateOf(store.activeId() ?: store.sources().firstOrNull()?.id); private set
     var favs by mutableStateOf(store.favorites()); private set
     var query by mutableStateOf("")
+    /** recherche dans sa propre fenêtre plein écran */
+    var searchOpen by mutableStateOf(false); private set
+    fun openSearch() { searchOpen = true }
+    fun closeSearch() { searchOpen = false; query = "" }
 
     val live = Section()
     val movies = Section()
@@ -108,6 +114,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     var updateDismissed by mutableStateOf(false)
 
     fun checkUpdate(silent: Boolean) {
+        // version de test (APK debug) : pas de proposition automatique de remplacer par la version publiée
+        if (silent && BuildConfig.DEBUG) return
         if (!silent) updateInfo = "Vérification…"
         viewModelScope.launch {
             try {
@@ -142,9 +150,11 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     init {
         Repo.configure(store.userAgent(), store.proxy())
+        Repo.cacheDir = java.io.File(getApplication<Application>().cacheDir, "listes")
         viewModelScope.launch { while (true) { kotlinx.coroutines.delay(60_000); clock = System.currentTimeMillis() } }
         Accent = ACCENTS[store.accent().coerceIn(0, ACCENTS.lastIndex)].second
         UiAlpha = TRANSPS[store.transp().coerceIn(0, TRANSPS.lastIndex)].second
+        GlassState.transp = store.glassPct() / 100f
         reload()
         checkUpdate(silent = true)
         guideTimer()
@@ -162,7 +172,22 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     /** incrémenté à chaque clic sur TV / Films / Séries : le focus passe alors dans la colonne des catégories */
     var tabTick by mutableStateOf(0); private set
 
+    /** « Ma liste » : la colonne des catégories propose les favoris de TV / Films / Séries. */
+    var favMode by mutableStateOf(false)
+
+    fun openFavMode() { favMode = true; tabTick++ }
+
+    fun pickFav(i: Int) {
+        favMode = true
+        tab = i
+        preview = null
+        query = ""
+        ensureLoaded()
+        section().pickTop(GROUP_FAV)
+    }
+
     fun selectTab(i: Int) {
+        favMode = false
         tabTick++
         tab = i
         preview = null
@@ -178,6 +203,9 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     }
 
     private fun ensureLoaded() = loadSection(tab, visible = true)
+
+    /** pour la recherche : charge TV, films et séries (en arrière-plan) si ce n'est pas déjà fait */
+    fun loadAllForSearch() { loadSection(0, visible = false); loadSection(1, visible = false); loadSection(2, visible = false) }
 
     /** Charge en arrière-plan films et séries pour que le premier clic soit instantané. */
     fun prefetchCatalogs() {
@@ -296,6 +324,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
             .onSuccess { bgPath = f.absolutePath; store.saveBgPath(bgPath) }
     }
     fun clearBackground() { bgPath = null; store.saveBgPath(null) }
+    /** transparence des colonnes et des préférences : 0 = opaque, 1 = transparent */
+    fun changeGlass(v: Float) { GlassState.transp = v.coerceIn(0f, 1f); store.saveGlassPct(Math.round(GlassState.transp * 100)) }
 
     // ---- préférences générales
     private var guideStarted = false
@@ -417,7 +447,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         if (recording != null) return
         val safe = c.name.replace(Regex("[^A-Za-z0-9À-ÿ _-]"), "").trim().ifEmpty { "chaine" }.replace(' ', '_')
         val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmm", java.util.Locale.US).format(java.util.Date())
-        val f = java.io.File(Recorder.dir(ctx), "${safe}_$stamp.ts")
+        val ext = Regex("\\.(mp4|mkv|avi|mov|ts)(\\?|$)", RegexOption.IGNORE_CASE).find(c.url)?.groupValues?.get(1)?.lowercase() ?: "ts"
+        val f = java.io.File(Recorder.dir(ctx), "${safe}_$stamp.$ext")
         recording = Rec(c.name, f, System.currentTimeMillis())
         recBytes = 0
         recMessage = ""
@@ -438,17 +469,46 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun stopRecording() { recJob?.cancel() }
+    fun stopRecording() {
+        recJob?.cancel()
+        Recorder.cancelCurrent()
+        recording = null
+        recVersion++
+    }
 
     fun deleteRecording(f: java.io.File) { f.delete(); recVersion++ }
 
+    var schedVersion by mutableStateOf(0); private set
+    fun scheduled(ctx: android.content.Context): List<Sched> { schedVersion.hashCode(); return Scheduler.list(ctx) }
+    fun schedule(ctx: android.content.Context, c: Channel, p: Prog): Boolean {
+        if (p.stop <= System.currentTimeMillis()) return false
+        Scheduler.add(ctx, Sched("${c.id}|${p.start}", c.name, c.url, p.title, p.start, p.stop))
+        schedVersion++
+        return true
+    }
+    fun cancelSched(ctx: android.content.Context, id: String) { Scheduler.cancel(ctx, id); schedVersion++ }
+    /** enregistrement programmé à la main (heures choisies dans Préférences › Enregistrements) */
+    fun scheduleManual(ctx: android.content.Context, c: Channel, start: Long, stop: Long, asDvr: Boolean): Boolean {
+        if (stop <= System.currentTimeMillis()) return false
+        val id = if (asDvr) "dvr|${c.id}|$start" else "${c.id}|$start"
+        Scheduler.add(ctx, Sched(id, c.name, c.url, if (asDvr) "DVR" else "", start, stop))
+        schedVersion++
+        return true
+    }
+
     fun recordings(ctx: android.content.Context): List<java.io.File> =
-        Recorder.dir(ctx).listFiles { x -> x.isFile && x.name.endsWith(".ts") }?.sortedByDescending { it.lastModified() } ?: emptyList()
+        Recorder.dir(ctx).listFiles { x -> x.isFile && x.name.substringAfterLast('.').lowercase() in setOf("ts", "mp4", "mkv", "avi", "mov") }?.sortedByDescending { it.lastModified() } ?: emptyList()
 
     fun addSource(s: Source) {
         sources = sources + s
         store.saveSources(sources)
         select(s.id)
+    }
+
+    fun updateSource(s: Source) {
+        sources = sources.map { if (it.id == s.id) s else it }
+        store.saveSources(sources)
+        if (s.id == activeId) reload()
     }
 
     fun deleteSource(id: String) {
@@ -688,10 +748,14 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     /** demandé par le menu du lecteur (Préférences) : l'accueil ouvre les réglages */
     var openSettingsRequest by mutableStateOf(false)
+    var settingsStart by mutableStateOf<String?>(null)
 
     /** Retour depuis le plein écran : la chaîne revient en aperçu (elle continue de jouer). */
-    fun stop() {
+    var previewPausedId by mutableStateOf<String?>(null)
+
+    fun stop(paused: Boolean = false) {
         val c = current
+        if (c != null) previewPausedId = if (paused) c.id else null
         playIndex = -1
         if (previewMode && c != null && c.kind == "live") preview = c
     }

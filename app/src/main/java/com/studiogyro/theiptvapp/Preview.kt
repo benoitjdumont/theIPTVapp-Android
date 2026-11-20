@@ -27,7 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 /** Petite fenêtre vidéo de l'accueil : la chaîne choisie joue ici avant de passer en plein écran. */
 @OptIn(UnstableApi::class)
 @Composable
-fun PreviewBox(ch: Channel, modifier: Modifier = Modifier) {
+fun PreviewBox(ch: Channel, modifier: Modifier = Modifier, paused: Boolean = false) {
     val ctx = LocalContext.current
     val player = remember {
         val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.streamUa)
@@ -44,7 +44,7 @@ fun PreviewBox(ch: Channel, modifier: Modifier = Modifier) {
         val item = MediaItem.Builder().setUri(a.url).apply { if (a.mime != null) setMimeType(a.mime) }.build()
         player.setMediaItem(item)
         player.prepare()
-        player.playWhenReady = true
+        player.playWhenReady = !paused
     }
     DisposableEffect(player, ch.id) {
         val l = object : Player.Listener {
@@ -55,16 +55,12 @@ fun PreviewBox(ch: Channel, modifier: Modifier = Modifier) {
         player.addListener(l)
         onDispose { player.removeListener(l) }
     }
+    // TextureView (et non SurfaceView) : une SurfaceView reste noire dans une case arrondie ou sous des calques Compose
     Box(modifier.fillMaxSize()) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
-            factory = { c ->
-                PlayerView(c).apply {
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    this.player = player
-                }
-            },
+            factory = { c -> android.view.TextureView(c).also { player.setVideoTextureView(it) } },
+            onRelease = { v -> player.clearVideoTextureView(v) },
         )
     }
 }

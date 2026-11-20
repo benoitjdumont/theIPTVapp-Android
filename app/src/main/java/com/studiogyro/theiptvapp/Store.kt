@@ -4,7 +4,7 @@ import android.content.Context
 
 /** Small persistent storage: sources, favourites, active source. */
 class Store(ctx: Context) {
-    private val sp = ctx.getSharedPreferences("theiptvapp", Context.MODE_PRIVATE)
+    private val sp = ctx.getSharedPreferences(Profiles.prefsName(ctx), Context.MODE_PRIVATE)
 
     fun sources(): List<Source> = parseSources(sp.getString("sources", null))
     fun saveSources(l: List<Source>) = sp.edit().putString("sources", l.toJsonString()).apply()
@@ -60,6 +60,10 @@ class Store(ctx: Context) {
     fun saveUserAgent(s: String) = sp.edit().putString("ua", s).apply()
     fun proxy(): String = sp.getString("proxy", "") ?: ""
     fun saveProxy(s: String) = sp.edit().putString("proxy", s).apply()
+
+    /** clé API OpenSubtitles : personnelle à chaque personne, jamais fournie par l'appli */
+    fun osKey(): String = sp.getString("os_key", "") ?: ""
+    fun saveOsKey(s: String) = sp.edit().putString("os_key", s.trim()).apply()
 
     // ---- guide (EPG)
     fun epgDays(): Int = sp.getInt("epg_days", 1).coerceIn(1, 30)
@@ -126,6 +130,8 @@ class Store(ctx: Context) {
         m.forEach { (k, v) -> o.put(k, v) }
         sp.edit().putString("renames", o.toString()).apply()
     }
+    fun glassPct(): Int = sp.getInt("glass", 0)
+    fun saveGlassPct(p: Int) = sp.edit().putInt("glass", p).apply()
     fun bgPath(): String? = sp.getString("bg", null)
     fun saveBgPath(p: String?) = sp.edit().putString("bg", p).apply()
 

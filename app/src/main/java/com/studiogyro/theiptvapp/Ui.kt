@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
@@ -27,19 +28,27 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -72,12 +81,16 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.scale
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -99,6 +112,8 @@ val ACCENTS = listOf(
     "Gris" to Color(0xFF7C8593),
 )
 
+/** ombre sous les textes de détail : lisibles même sur une image de fond */
+val detailShadow = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = Color.Black, offset = androidx.compose.ui.geometry.Offset(0f, 2f), blurRadius = 8f))
 val BgBrush = androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF16205E), Color(0xFF0B1230), Color(0xFF0E1A4A)))
 
 @Composable
@@ -130,10 +145,10 @@ fun AppRoot(vm: MainVm) {
         }
         // Retour sur l'accueil : quitte, ou demande une seconde pression si la confirmation est activée
         var lastBack by remember { mutableStateOf(0L) }
-        val onHome = vm.current == null && vm.movieOpen == null && vm.seriesOpen == null && screen == "home"
+        val onHome = vm.current == null && vm.movieOpen == null && vm.seriesOpen == null && screen == "home" && !vm.searchOpen
         val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
         // le bouton Retour de la manette agit comme la flèche gauche ; quand on est déjà à gauche, il quitte
-        BackHandler(enabled = onHome) {
+        BackHandler(enabled = onHome && !Nav.settingsOpen) {
             if (focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)) return@BackHandler
             val now = System.currentTimeMillis()
             if (!vm.doubleBack || now - lastBack < 2000) {
@@ -145,28 +160,32 @@ fun AppRoot(vm: MainVm) {
         }
         Surface(Modifier.fillMaxSize().background(BgBrush), color = Color.Transparent) {
             vm.bgPath?.let { path ->
-                AsyncImage(model = java.io.File(path), contentDescription = null, contentScale = ContentScale.Crop, alpha = 0.35f, modifier = Modifier.fillMaxSize())
+                AsyncImage(model = java.io.File(path), contentDescription = null, contentScale = ContentScale.Crop, alpha = 0.6f, modifier = Modifier.fillMaxSize())
             }
             if (vm.current != null) {
                 PlayerScreen(vm)
             } else if (vm.movieOpen != null) {
-                Box(Modifier.fillMaxSize().safeDrawingPadding().then(safe)) { MovieScreen(vm) }
+                Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars).then(safe)) { MovieScreen(vm) }
             } else if (vm.seriesOpen != null) {
-                Box(Modifier.fillMaxSize().safeDrawingPadding().then(safe)) { SeriesScreen(vm) }
+                Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars).then(safe)) { SeriesScreen(vm) }
             } else {
                 // keep clear of the status bar (battery, clock) and the navigation bar
-                Box(Modifier.fillMaxSize().safeDrawingPadding().then(safe)) {
-                    if (screen == "settings") {
-                        // les préférences s'ouvrent à droite et poussent l'accueil vers la gauche
-                        Row(Modifier.fillMaxSize()) {
-                            if (vm.sources.isNotEmpty()) Box(Modifier.weight(1f).fillMaxHeight()) { HomeScreen(vm) { } }
-                            SettingsScreen(vm, docked = vm.sources.isNotEmpty()) { screen = "home" }
-                        }
-                    } else {
-                        HomeScreen(vm) { screen = "settings" }
+                Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars).then(safe)) {
+                    // l'accueil reste à sa place ; les préférences glissent par-dessus, de droite à gauche
+                    if (vm.sources.isNotEmpty() || screen != "settings") HomeScreen(vm) { screen = "settings" }
+                    if (screen == "settings" && vm.sources.isNotEmpty()) Box(Modifier.fillMaxSize().clickable { screen = "home" })
+                    Nav.settingsOpen = screen == "settings"
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = screen == "settings",
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        enter = androidx.compose.animation.slideInHorizontally(initialOffsetX = { it }),
+                        exit = androidx.compose.animation.slideOutHorizontally(targetOffsetX = { it }),
+                    ) {
+                        SettingsScreen(vm, docked = vm.sources.isNotEmpty()) { screen = "home" }
                     }
                 }
             }
+            if (vm.searchOpen && vm.current == null) SearchOverlay(vm)
         }
     }
     }
@@ -175,13 +194,13 @@ fun AppRoot(vm: MainVm) {
 /** A row that is clearly highlighted when focused with a remote control. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FocusRow(selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, requester: androidx.compose.ui.focus.FocusRequester? = null, content: @Composable RowScope.() -> Unit) {
+fun FocusRow(selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, requester: androidx.compose.ui.focus.FocusRequester? = null, blockUp: Boolean = true, content: @Composable RowScope.() -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
     Row(
         Modifier
             .fillMaxWidth()
-            .then(if (requester != null) Modifier.focusRequester(requester).focusProperties { up = androidx.compose.ui.focus.FocusRequester.Cancel } else Modifier)
+            .then(if (requester != null) Modifier.focusRequester(requester).then(if (blockUp) Modifier.focusProperties { up = androidx.compose.ui.focus.FocusRequester.Cancel } else Modifier) else Modifier)
             .clip(shape)
             .background(if (focused) Accent.copy(alpha = 0.35f) else if (selected) Accent.copy(alpha = 0.18f) else Color.Transparent)
             .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
@@ -208,13 +227,18 @@ private fun tint(c: Long, a: Float) = Color(c or 0xFF000000L).copy(alpha = (a * 
  *  Rail (TV / Films / Séries / Recherche) et Préférences = couleur choisie ; catégories, chaînes et guide = nuance plus foncée. */
 fun darker(c: Color, f: Float): Color = androidx.compose.ui.graphics.lerp(c, Color.Black, f)
 val AccentDark get() = darker(Accent, 0.4f)
-val RailBg get() = Accent
-val GroupBg get() = AccentDark
-val ListBg get() = AccentDark
+/** transparence des colonnes et des préférences (réglée dans Apparence) : 0 = opaque, 1 = transparent */
+object GlassState { var transp by mutableStateOf(0f) }
+/** vrai quand le panneau Préférences est ouvert : les autres « Retour » ne doivent pas le court-circuiter */
+object Nav { var settingsOpen by mutableStateOf(false) }
+fun glass(c: Color): Color = c.copy(alpha = 1f - GlassState.transp)
+val RailBg get() = glass(Accent)
+val GroupBg get() = glass(AccentDark)
+val ListBg get() = glass(AccentDark)
 val CellBg get() = tint(0x3A4A9A, 0.33f)
 
 @Composable
-private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClick: () -> Unit, enabled: Boolean = true, icon: @Composable () -> Unit) {
+private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClick: () -> Unit, enabled: Boolean = true, requester: androidx.compose.ui.focus.FocusRequester? = null, icon: @Composable () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
     Row(
@@ -225,12 +249,13 @@ private fun RailItem(selected: Boolean, expanded: Boolean, label: String, onClic
             .alpha(if (enabled) 1f else 0.3f)
             .clip(shape)
             .background(if (focused) AccentDark else if (selected) Color.White.copy(alpha = 0.18f) else Color.Transparent)
+            .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
             .onFocusChanged { focused = it.isFocused }
             .clickable(enabled = enabled, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(44.dp), contentAlignment = Alignment.Center) { icon() }
-        if (expanded) Text(label, color = Color.White, fontSize = 14.sp, maxLines = 1, softWrap = false)
+        if (expanded) Text(label, color = Color.White, fontSize = 14.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
 
@@ -268,20 +293,101 @@ private fun SeriesIcon() = androidx.compose.foundation.Canvas(Modifier.size(24.d
     drawPath(path, c)
 }
 
+/** Filtre hors du fil principal, après une courte pause de frappe : le clavier ne saccade plus sur les grosses listes. */
+@Composable
+private fun searchResults(vm: MainVm, items: List<Channel>, q: String): List<Channel> {
+    val state = androidx.compose.runtime.produceState(emptyList<Channel>(), items, q) {
+        if (q.isEmpty()) { value = emptyList(); return@produceState }
+        kotlinx.coroutines.delay(250)
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { items.filter { vm.displayName(it).contains(q, ignoreCase = true) } }
+    }
+    return state.value
+}
+
+/** Recherche dans sa propre fenêtre : cherche dans TV, Films et Séries à la fois et dit où chaque résultat a été trouvé. */
+@Composable
+private fun SearchOverlay(vm: MainVm) {
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { vm.loadAllForSearch(); runCatching { focus.requestFocus() } }
+    // un film, une série ou une chaîne lancé : la recherche se ferme
+    LaunchedEffect(vm.current, vm.movieOpen, vm.seriesOpen) {
+        if (vm.current != null || vm.movieOpen != null || vm.seriesOpen != null) vm.closeSearch()
+    }
+    BackHandler(true) { vm.closeSearch() }
+    val q = vm.query.trim()
+    val liveRes = searchResults(vm, vm.live.items, q)
+    val movieRes = searchResults(vm, vm.movies.items, q)
+    val seriesRes = searchResults(vm, vm.series.items, q)
+    Column(Modifier.fillMaxSize().background(Color(0xFF0B1220)).windowInsetsPadding(WindowInsets.systemBars).padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { vm.closeSearch() }) { Icon(Icons.Default.ArrowBack, "Fermer", tint = Color.White) }
+            OutlinedTextField(
+                value = vm.query,
+                onValueChange = { vm.query = it },
+                singleLine = true,
+                placeholder = { Text("Rechercher une chaîne, un film ou une série") },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                modifier = Modifier.weight(1f).focusRequester(focus),
+            )
+        }
+        Spacer(Modifier.size(8.dp))
+        if (q.isEmpty()) {
+            Text("Écris un nom : la recherche couvre les chaînes TV, les films et les séries.", color = Color.Gray, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
+        } else {
+            Text(
+                "J'ai trouvé ${liveRes.size} chaîne(s) TV, ${movieRes.size} film(s) et ${seriesRes.size} série(s) pour « $q ».",
+                color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+            )
+            if (vm.live.loading || vm.movies.loading || vm.series.loading) {
+                Text("Chargement des listes…", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
+            }
+        }
+        LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+            if (q.isNotEmpty()) {
+                searchGroup("Chaînes TV", liveRes, vm) { c -> vm.guard(c) { vm.play(liveRes, c) } }
+                searchGroup("Films", movieRes, vm) { c -> vm.guard(c) { vm.selectTab(1); vm.openMovie(c) } }
+                searchGroup("Séries", seriesRes, vm) { c -> vm.guard(c) { vm.selectTab(2); vm.openSeries(c) } }
+            }
+        }
+    }
+}
+
+/** Un groupe de résultats : titre avec le nombre trouvé, puis chaque résultat avec l'endroit où il a été trouvé. */
+private fun androidx.compose.foundation.lazy.LazyListScope.searchGroup(title: String, found: List<Channel>, vm: MainVm, onOpen: (Channel) -> Unit) {
+    item(key = "h_$title") {
+        Text("$title (${found.size})", color = Accent, fontSize = 16.sp, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 4.dp))
+    }
+    if (found.isEmpty()) item(key = "e_$title") {
+        Text("Rien trouvé dans $title", color = Color.Gray, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp))
+    }
+    items(found.take(80), key = { "${title}_${it.id}" }) { c ->
+        FocusRow(selected = false, onClick = { onOpen(c) }) {
+            Text(vm.displayName(c), color = Color.White, maxLines = 1, modifier = Modifier.weight(1f))
+            Text("dans $title", color = Color(0xFF8A97A6), fontSize = 12.sp, maxLines = 1)
+        }
+    }
+    if (found.size > 80) item(key = "m_$title") {
+        Text("… et ${found.size - 80} autres : précise ta recherche.", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
+    }
+}
+
 /** Rail de gauche : fin au repos, il se déploie par-dessus la liste quand on navigue dessus. */
 @Composable
-private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, searchOpen: Boolean, onSearch: () -> Unit, openSettings: () -> Unit) {
+private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, searchOpen: Boolean, onSearch: () -> Unit, openSettings: () -> Unit, onChoose: () -> Unit = {}, firstReq: androidx.compose.ui.focus.FocusRequester? = null) {
     val focus = expanded
     Column(
         Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(RailBg).padding(vertical = 6.dp).onFocusChanged { onFocus(it.hasFocus) },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        RailItem(vm.tab == 0, focus, "TV", { vm.selectTab(0) }) { TvIcon() }
-        RailItem(vm.tab == 1, focus, "Films", { vm.selectTab(1) }, enabled = vm.vodEnabled(1)) { FilmIcon() }
-        RailItem(vm.tab == 2, focus, "Séries", { vm.selectTab(2) }, enabled = vm.vodEnabled(2)) { SeriesIcon() }
+        RailItem(!vm.favMode && vm.tab == 0, focus, "TV", { vm.selectTab(0); onChoose() }, requester = firstReq) { TvIcon() }
+        RailItem(!vm.favMode && vm.tab == 1, focus, "Films", { vm.selectTab(1); onChoose() }, enabled = vm.vodEnabled(1)) { FilmIcon() }
+        RailItem(!vm.favMode && vm.tab == 2, focus, "Séries", { vm.selectTab(2); onChoose() }, enabled = vm.vodEnabled(2)) { SeriesIcon() }
+        RailItem(vm.favMode, focus, "Ma liste", { vm.openFavMode(); onChoose() }) { Icon(Icons.Default.Star, "Ma liste", tint = Color.White) }
+        RailItem(false, focus, "Enregistrements", { vm.settingsStart = "rec"; openSettings(); onChoose() }) { Box(Modifier.size(16.dp).background(Color(0xFFE53935), CircleShape)) }
         Spacer(Modifier.weight(1f))
-        RailItem(searchOpen, focus, "Rechercher", onSearch) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
-        RailItem(false, focus, "Paramètres", openSettings) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
+        RailItem(searchOpen, focus, "Rechercher", { onSearch(); onChoose() }) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
+        RailItem(false, focus, "Paramètres", { openSettings(); onChoose() }) { Icon(Icons.Default.Settings, "Paramètres", tint = Color.White) }
     }
 }
 
@@ -289,22 +395,41 @@ private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, sear
 @Composable
 private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
     val sec = vm.section()
-    var searchOpen by rememberSaveable { mutableStateOf(vm.query.isNotEmpty()) }
     // une fois une catégorie choisie, les colonnes de gauche se replient : la liste prend tout l'écran
     var showCols by rememberSaveable { mutableStateOf(true) }
-    LaunchedEffect(vm.tab) { showCols = true }
-    val colsHidden = !showCols && sec.top != null
+    LaunchedEffect(vm.tab) { if (!vm.favMode) showCols = true }
+    val colsHidden = !showCols
     var railFocus by remember { mutableStateOf(false) }
     var groupFocus by remember { mutableStateOf(false) }
-    val railExpanded = railFocus || (!groupFocus && sec.top == null)
-    val groupFirst = remember { androidx.compose.ui.focus.FocusRequester() }
+    // grand au départ (noms visibles, aussi au toucher) ; il rétrécit en icônes dès qu'un choix est fait
+    var railBig by remember { mutableStateOf(true) }
+    LaunchedEffect(colsHidden) { if (!colsHidden) railBig = true }
+    LaunchedEffect(groupFocus) { if (groupFocus) railBig = false }
+    val railExpanded = railFocus || railBig
+    val railReq = remember { androidx.compose.ui.focus.FocusRequester() }
+    // Retour : si les colonnes sont ouvertes mais la colonne de gauche est réduite, elle se rouvre (au lieu de quitter)
+    BackHandler(enabled = !colsHidden && !railExpanded && !Nav.settingsOpen) {
+        railBig = true
+        runCatching { railReq.requestFocus() }
+    }
+    // la catégorie choisie garde sa place : on y revient (focus + défilement) au lieu de la première
+    val selectedRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    val groupState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val entries = remember(sec.tops, vm.tab, vm.hiddenCats) {
+        topEntries(sec, vm.tab == 0).filter { it.first == null || (it.first == GROUP_FAV || it.first == GROUP_HIST) || it.first !in vm.hiddenCats }
+    }
     val listFirst = remember { androidx.compose.ui.focus.FocusRequester() }
-    // on clique TV / Films / Séries : le focus passe dans la colonne des catégories
+    // on clique TV / Films / Séries : la colonne des catégories revient
     LaunchedEffect(vm.tabTick) {
-        if (vm.tabTick > 0) {
-            showCols = true
+        if (vm.tabTick > 0) showCols = true
+    }
+    // colonne des catégories affichée (retour arrière ou changement d'onglet) : on remet la catégorie choisie au centre
+    LaunchedEffect(showCols, vm.tab, vm.tabTick) {
+        if (showCols) {
+            val i = entries.indexOfFirst { it.first == sec.top }
+            if (i >= 0) groupState.scrollToItem(i)
             kotlinx.coroutines.delay(60)
-            runCatching { groupFirst.requestFocus() }
+            runCatching { selectedRequester.requestFocus() }
         }
     }
     // une catégorie choisie : les colonnes se replient et le focus va sur la liste
@@ -314,12 +439,12 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
             runCatching { listFirst.requestFocus() }
         }
     }
-    BackHandler(enabled = colsHidden) { showCols = true }
+    BackHandler(enabled = colsHidden && !Nav.settingsOpen) { showCols = true }
     Box(Modifier.fillMaxSize()) {
     if (colsHidden) EdgeHandle(Modifier.align(Alignment.CenterStart).fillMaxHeight().width(14.dp)) { showCols = true }
     Row(Modifier.fillMaxSize()) {
         // rail : grand (avec les noms) au repos ; petit (icônes) quand on parcourt les catégories ; caché une fois une catégorie choisie
-        if (!colsHidden) Rail(vm, railExpanded, { railFocus = it }, searchOpen, { searchOpen = !searchOpen; if (!searchOpen) vm.query = "" }, openSettings)
+        if (!colsHidden) Rail(vm, railExpanded, { railFocus = it; if (it) railBig = true }, vm.searchOpen, { vm.openSearch() }, openSettings, { railBig = false; railFocus = false }, railReq)
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when {
                 vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
@@ -340,26 +465,38 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                     }
                 }
                 else -> {
-                    val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs) { vm.visible() }
+                    val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs, vm.history, vm.hiddenCats, vm.tab) { vm.visible() }
                     val subs = sec.subs()
                     Row(Modifier.fillMaxSize()) {
-                        if (!colsHidden) LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp).onFocusChanged { groupFocus = it.hasFocus }) {
-                            itemsIndexed(topEntries(sec, vm.tab == 0).filter { it.first == null || (it.first == GROUP_FAV || it.first == GROUP_HIST) || it.first !in vm.hiddenCats }, key = { _, e -> e.first ?: "\u0001all" }) { idx, (g, label) ->
+                        if (!colsHidden && vm.favMode) Column(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp).onFocusChanged { groupFocus = it.hasFocus }) {
+                            listOf(0 to "★ Favoris TV", 1 to "★ Favoris Films", 2 to "★ Favoris Séries").forEach { (i, label) ->
+                                FocusRow(
+                                    selected = vm.tab == i && sec.top == GROUP_FAV,
+                                    onClick = { vm.pickFav(i); showCols = false },
+                                    requester = if (vm.tab == i) selectedRequester else null,
+                                    blockUp = false,
+                                ) {
+                                    Text(label, color = if (vm.tab == i && sec.top == GROUP_FAV) Accent else Color.White, maxLines = 1)
+                                }
+                            }
+                        }
+                        if (!colsHidden && !vm.favMode) LazyColumn(Modifier.width(170.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp).onFocusChanged { groupFocus = it.hasFocus }, state = groupState) {
+                            itemsIndexed(entries, key = { _, e -> e.first ?: "\u0001all" }) { _, (g, label) ->
                                 val lock = g != null && (g != GROUP_FAV && g != GROUP_HIST) && vm.catLocked(label)
                                 FocusRow(
                                     selected = sec.top == g,
                                     onClick = {
                                         if (g == null || (g == GROUP_FAV || g == GROUP_HIST)) sec.pickTop(g) else vm.guardCat(label) { sec.pickTop(g) }
-                                        if (g != null) showCols = false
+                                        showCols = false
                                     },
                                     onLongClick = if (g != null && (g != GROUP_FAV && g != GROUP_HIST)) ({ vm.toggleCatLock(label) }) else null,
-                                    requester = if (idx == 0) groupFirst else null,
+                                    requester = if (g == sec.top) selectedRequester else null,
                                 ) {
                                     Text((if (lock) "🔒 " else "") + label, color = if (sec.top == g) Accent else Color.White, maxLines = 1)
                                 }
                             }
                         }
-                        if (subs.isNotEmpty() && !colsHidden) {
+                        if (subs.isNotEmpty() && !colsHidden && !vm.favMode) {
                             LazyColumn(Modifier.width(180.dp).fillMaxHeight().background(GroupBg).padding(horizontal = 4.dp, vertical = 4.dp)) {
                                 item(key = "\u0001subAll") {
                                     FocusRow(selected = sec.sub == null, onClick = { sec.pickSub(null) }) {
@@ -378,19 +515,9 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                             }
                         }
                         Column(Modifier.weight(1f).fillMaxHeight().background(ListBg)) {
-                            if (searchOpen) {
-                                OutlinedTextField(
-                                    value = vm.query,
-                                    onValueChange = { vm.query = it },
-                                    singleLine = true,
-                                    placeholder = { Text("Rechercher") },
-                                    leadingIcon = { Icon(Icons.Default.Search, null) },
-                                    modifier = Modifier.fillMaxWidth().padding(6.dp),
-                                )
-                            }
                             val pv = vm.preview
                             if (vm.tab == 0 && vm.previewMode && pv != null) PreviewHeader(vm, pv)
-                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f), listFirst) else PosterWall(vm, list, Modifier.weight(1f))
+                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f), listFirst) else PosterWall(vm, list, Modifier.weight(1f), listFirst)
                         }
                     }
                 }
@@ -398,6 +525,30 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
         }
     }
 
+    }
+}
+
+/** Transparence : une seule zone de focus. Gauche / droite = -10 % / +10 % à la manette ; OK = palier de 25 % ; le curseur sert au tactile. */
+@Composable
+private fun GlassSetting(vm: MainVm) {
+    var focused by remember { mutableStateOf(false) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .onKeyEvent { ev ->
+                if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && (ev.key == androidx.compose.ui.input.key.Key.DirectionLeft || ev.key == androidx.compose.ui.input.key.Key.DirectionRight)) {
+                    vm.changeGlass(GlassState.transp + if (ev.key == androidx.compose.ui.input.key.Key.DirectionRight) 0.1f else -0.1f)
+                    true
+                } else false
+            }
+            .clickable { vm.changeGlass(((Math.round(GlassState.transp * 4f) + 1) % 5) / 4f) }
+            .background(if (focused) Color(0x33FFFFFF) else Color.Transparent)
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+    ) {
+        Text("Transparence de l'interface : ${Math.round(GlassState.transp * 100)} %", color = Color.White, fontSize = 16.sp)
+        androidx.compose.material3.Slider(value = GlassState.transp, onValueChange = { vm.changeGlass(it) }, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -423,14 +574,8 @@ private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
                 val ok = i == 0 || vm.vodEnabled(i)
                 FilterChip(selected = vm.tab == i, enabled = ok, onClick = { vm.selectTab(i) }, label = { Text(label) })
             }
-            OutlinedTextField(
-                value = vm.query,
-                onValueChange = { vm.query = it },
-                singleLine = true,
-                placeholder = { Text("Rechercher") },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
-                modifier = Modifier.weight(1f),
-            )
+            IconButton(onClick = { vm.openSearch() }) { Icon(Icons.Default.Search, "Rechercher", tint = Color.White) }
+            Spacer(Modifier.weight(1f))
             IconButton(onClick = openSettings) { Icon(Icons.Default.Settings, "Sources", tint = Color.White) }
         }
         Spacer(Modifier.size(8.dp))
@@ -454,7 +599,7 @@ private fun HomeNarrow(vm: MainVm, openSettings: () -> Unit) {
                 }
             }
             else -> BoxWithConstraints(Modifier.fillMaxSize()) {
-                val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs) { vm.visible() }
+                val list = remember(sec.items, sec.top, sec.sub, vm.query, vm.favs, vm.history, vm.hiddenCats, vm.tab) { vm.visible() }
                 val subs = sec.subs()
                 val content: @Composable (Modifier) -> Unit = { m ->
                     if (vm.tab == 0) ChannelList(vm, list, m) else PosterGrid(vm, list, m)
@@ -533,7 +678,7 @@ private fun topEntries(sec: Section, live: Boolean): List<Pair<String?, String>>
 
 /** Films et séries : fiche du titre survolé en haut, murs d'affiches en dessous. */
 @Composable
-private fun PosterWall(vm: MainVm, list: List<Channel>, modifier: Modifier) {
+private fun PosterWall(vm: MainVm, list: List<Channel>, modifier: Modifier, first: androidx.compose.ui.focus.FocusRequester? = null) {
     if (list.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) { Text("Rien à afficher.", color = Color.Gray) }
         return
@@ -557,36 +702,72 @@ private fun PosterWall(vm: MainVm, list: List<Channel>, modifier: Modifier) {
             Text(plot, color = Color(0xFFB8C4DA), fontSize = 12.sp, maxLines = 3, modifier = Modifier.padding(top = 3.dp))
         }
         }
-        PosterGrid(vm, list, Modifier.weight(1f).padding(6.dp)) { sel = it }
+        PosterGrid(vm, list, Modifier.weight(1f).padding(6.dp), first) { sel = it }
     }
 }
 
 /** Poster wall for movies and series. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, onFocus: (Channel) -> Unit = {}) {
+private fun PosterGrid(vm: MainVm, list: List<Channel>, modifier: Modifier, first: androidx.compose.ui.focus.FocusRequester? = null, onFocus: (Channel) -> Unit = {}) {
     if (list.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) { Text("Rien à afficher.", color = Color.Gray) }
         return
     }
     LazyVerticalGrid(columns = GridCells.Adaptive(120.dp), modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(list, key = { it.id }) { c ->
+        gridItemsIndexed(list, key = { _, it -> it.id }) { idx, c ->
             var focused by remember { mutableStateOf(false) }
+            val grow by animateFloatAsState(if (focused) 1.07f else 1f, label = "posterGrow")
             val shape = RoundedCornerShape(10.dp)
             Column(
                 Modifier
+                    .then(if (idx == 0 && first != null) Modifier.focusRequester(first) else Modifier)
+                    .scale(grow)
                     .clip(shape)
                     .background(if (focused) Accent.copy(alpha = 0.35f) else Panel)
-                    .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
+                    .then(if (focused) Modifier.border(3.dp, Color.White, shape) else Modifier)
                     .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus(c) }
                     .combinedClickable(onClick = { vm.guard(c) { if (c.kind == "series") vm.openSeries(c) else vm.openMovie(c) } }, onLongClick = { vm.toggleFav(c) })
                     .padding(6.dp),
             ) {
                 Poster(c.logo, Modifier.fillMaxWidth().aspectRatio(2f / 3f), c.name)
-                Text((if (vm.isLocked(c)) "🔒 " else "") + (if (vm.isFav(c)) "★ " else "") + c.name, color = Color.White, fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
+                // hauteur fixe pour le titre : toutes les affiches gardent la même dimension
+                Box(Modifier.fillMaxWidth().height(40.dp).padding(top = 4.dp)) {
+                    Text(
+                        (if (vm.isLocked(c)) "🔒 " else "") + (if (vm.isFav(c)) "★ " else "") + c.name,
+                        color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
+}
+
+/** Bouton de saison : celui qui a le focus grossit et s'illumine, celui choisi reste en couleur pleine. */
+@Composable
+private fun SeasonChip(selected: Boolean, label: String, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val grow by animateFloatAsState(if (focused) 1.1f else 1f, label = "chipGrow")
+    val bg by animateColorAsState(
+        when {
+            selected -> Accent
+            focused -> Accent.copy(alpha = 0.35f)
+            else -> Panel
+        },
+        label = "chipBg",
+    )
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        Modifier
+            .scale(grow)
+            .clip(shape)
+            .background(bg)
+            .then(if (focused) Modifier.border(3.dp, Color.White, shape) else Modifier)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) { Text(label, color = Color.White, fontSize = 14.sp, maxLines = 1) }
 }
 
 @Composable
@@ -618,21 +799,22 @@ fun MovieScreen(vm: MainVm) {
             Poster(c.logo, Modifier.width(140.dp).aspectRatio(2f / 3f), c.name)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f).fillMaxSize()) {
-                Text(c.name, color = Color.White, fontSize = 22.sp, maxLines = 2)
+                Text(c.name, color = Color.White, fontSize = 22.sp, maxLines = 2, style = detailShadow)
                 val meta = d?.meta?.ifBlank { null } ?: c.meta
-                if (meta.isNotBlank()) Text(meta, color = Color(0xFF9DB4D8), fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
-                if (d != null && d.cast.isNotBlank()) Text("Acteurs : " + d.cast, color = Color(0xFF8A97A6), fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
+                if (meta.isNotBlank()) Text(meta, color = Color(0xFF9DB4D8), fontSize = 13.sp, style = detailShadow, modifier = Modifier.padding(top = 2.dp))
+                if (d != null && d.cast.isNotBlank()) Text("Acteurs : " + d.cast, color = Color(0xFFC9D3E0), fontSize = 12.sp, maxLines = 2, style = detailShadow, modifier = Modifier.padding(top = 4.dp))
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 8.dp)) {
                     Text(
                         (d?.plot?.ifBlank { null } ?: c.plot).ifBlank { if (d == null) "Chargement…" else "Pas de résumé." },
-                        color = Color(0xFFB8C4DA), fontSize = 13.sp,
+                        color = Color(0xFFB8C4DA), fontSize = 13.sp, style = detailShadow,
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp).background(Color(0xCC0B1220), RoundedCornerShape(12.dp)).padding(8.dp)) {
                     Button(onClick = { vm.play(listOf(c), c) }, modifier = Modifier.androidx_focusRequester(fr)) {
                         Text(if (pos > 10_000) "Reprendre (" + "%d:%02d".format(pos / 60000, pos / 1000 % 60) + ")" else "▶ Regarder")
                     }
                     OutlinedButton(onClick = { vm.toggleFav(c) }) { Text(if (vm.isFav(c)) "★ Dans ma liste" else "☆ Ma liste") }
+                    OutlinedButton(onClick = { if (vm.recording == null) vm.startRecording(ctx, c) else vm.stopRecording() }) { Text(if (vm.recording == null) "⏺ Enregistrer" else "⏹ Arrêter") }
                     val tr = d?.trailer.orEmpty()
                     if (tr.isNotBlank()) OutlinedButton(onClick = {
                         val url = if (tr.startsWith("http")) tr else "https://www.youtube.com/watch?v=$tr"
@@ -686,7 +868,7 @@ fun SeriesScreen(vm: MainVm) {
                 Column(Modifier.weight(1f).fillMaxSize()) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(keys, key = { it }) { k ->
-                            FilterChip(selected = k == cur, onClick = { season = k }, label = { Text("Saison $k") })
+                            SeasonChip(selected = k == cur, label = "Saison $k") { season = k }
                         }
                     }
                     Spacer(Modifier.size(6.dp))
@@ -729,7 +911,7 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
                 .clip(RoundedCornerShape(6.dp))
                 .background(Color.Black)
                 .combinedClickable(onClick = {}, onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }),
-        ) { PreviewBox(pv) }
+        ) { PreviewBox(pv, paused = vm.previewPausedId == pv.id) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f).fillMaxHeight()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -858,7 +1040,8 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
                             fontSize = 13.sp, maxLines = 1,
                             modifier = Modifier.width(128.dp),
                         )
-                        val progs = (e?.list ?: emptyList()).filter { it.stop > ws && it.start < ws + winMin * 60_000L }
+                        val progs = remember(e?.list, ws, winMin) { (e?.list ?: emptyList()).filter { it.stop > ws && it.start < ws + winMin * 60_000L } }
+                        val sctx = androidx.compose.ui.platform.LocalContext.current
                         Box(Modifier.width(gridW).height(36.dp).clip(RoundedCornerShape(4.dp))) {
                             if (progs.isEmpty()) {
                                 EpgCell(e?.now?.title, null, null, Modifier.fillMaxSize())
@@ -870,7 +1053,13 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
                                     val frac = if (isNow) ((nowMs - p.start).toFloat() / (p.stop - p.start).coerceAtLeast(1)) else null
                                     EpgCell(
                                         p.title, null, frac,
-                                        Modifier.offset(x = x0).width(w).fillMaxHeight(),
+                                        Modifier.offset(x = x0).width(w).fillMaxHeight().combinedClickable(
+                                            onClick = {},
+                                            onLongClick = {
+                                                val ok = vm.schedule(sctx, c, p)
+                                                android.widget.Toast.makeText(sctx, if (ok) "Enregistrement programmé : ${p.title}" else "Émission terminée", android.widget.Toast.LENGTH_SHORT).show()
+                                            },
+                                        ),
                                         highlight = isNow && vm.opt("highlight") && !vm.opt("progonly", false),
                                         twoLines = vm.opt("twolines", false),
                                     )
@@ -886,8 +1075,10 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
     }
 }
 
-val PanelHead get() = darker(Accent, 0.2f)
-val PanelBody get() = Accent
+/** les préférences restent lisibles : jamais plus transparentes que 8 % (sinon la grille du guide passe à travers le texte) */
+private fun panelGlass(c: Color): Color = c.copy(alpha = (1f - GlassState.transp).coerceAtLeast(0.97f))
+val PanelHead get() = panelGlass(darker(Accent, 0.2f))
+val PanelBody get() = panelGlass(Accent)
 
 /** Une ligne d'un panneau de réglages : titre, petit texte, élément à droite (interrupteur, valeur…). */
 @OptIn(ExperimentalFoundationApi::class)
@@ -898,6 +1089,7 @@ private fun PanelItem(
     first: Boolean = false,
     onLong: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    selected: Boolean = false,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -909,7 +1101,8 @@ private fun PanelItem(
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 1.dp)
             .clip(shape)
-            .background(if (focused) AccentDark else Color.Transparent)
+            .background(if (focused) AccentDark else if (selected) Color.White.copy(alpha = 0.22f) else Color.Transparent)
+            .then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier)
             .androidx_focusRequester(fr)
             .onFocusChanged { focused = it.isFocused }
             .combinedClickable(onClick = onClick, onLongClick = onLong)
@@ -940,14 +1133,21 @@ private fun PanelLabel(text: String) {
 /** Panneau de réglages qui glisse par-dessus l'accueil, côté droit. */
 @Composable
 fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
-    var page by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "add" else "root") }
+    var page by rememberSaveable { mutableStateOf(vm.settingsStart ?: if (vm.sources.isEmpty()) "add" else "root") }
+    LaunchedEffect(Unit) { vm.settingsStart = null }
+    // le joystick reste dans le panneau : quand on change de page, le focus va dans son contenu (pas dans la colonne de gauche)
+    val bodyFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(page) { if (page != "root") runCatching { bodyFocus.requestFocus() } }
     val canClose = vm.sources.isNotEmpty()
     BackHandler(true) {
         when {
+            page.startsWith("edit:") -> page = "lists"
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
             page == "rename" -> page = "look_guide"
             page.startsWith("look_") -> page = "look"
-            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "rec" || page == "parental" || page == "update" || page == "about" -> page = "root"
+            // Retour dans Enregistrements : ferme tout le panneau (les enregistrements restent dans la liste)
+            page == "rec" -> back()
+            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "profiles" -> page = "root"
             canClose -> back()
         }
     }
@@ -956,10 +1156,12 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "root" -> "Paramètres"
         page == "lists" -> "Listes de lecture"
         page == "add" -> "Ajouter une liste"
+        page.startsWith("edit:") -> "Modifier la liste"
         page.startsWith("src:") -> vm.sources.firstOrNull { it.id == page.removePrefix("src:") }?.name?.ifBlank { "Liste" } ?: "Liste"
         page == "groups" -> "Groupes"
         page == "playback" -> "Préférences générales"
         page == "network" -> "Réseau"
+        page == "profiles" -> "Profils"
         page == "rename" -> "Renommer des chaînes"
         page == "epg" -> "Guide (EPG)"
         page == "backup" -> "Sauvegarde"
@@ -977,9 +1179,13 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         val w = if (docked) maxWidth else if (maxWidth > 400.dp) 360.dp else maxWidth * 0.92f
         Row(Modifier.fillMaxSize()) {
             if (!docked) Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).clickable(enabled = canClose, onClick = back))
-            Column(Modifier.width(w).fillMaxHeight().background(PanelBody)) {
-                Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.fillMaxWidth().background(PanelHead).padding(horizontal = 18.dp, vertical = 14.dp))
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
+            // la flèche Haut ne sort plus du panneau de réglages (sinon le focus revient à la colonne TV / Films / Séries)
+            Column(Modifier.width(w).fillMaxHeight().background(PanelBody).focusProperties { exit = { androidx.compose.ui.focus.FocusRequester.Cancel } }) {
+                Row(Modifier.fillMaxWidth().background(PanelHead).padding(start = 18.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
+                    if (canClose) IconButton(onClick = back) { Icon(Icons.Default.Close, "Fermer", tint = Color.White) }
+                }
+                Column(Modifier.weight(1f).focusRequester(bodyFocus).focusable().verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
                     when {
                         page == "root" -> {
                             PanelItem("Listes de lecture", first = true) { page = "lists" }
@@ -987,6 +1193,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Apparence", "${ACCENTS[vm.accentIdx].first} · texte ${TEXT_SIZES[vm.textSizeIdx].first.lowercase()}") { page = "look" }
                             PanelItem("Préférences générales") { page = "playback" }
                             PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
+                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX})") { page = "profiles" }
                             PanelItem("Guide (EPG)", vm.epgStatus) { page = "epg" }
                             PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
                             PanelItem("Enregistrements") { page = "rec" }
@@ -1008,16 +1215,21 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page.startsWith("src:") -> {
                             val id = page.removePrefix("src:")
                             PanelItem("Utiliser cette liste", first = true) { vm.select(id); back() }
+                            PanelItem("Modifier cette liste", "Nom, adresse, identifiants") { page = "edit:" + id }
                             PanelItem("Supprimer cette liste", "Efface la liste de l'appli") {
                                 vm.deleteSource(id)
                                 if (vm.sources.isEmpty()) page = "add" else page = "lists"
                             }
                         }
                         page == "add" -> AddSourceForm(vm, canClose) { page = "lists"; back() }
+                        page.startsWith("edit:") -> {
+                            val es = vm.sources.firstOrNull { it.id == page.removePrefix("edit:") }
+                            if (es != null) AddSourceForm(vm, true, es) { page = "lists" }
+                        }
                         page == "groups" -> GroupsPage(vm)
                         page == "look" -> {
                             PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first, first = true) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
-                            PanelItem("Transparence de l'interface", TRANSPS[vm.transpIdx].first) { vm.changeTransp((vm.transpIdx + 1) % TRANSPS.size) }
+                            GlassSetting(vm)
                             PanelItem("Couleur de l'interface", ACCENTS[vm.accentIdx].first) { page = "look_color" }
                             PanelItem("Image de fond", if (vm.bgPath != null) "Une image est active" else "Aucune") { page = "look_bg" }
                             PanelItem("Guide TV") { page = "look_guide" }
@@ -1050,6 +1262,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Démarrer au démarrage d'Android", "Ouvre l'appli quand l'appareil démarre", trailing = { PanelSwitch(vm.bootStart) }) { vm.changeBootStart(!vm.bootStart) }
                         }
                         page == "network" -> NetworkPage(vm)
+                        page == "profiles" -> ProfilesPage(vm)
                         page == "rename" -> RenamePage(vm)
                         page == "epg" -> EpgPage(vm)
                         page == "backup" -> BackupPage(vm)
@@ -1061,7 +1274,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(64.dp))
                                 Spacer(Modifier.size(10.dp))
                                 Text("theIPTVapp pour Android", color = Color.White, fontSize = 18.sp)
-                                Text("Créé par Benoît", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+                                Text("Créé par Benoît Dumont à l'aide de l'IA", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
                                 Text("Projet gratuit · lecteur IPTV", color = Color.Gray, fontSize = 13.sp)
                                 Text("Version ${BuildConfig.VERSION_NAME}", color = Color.Gray, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
                             }
@@ -1097,14 +1310,122 @@ private fun RenamePage(vm: MainVm) {
     }
 }
 
+/**
+ * Champ de saisie pour la TV : on voit le champ (titre + texte actuel). Appui OK/Entrée : une fenêtre
+ * s'ouvre avec le nom du réglage en titre et le texte écrit en gros, pour savoir exactement où l'on écrit.
+ */
+@Composable
+fun TvField(
+    value: String,
+    onValue: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    secret: Boolean = false,
+    keyboard: KeyboardType = KeyboardType.Text,
+) {
+    var open by remember { mutableStateOf(false) }
+    var draft by remember { mutableStateOf("") }
+    var focused by remember { mutableStateOf(false) }
+    val shown = if (secret) "•".repeat(value.length) else value
+    Column(modifier.fillMaxWidth()) {
+        Text(label, color = Color(0xFFB8C4EE), fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = Color(0x22FFFFFF),
+            border = androidx.compose.foundation.BorderStroke(if (focused) 3.dp else 1.dp, if (focused) Color.White else Color(0x66FFFFFF)),
+            modifier = Modifier.fillMaxWidth()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable { draft = value; open = true },
+        ) {
+            Text(
+                shown.ifEmpty { "Appuie sur OK pour écrire" },
+                color = if (shown.isEmpty()) Color.Gray else Color.White,
+                fontSize = 16.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            )
+        }
+    }
+    if (open) {
+        val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+        LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(label) },
+            text = {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = if (keyboard == KeyboardType.NumberPassword) it.filter(Char::isDigit) else it },
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 22.sp),
+                    visualTransformation = if (secret) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+                    keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                )
+            },
+            confirmButton = { Button(onClick = { onValue(draft.trim()); open = false }) { Text("OK") } },
+            dismissButton = { OutlinedButton(onClick = { open = false }) { Text("Annuler") } },
+        )
+    }
+}
+
+@Composable
+private fun ProfilesPage(vm: MainVm) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var tick by remember { mutableStateOf(0) }
+    val list = remember(tick) { Profiles.list(ctx) }
+    val active = remember(tick) { Profiles.activeId(ctx) }
+    var newName by rememberSaveable { mutableStateOf("") }
+    var editId by rememberSaveable { mutableStateOf("") }
+    var editName by rememberSaveable { mutableStateOf("") }
+    var msg by rememberSaveable { mutableStateOf("") }
+    Column(Modifier.padding(horizontal = 6.dp)) {
+        PanelLabel("Toucher un profil : on y passe (l'appli redémarre). Appui long : modifier le nom ou supprimer.")
+        list.forEachIndexed { i, p ->
+            PanelItem(
+                (if (p.id == active) "✔ " else "") + p.name,
+                if (p.id == active) "Profil actif" else "Toucher : passer à ce profil",
+                first = i == 0,
+                onLong = { editId = p.id; editName = p.name; msg = "" },
+                trailing = { OutlinedButton(onClick = { editId = p.id; editName = p.name; msg = "" }) { Text("Modifier", fontSize = 13.sp) } },
+            ) { if (p.id != active) Profiles.switchTo(ctx, p.id) }
+        }
+        if (editId.isNotEmpty()) {
+            PanelLabel("Modifier le profil")
+            TvField(editName, { editName = it }, "Nom du profil")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    enabled = editName.isNotBlank(),
+                    onClick = { Profiles.rename(ctx, editId, editName); editId = ""; tick++; msg = "Nom enregistré." },
+                ) { Text("Enregistrer") }
+                if (editId != active && editId != "p0") OutlinedButton(onClick = {
+                    val n = list.firstOrNull { it.id == editId }?.name ?: ""
+                    msg = if (Profiles.delete(ctx, editId)) "Profil « $n » supprimé." else "Suppression impossible."
+                    editId = ""; tick++
+                }) { Text("Supprimer") }
+                OutlinedButton(onClick = { editId = "" }) { Text("Annuler") }
+            }
+        }
+        PanelLabel("Ajouter un profil (${list.size}/${Profiles.MAX})")
+        TvField(newName, { newName = it }, "Nom du nouveau profil")
+        Button(
+            enabled = newName.isNotBlank() && list.size < Profiles.MAX,
+            onClick = { if (Profiles.add(ctx, newName)) { newName = ""; tick++; msg = "Profil ajouté. Touche-le pour y passer." } },
+        ) { Text("Ajouter") }
+        if (msg.isNotBlank()) Text(msg, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(18.dp))
+    }
+}
+
 @Composable
 private fun NetworkPage(vm: MainVm) {
     var ua by rememberSaveable { mutableStateOf(vm.userAgent) }
     var px by rememberSaveable { mutableStateOf(vm.proxy) }
     Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Spacer(Modifier.size(6.dp))
-        OutlinedTextField(ua, { ua = it }, label = { Text("User-Agent (vide = par défaut)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(px, { px = it }, label = { Text("Proxy hôte:port (vide = aucun)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+        TvField(ua, { ua = it }, "Préférences › Réseau › User-Agent (vide = par défaut)")
+        TvField(px, { px = it }, "Préférences › Réseau › Proxy hôte:port (vide = aucun)", keyboard = KeyboardType.Uri)
+        Text("Sous-titres en ligne : mets TA clé OpenSubtitles (gratuite, à créer sur opensubtitles.com). Elle reste sur cet appareil.", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
+        var osk by rememberSaveable { mutableStateOf(vm.osKey()) }
+        TvField(osk, { osk = it; vm.saveOsKey(it) }, "Clé API OpenSubtitles (ta clé personnelle)", secret = true)
         Button(onClick = { vm.saveNetwork(ua, px) }) { Text("Enregistrer") }
         if (vm.applyNetworkNote.isNotBlank()) Text(vm.applyNetworkNote, color = Color.White, fontSize = 12.sp)
     }
@@ -1151,34 +1472,25 @@ private fun BackupPage(vm: MainVm) {
 }
 
 @Composable
-private fun AddSourceForm(vm: MainVm, canCancel: Boolean, done: () -> Unit) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var type by rememberSaveable { mutableStateOf(SourceType.M3U) }
-    var url by rememberSaveable { mutableStateOf("") }
-    var host by rememberSaveable { mutableStateOf("") }
-    var user by rememberSaveable { mutableStateOf("") }
-    var pass by rememberSaveable { mutableStateOf("") }
+private fun AddSourceForm(vm: MainVm, canCancel: Boolean, edit: Source? = null, done: () -> Unit) {
+    var name by rememberSaveable { mutableStateOf(edit?.name ?: "") }
+    var type by rememberSaveable { mutableStateOf(edit?.type ?: SourceType.M3U) }
+    var url by rememberSaveable { mutableStateOf(edit?.url ?: "") }
+    var host by rememberSaveable { mutableStateOf(edit?.host ?: "") }
+    var user by rememberSaveable { mutableStateOf(edit?.user ?: "") }
+    var pass by rememberSaveable { mutableStateOf(edit?.pass ?: "") }
     PanelLabel("Type de liste")
-    PanelItem("Liste M3U", first = true, trailing = { PanelSwitch(type == SourceType.M3U) }) { type = SourceType.M3U }
-    PanelItem("Xtream Codes", trailing = { PanelSwitch(type == SourceType.XTREAM) }) { type = SourceType.XTREAM }
+    PanelItem(if (type == SourceType.M3U) "✔ Liste M3U" else "Liste M3U", first = true, selected = type == SourceType.M3U, trailing = { PanelSwitch(type == SourceType.M3U) }) { type = SourceType.M3U }
+    PanelItem(if (type == SourceType.XTREAM) "✔ Xtream Codes" else "Xtream Codes", selected = type == SourceType.XTREAM, trailing = { PanelSwitch(type == SourceType.XTREAM) }) { type = SourceType.XTREAM }
     Column(Modifier.padding(horizontal = 12.dp)) {
         Spacer(Modifier.size(6.dp))
-        OutlinedTextField(name, { name = it }, label = { Text("Nom") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        TvField(name, { name = it }, "Nom de la liste")
         if (type == SourceType.M3U) {
-            OutlinedTextField(
-                url, { url = it }, label = { Text("Adresse de la liste (http…)") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
-            )
+            TvField(url, { url = it }, "Adresse de la liste (http…)", keyboard = KeyboardType.Uri)
         } else {
-            OutlinedTextField(
-                host, { host = it }, label = { Text("Serveur (http://exemple.com:8080)") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(user, { user = it }, label = { Text("Identifiant") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(
-                pass, { pass = it }, label = { Text("Mot de passe") }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(),
-            )
+            TvField(host, { host = it }, "Serveur (http://exemple.com:8080)", keyboard = KeyboardType.Uri)
+            TvField(user, { user = it }, "Identifiant")
+            TvField(pass, { pass = it }, "Mot de passe", secret = true)
         }
         Spacer(Modifier.size(10.dp))
         val ok = if (type == SourceType.M3U) url.isNotBlank() else host.isNotBlank() && user.isNotBlank() && pass.isNotBlank()
@@ -1186,13 +1498,12 @@ private fun AddSourceForm(vm: MainVm, canCancel: Boolean, done: () -> Unit) {
             Button(
                 enabled = ok,
                 onClick = {
-                    vm.addSource(
-                        Source(vm.newId(), name.ifBlank { if (type == SourceType.M3U) "Ma liste" else "Mon Xtream" }, type, url.trim(), host.trim(), user.trim(), pass),
-                    )
-                    name = ""; url = ""; host = ""; user = ""; pass = ""
+                    val s = Source(edit?.id ?: vm.newId(), name.ifBlank { if (type == SourceType.M3U) "Ma liste" else "Mon Xtream" }, type, url.trim(), host.trim(), user.trim(), pass.trim())
+                    if (edit != null) vm.updateSource(s) else vm.addSource(s)
+                    if (edit == null) { name = ""; url = ""; host = ""; user = ""; pass = "" }
                     done()
                 },
-            ) { Text("Ajouter") }
+            ) { Text(if (edit != null) "Enregistrer" else "Ajouter") }
         }
     }
 }
@@ -1265,12 +1576,8 @@ private fun ParentalSection(vm: MainVm) {
         Text("Appui long sur une catégorie (colonne de gauche) pour la verrouiller ou la déverrouiller.", color = Color.Gray, fontSize = 12.sp)
         if (!vm.unlocked) Text("Ouvre un élément verrouillé et entre le code pour modifier ces réglages.", color = Color.Gray, fontSize = 12.sp)
     } else {
-        OutlinedTextField(kw, { kw = it }, label = { Text("Mots à verrouiller (séparés par des virgules)") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(
-            pin, { pin = it.filter(Char::isDigit) }, label = { Text("Nouveau code (4 chiffres ou plus)") }, singleLine = true,
-            visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        TvField(kw, { kw = it }, "Mots à verrouiller (séparés par des virgules)")
+        TvField(pin, { pin = it.filter(Char::isDigit) }, "Nouveau code (4 chiffres ou plus)", secret = true, keyboard = KeyboardType.NumberPassword)
         Button(
             enabled = pin.length >= 4 && kw.isNotBlank(),
             onClick = { vm.setParental(pin, kw.split(',')); pin = "" },
@@ -1324,22 +1631,129 @@ private fun PlaybackSection(vm: MainVm) {
     }
 }
 
+/** Programme un enregistrement à la main : chaîne (nom), jour, heure de début et de fin. */
+@Composable
+private fun ScheduleForm(vm: MainVm) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var chName by rememberSaveable { mutableStateOf("") }
+    var day by rememberSaveable { mutableStateOf("0") }
+    var from by rememberSaveable { mutableStateOf("") }
+    var to by rememberSaveable { mutableStateOf("") }
+    var msg by rememberSaveable { mutableStateOf("") }
+    var asDvr by rememberSaveable { mutableStateOf(false) }
+    val match = if (chName.isBlank()) null else vm.live.items.firstOrNull { it.name.contains(chName, ignoreCase = true) || vm.displayName(it).contains(chName, ignoreCase = true) }
+    fun parseHm(s: String): Pair<Int, Int>? {
+        val m = Regex("^(\\d{1,2}):(\\d{2})$").find(s.trim()) ?: return null
+        val h = m.groupValues[1].toInt(); val mi = m.groupValues[2].toInt()
+        return if (h in 0..23 && mi in 0..59) h to mi else null
+    }
+    val a = parseHm(from)
+    val b = parseHm(to)
+    Spacer(Modifier.size(12.dp))
+    Text("Programmer un enregistrement", color = Color.White, fontSize = 15.sp)
+    TvField(chName, { chName = it; msg = "" }, "Nom de la chaîne (une partie du nom suffit)")
+    if (chName.isNotBlank()) Text(
+        if (match != null) "Chaîne trouvée : ${vm.displayName(match)}" else "Aucune chaîne ne correspond",
+        color = if (match != null) Color(0xFFB8F5C8) else Color(0xFFFF8A8A), fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp),
+    )
+    TvField(day, { day = it.filter(Char::isDigit).take(1) }, "Jour : 0 = aujourd'hui, 1 = demain")
+    TvField(from, { from = it; msg = "" }, "Heure de début (hh:mm, ex. 20:00)")
+    TvField(to, { to = it; msg = "" }, "Heure de fin (hh:mm, ex. 22:00)")
+    OutlinedButton(onClick = { asDvr = !asDvr; msg = "" }) {
+        Text(if (asDvr) "Mode : DVR (garder dans le DVR, 2 h max)" else "Mode : fichier (enregistrer l'émission)")
+    }
+    Button(
+        enabled = match != null && a != null && b != null,
+        onClick = {
+            val (ah, am) = a!!
+            val (bh, bm) = b!!
+            val cal = java.util.Calendar.getInstance()
+            cal.add(java.util.Calendar.DAY_OF_YEAR, day.toIntOrNull() ?: 0)
+            cal.set(java.util.Calendar.HOUR_OF_DAY, ah)
+            cal.set(java.util.Calendar.MINUTE, am)
+            cal.set(java.util.Calendar.SECOND, 0)
+            cal.set(java.util.Calendar.MILLISECOND, 0)
+            val start = cal.timeInMillis
+            var diff = (bh * 60 + bm) - (ah * 60 + am)
+            if (diff <= 0) diff += 24 * 60 // fin après minuit
+            val stop = start + diff * 60_000L
+            msg = if (stop <= System.currentTimeMillis()) "Cette heure est déjà passée."
+            else if (asDvr && diff > 120) "Le DVR garde 2 h : pour plus long, choisis le mode fichier."
+            else if (vm.scheduleManual(ctx, match!!, start, stop, asDvr)) {
+                val txt = "Programmé : ${vm.displayName(match)} de ${"%02d:%02d".format(ah, am)} à ${"%02d:%02d".format(bh, bm)}"
+                chName = ""; from = ""; to = ""
+                txt
+            } else "Impossible de programmer."
+        },
+    ) { Text("Programmer") }
+    // enregistrer tout de suite, pendant 30 min, 1 h ou 2 h (comme la version PC)
+    Text("Enregistrer maintenant :", color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(30, 60, 120).forEach { mins ->
+            OutlinedButton(enabled = match != null, onClick = {
+                val now = System.currentTimeMillis()
+                val label = if (mins < 60) "$mins min" else "${mins / 60} h"
+                msg = if (vm.scheduleManual(ctx, match!!, now, now + mins * 60_000L, false)) "Enregistrement lancé : ${vm.displayName(match)} pendant $label."
+                else "Impossible de lancer l'enregistrement."
+            }) { Text(if (mins < 60) "$mins min" else "${mins / 60} h") }
+        }
+    }
+    if (msg.isNotBlank()) Text(msg, color = Color.White, fontSize = 12.sp)
+}
+
 @Composable
 private fun RecordingsSection(vm: MainVm) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    // où sauvegarder films enregistrés, émissions et DVR (clé USB possible)
+    val storageOpts = remember { StorageChoice.options(ctx) }
+    var storagePath by remember { mutableStateOf(StorageChoice.current(ctx).absolutePath) }
+    Text("Où sauvegarder (enregistrements et DVR) :", color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
+    storageOpts.forEach { o ->
+        FocusRow(selected = o.root.absolutePath == storagePath, onClick = { StorageChoice.set(ctx, o.root); storagePath = o.root.absolutePath }) {
+            Column(Modifier.weight(1f)) {
+                Text(o.label + if (o.root.absolutePath == storagePath) "  (choisi)" else "", color = Color.White, maxLines = 1)
+                Text(o.root.absolutePath, color = Color.Gray, fontSize = 11.sp, maxLines = 1)
+            }
+        }
+    }
+    Text("Les fichiers déjà enregistrés restent dans l'ancien dossier.", color = Color.Gray, fontSize = 12.sp)
     val files = remember(vm.recVersion, vm.recording) { vm.recordings(ctx) }
-    Spacer(Modifier.size(24.dp))
-    Text("Enregistrements", fontSize = 18.sp, color = Color.White)
     vm.recording?.let { Text("● En cours : ${it.name} (${it.file.length() / 1_000_000} Mo)", color = Color(0xFFFF6B6B), fontSize = 12.sp) }
+    // DVR : ce qui est gardé pour chaque chaîne en direct (2 h / 6 Go max)
+    var dvrTick by remember { mutableStateOf(0) }
+    val dvrInfos = remember(dvrTick, vm.recVersion, vm.recording) { Dvr.infos(ctx) }
+    Text("DVR (chaînes en direct)", color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp))
+    if (dvrInfos.isEmpty()) Text("Rien d'enregistré. Le DVR se remplit quand une chaîne en direct joue.", color = Color.Gray, fontSize = 12.sp)
+    dvrInfos.forEach { d ->
+        FocusRow(selected = false, onClick = { Dvr.clearDir(ctx, d.dirName); dvrTick++ }) {
+            Column(Modifier.weight(1f)) {
+                Text(d.name + if (d.recording) "  (en cours)" else "", color = Color.White, maxLines = 1)
+                Text("${d.totalMs / 60_000} min gardées · ${d.bytes / 1_000_000} Mo", color = Color.Gray, fontSize = 12.sp)
+            }
+            Text("Effacer", color = Color(0xFFFF8A8A), fontSize = 12.sp)
+        }
+    }
+    val sched = vm.scheduled(ctx)
+    if (sched.isNotEmpty()) {
+        Text("Programmés", color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp))
+        val fmt = java.text.SimpleDateFormat("EEE d MMM HH:mm", java.util.Locale.CANADA_FRENCH)
+        sched.forEach { s ->
+            FocusRow(selected = false, onClick = { vm.cancelSched(ctx, s.id) }) {
+                Text("${s.title.ifEmpty { s.chName }} · ${s.chName} · ${fmt.format(java.util.Date(s.start))}", color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 2)
+                Text("Annuler", color = Color(0xFFFF8A8A), fontSize = 12.sp)
+            }
+        }
+    }
+    ScheduleForm(vm)
     if (vm.recMessage.isNotBlank()) Text(vm.recMessage, color = Color(0xFFFF8A8A), fontSize = 12.sp)
-    if (files.isEmpty()) Text("Aucun enregistrement. Ouvre une chaîne en direct et touche ⏺ REC.", color = Color.Gray, fontSize = 12.sp)
+    if (files.isEmpty()) Text("Aucun enregistrement. Dans le lecteur, touche le bouton rouge ⏺ (chaîne, film ou épisode).", color = Color.Gray, fontSize = 12.sp)
     files.forEach { f ->
         FocusRow(selected = false, onClick = {
-            val ch = Channel(id = "r" + f.name, name = f.name.removeSuffix(".ts"), url = f.toURI().toString(), kind = "movie")
+            val ch = Channel(id = "r" + f.name, name = f.name.substringBeforeLast('.'), url = f.toURI().toString(), kind = "movie")
             vm.play(listOf(ch), ch)
         }) {
             Column(Modifier.weight(1f)) {
-                Text(f.name.removeSuffix(".ts"), color = Color.White, maxLines = 1)
+                Text(f.name.substringBeforeLast('.'), color = Color.White, maxLines = 1)
                 Text("${f.length() / 1_000_000} Mo", color = Color.Gray, fontSize = 12.sp)
             }
             IconButton(onClick = { vm.deleteRecording(f) }) { Icon(Icons.Default.Delete, "Supprimer", tint = Color(0xFFFF8A8A)) }

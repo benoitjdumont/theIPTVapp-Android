@@ -7,6 +7,8 @@ import android.content.Intent
 /** Au démarrage d'Android, ouvre l'appli si l'option « Démarrer au démarrage d'Android » est active. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
+        // les enregistrements programmés sont relancés même si l'appli ne s'ouvre pas au démarrage
+        runCatching { Scheduler.rescheduleAll(context) }
         if (!Store(context).bootStart()) return
         runCatching {
             context.startActivity(
