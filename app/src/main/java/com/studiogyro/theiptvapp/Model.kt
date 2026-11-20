@@ -51,6 +51,10 @@ data class Channel(
     val meta: String = "",
     /** tvg-id of an M3U channel, used to find it in the XMLTV guide */
     val epgId: String = "",
+    /** épisode de série : nom de la série, saison et numéro d'épisode (recherche de sous-titres) */
+    val seriesName: String = "",
+    val season: Int = 0,
+    val episode: Int = 0,
 )
 
 data class Detail(val plot: String, val meta: String, val cast: String, val trailer: String = "")

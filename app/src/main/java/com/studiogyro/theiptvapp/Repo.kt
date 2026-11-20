@@ -124,7 +124,7 @@ object Repo {
         Detail(plot, meta, info.optString("cast"), info.optString("youtube_trailer").trim())
     }
 
-    suspend fun seriesInfo(src: Source, sid: String): SeriesData = withContext(Dispatchers.IO) {
+    suspend fun seriesInfo(src: Source, sid: String, seriesName: String = ""): SeriesData = withContext(Dispatchers.IO) {
         val base = normHost(src.host)
         val u = encCred(src.user)
         val p = encCred(src.pass)
@@ -144,7 +144,10 @@ object Repo {
             val label = "S${season}E$num" + if (title.isNotBlank()) " · $title" else ""
             val img = o.optJSONObject("info")?.optString("movie_image") ?: ""
             seasons.getOrPut(season) { ArrayList() }.add(
-                Channel(id = "e$id", name = label, url = "$base/series/$u/$p/$id.$ext", logo = img, kind = "movie"),
+                Channel(
+                    id = "e$id", name = label, url = "$base/series/$u/$p/$id.$ext", logo = img, kind = "movie",
+                    seriesName = seriesName, season = season, episode = num.toIntOrNull() ?: 0,
+                ),
             )
         }
         val eps = root.opt("episodes")

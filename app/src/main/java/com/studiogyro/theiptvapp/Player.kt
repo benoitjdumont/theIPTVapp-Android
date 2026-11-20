@@ -676,7 +676,9 @@ fun PlayerScreen(vm: MainVm) {
         picker?.let { kind ->
             TrackPickerDialog(
                 player, kind,
-                query = cleanTitle(ch.name), year = yearOf(ch.name), key = vm.osKey(),
+                query = if (ch.seriesName.isNotBlank()) cleanTitle(ch.seriesName) else cleanTitle(ch.name),
+                year = if (ch.seriesName.isNotBlank()) "" else yearOf(ch.name), key = vm.osKey(),
+                season = ch.season, episode = ch.episode,
                 live = ch.kind == "live",
                 onSubUrl = { s ->
                     subStart = if (ch.kind != "live") player.currentPosition else 0L
@@ -914,6 +916,7 @@ private fun streamInfo(player: ExoPlayer, kind: String): String? {
 private fun TrackPickerDialog(
     player: ExoPlayer, kind: String,
     query: String = "", year: String = "", key: String = "", live: Boolean = false,
+    season: Int = 0, episode: Int = 0,
     onSubUrl: (String) -> Unit, onDone: () -> Unit,
 ) {
     var url by remember { mutableStateOf("") }
@@ -966,7 +969,7 @@ private fun TrackPickerDialog(
                     TextButton(enabled = !busy && key.isNotBlank() && query.isNotBlank(), onClick = {
                         busy = true; err = ""; online = null
                         scope.launch {
-                            try { online = OpenSubs.search(key, query, year) }
+                            try { online = OpenSubs.search(key, query, year, season = season, episode = episode) }
                             catch (e: Exception) { err = e.message ?: "Recherche impossible" }
                             finally { busy = false }
                         }
