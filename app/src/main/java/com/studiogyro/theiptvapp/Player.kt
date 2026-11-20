@@ -441,7 +441,7 @@ fun PlayerScreen(vm: MainVm) {
         // (sur un film, seulement le haut de l'écran, pour ne pas couvrir les boutons du lecteur)
         Box(
             Modifier
-                .then(if (ch.kind == "live") Modifier.fillMaxSize() else Modifier.fillMaxWidth().fillMaxHeight(0.38f))
+                .fillMaxSize()
                 .pointerInput(ch.id) {
                     val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     val slop = viewConfiguration.touchSlop
@@ -462,6 +462,8 @@ fun PlayerScreen(vm: MainVm) {
                             val ev = awaitPointerEvent()
                             val c = ev.changes.firstOrNull { it.id == down.id } ?: break
                             if (!c.pressed) {
+                                // diagnostic : bulle à chaque toucher (zone, état du menu)
+                                android.widget.Toast.makeText(ctx, "toucher zone=$zone dragging=$dragging menu=$menuStage ui=$showUi", android.widget.Toast.LENGTH_SHORT).show()
                                 if (!dragging) { if (menuStage == 2) menuStage = 1 else showUi = !showUi }
                                 break
                             }
