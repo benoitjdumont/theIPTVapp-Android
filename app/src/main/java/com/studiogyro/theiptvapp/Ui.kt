@@ -1054,7 +1054,10 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
                                     EpgCell(
                                         p.title, null, frac,
                                         Modifier.offset(x = x0).width(w).fillMaxHeight().combinedClickable(
-                                            onClick = {},
+                                            onClick = {
+                                                val ok = Reminder.schedule(sctx, c.name, p)
+                                                android.widget.Toast.makeText(sctx, if (ok) "Rappel réglé : ${p.title}" else "Émission déjà commencée", android.widget.Toast.LENGTH_SHORT).show()
+                                            },
                                             onLongClick = {
                                                 val ok = vm.schedule(sctx, c, p)
                                                 android.widget.Toast.makeText(sctx, if (ok) "Enregistrement programmé : ${p.title}" else "Émission terminée", android.widget.Toast.LENGTH_SHORT).show()
