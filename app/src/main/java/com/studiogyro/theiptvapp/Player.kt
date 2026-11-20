@@ -677,6 +677,7 @@ fun PlayerScreen(vm: MainVm) {
             TrackPickerDialog(
                 player, kind,
                 query = cleanTitle(ch.name), year = yearOf(ch.name), key = vm.osKey(),
+                live = ch.kind == "live",
                 onSubUrl = { s ->
                     subStart = if (ch.kind != "live") player.currentPosition else 0L
                     player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
@@ -912,7 +913,7 @@ private fun streamInfo(player: ExoPlayer, kind: String): String? {
 @Composable
 private fun TrackPickerDialog(
     player: ExoPlayer, kind: String,
-    query: String = "", year: String = "", key: String = "",
+    query: String = "", year: String = "", key: String = "", live: Boolean = false,
     onSubUrl: (String) -> Unit, onDone: () -> Unit,
 ) {
     var url by remember { mutableStateOf("") }
@@ -940,7 +941,11 @@ private fun TrackPickerDialog(
                 val info = remember(kind) { streamInfo(player, kind) }
                 Text(if (info != null) "Le flux envoie : $info" else "Le flux n'indique pas ses détails (lecture pas encore démarrée ?)", color = Color(0xFFB0BEC5), modifier = Modifier.padding(bottom = 8.dp))
             }
-            if (kind == "text") {
+            if (kind == "text" && live) Text(
+                "Sous-titres externes indisponibles sur la TV en direct : ils ne se synchronisent pas avec le direct.",
+                color = Color(0xFFB0BEC5), fontSize = 12.sp,
+            )
+            else if (kind == "text") {
                 androidx.compose.material3.OutlinedTextField(
                     value = url, onValueChange = { url = it }, singleLine = true,
                     label = { Text("Adresse d'un fichier .srt ou .vtt") },
