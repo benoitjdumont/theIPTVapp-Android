@@ -903,25 +903,25 @@ private fun Message(text: String) {
 @Composable
 private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Composable BoxScope.() -> Unit) {
     val bezel = Color(0xFF1B1F27)
-    val metal = Color(0xFFCFD6E0)
     Column(modifier.width(146.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(12.dp)) {
+        // antennes plus courtes, de la même couleur que le cadre
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(8.dp)) {
             val cx = size.width / 2f
             val sw = 1.5.dp.toPx()
-            drawLine(metal, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx - size.width * 0.3f, 0f), strokeWidth = sw)
-            drawLine(metal, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx + size.width * 0.3f, 0f), strokeWidth = sw)
+            drawLine(bezel, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx - size.width * 0.22f, 0f), strokeWidth = sw)
+            drawLine(bezel, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx + size.width * 0.22f, 0f), strokeWidth = sw)
         }
         Column(
-            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(start = 6.dp, top = 6.dp, end = 6.dp, bottom = 2.dp),
+            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(start = 6.dp, top = 6.dp, end = 6.dp, bottom = 1.dp),
         ) {
             Box(
                 Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(3.dp)).background(Color.Black)
                     .combinedClickable(onClick = {}, onDoubleClick = onDoubleClick),
             ) { content() }
             Text(
-                "THEIPTVAPP", color = Color(0xFF8A94A6), fontSize = 5.sp, maxLines = 1,
+                "THEIPTVAPP", color = Color(0xFF8A94A6), fontSize = 4.sp, maxLines = 1,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 1.dp),
+                modifier = Modifier.fillMaxWidth(),
             )
         }
         Row(Modifier.fillMaxWidth().height(6.dp), horizontalArrangement = Arrangement.SpaceAround) {
