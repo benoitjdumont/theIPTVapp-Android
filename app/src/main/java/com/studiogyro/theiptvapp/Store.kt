@@ -139,6 +139,8 @@ class Store(ctx: Context) {
     // ---- lecteur : délai d'expiration des panneaux (secondes)
     fun panelTimeout(): Int = sp.getInt("panel_timeout", 5)
     fun savePanelTimeout(s: Int) = sp.edit().putInt("panel_timeout", s).apply()
+    fun blackOnZap(): Boolean = sp.getBoolean("black_on_zap", false)
+    fun saveBlackOnZap(b: Boolean) = sp.edit().putBoolean("black_on_zap", b).apply()
 
     fun glassPct(): Int = sp.getInt("glass", 0)
     fun saveGlassPct(p: Int) = sp.edit().putInt("glass", p).apply()

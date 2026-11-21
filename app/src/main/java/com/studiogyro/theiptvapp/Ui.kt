@@ -1627,7 +1627,12 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 panelSec = options[(options.indexOf(panelSec) + 1).mod(options.size)]
                                 Store(ctxPt).savePanelTimeout(panelSec)
                             }
-                            PanelItem("Afficher un écran noir lors du changement des chaînes", "Bientôt disponible") { }
+                            val ctxBz = androidx.compose.ui.platform.LocalContext.current
+                            var blackZap by remember { mutableStateOf(Store(ctxBz).blackOnZap()) }
+                            PanelItem("Afficher un écran noir lors du changement des chaînes", "Enregistré, effet à venir", trailing = { PanelSwitch(blackZap) }) {
+                                blackZap = !blackZap
+                                Store(ctxBz).saveBlackOnZap(blackZap)
+                            }
                             PanelItem("Mémoire tampon", "Grande") { }
                             PanelItem("Décodeur audio", "Matériel") { }
                             PanelItem("Décodeur vidéo", "Matériel") { }
