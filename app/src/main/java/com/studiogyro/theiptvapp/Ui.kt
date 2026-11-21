@@ -1489,7 +1489,6 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         }
                         page == "playback" -> {
                             PanelItem("Démarrer automatiquement l'application au démarrage d'Android", "Ouvre l'appli quand l'appareil démarre", first = true, trailing = { PanelSwitch(vm.bootStart) }) { vm.changeBootStart(!vm.bootStart) }
-                            PanelItem("Démarrer automatiquement l'application au réveil de la mise en veille", "Bientôt disponible") { }
                             PanelItem("Lancer la dernière chaîne au démarrage de l'application", trailing = { PanelSwitch(vm.autoResume) }) { vm.changeAutoResume(!vm.autoResume) }
                             PanelItem("Passer en mode image dans l'image en appuyant sur Accueil", "Touche Accueil pendant une chaîne", trailing = { PanelSwitch(vm.pipOnHome) }) { vm.changePipOnHome(!vm.pipOnHome) }
                             PanelItem("Confirmer la sortie par une seconde pression sur Retour", trailing = { PanelSwitch(vm.doubleBack) }) { vm.changeDoubleBack(!vm.doubleBack) }
