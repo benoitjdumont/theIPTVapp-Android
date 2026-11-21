@@ -1075,7 +1075,7 @@ private fun AppLogo(modifier: Modifier, iconSize: androidx.compose.ui.unit.Dp, t
                 pop()
                 append("app")
             },
-            color = Color.White, fontSize = textSize, maxLines = 1, softWrap = false,
+            color = Color.White, fontSize = textSize, lineHeight = textSize * 1.2f, maxLines = 1, softWrap = false,
         )
     }
 }
@@ -1110,7 +1110,7 @@ private fun TvFrame(modifier: Modifier, width: Dp = 146.dp, onDoubleClick: () ->
             // logo sous l'écran, comme sur la colonne de gauche
             // texte plus gros et blanc, pour qu'il se lise sous l'écran de l'aperçu
             // logo et texte côte à côte, sur une bande fine : peu d'espace noir sous l'écran
-            Box(Modifier.fillMaxWidth().height(12.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
                 AppLogo(Modifier.fillMaxWidth(), iconSize = 8.dp, textSize = 8.sp)
             }
         }
