@@ -1082,10 +1082,10 @@ private fun AppLogo(modifier: Modifier, iconSize: androidx.compose.ui.unit.Dp, t
 /** Cadre de télévision autour de l'aperçu : antennes en haut, bezel, pattes en bas. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Composable BoxScope.() -> Unit) {
+private fun TvFrame(modifier: Modifier, width: Dp = 146.dp, onDoubleClick: () -> Unit, content: @Composable BoxScope.() -> Unit) {
     // cadre gris-bleu un peu plus clair que le fond, pour que son contour reste visible
     val bezel = Color(0xFF2A303C)
-    Column(modifier.width(146.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+    Column(modifier.width(width), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
         // antennes plus courtes, de la même couleur que le cadre
         androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(8.dp)) {
             val cx = size.width / 2f
@@ -1108,8 +1108,9 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
             ) { content() }
             // logo sous l'écran, comme sur la colonne de gauche
             // texte plus gros et blanc, pour qu'il se lise sous l'écran de l'aperçu
-            Box(Modifier.fillMaxWidth().height(20.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                AppLogo(Modifier.fillMaxWidth(), iconSize = 7.dp, textSize = 8.sp)
+            // le petit carré bleu a la même hauteur que le texte, et l'espace au-dessus égale celui du dessous
+            Box(Modifier.fillMaxWidth().height(16.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                AppLogo(Modifier.fillMaxWidth(), iconSize = 10.dp, textSize = 8.sp)
             }
         }
         Row(Modifier.fillMaxWidth().height(4.dp), horizontalArrangement = Arrangement.SpaceAround) {
@@ -1125,9 +1126,9 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
     val e = vm.epg[pv.id]
     var replay by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     // pas de fond ici : la colonne parente (ListBg) le fournit déjà ; un second calque rendrait la zone plus foncée
-    Row(Modifier.fillMaxWidth().height(180.dp).padding(8.dp)) {
-        // deux touches sur l'aperçu = plein écran ; l'aperçu est dans un cadre de télévision
-        TvFrame(Modifier.fillMaxHeight(), onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }) {
+    Row(Modifier.fillMaxWidth().height(196.dp).padding(8.dp)) {
+        // deux touches sur l'aperçu = plein écran ; l'aperçu est dans un cadre de télévision en 16:9
+        TvFrame(Modifier.fillMaxHeight(), width = 270.dp, onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }) {
             PreviewBox(pv, paused = vm.previewPausedId == pv.id)
         }
         Spacer(Modifier.width(12.dp))
