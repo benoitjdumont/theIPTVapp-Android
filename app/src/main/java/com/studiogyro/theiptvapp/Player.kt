@@ -209,9 +209,6 @@ fun PlayerScreen(vm: MainVm) {
     var subStart by remember(ch.id) { mutableStateOf(0L) }
     // DVR : état du retour en arrière (liveKick relance le direct)
     var dvrOn by remember(ch.id) { mutableStateOf(false) }
-    // écran noir au changement de chaîne (réglage « Afficher un écran noir ») : noir jusqu'à la première image
-    var zapRendered by remember(ch.id) { mutableStateOf(false) }
-    val blackOnZap = remember(ch.id) { Store(ctx).blackOnZap() }
     var liveKick by remember(ch.id) { mutableStateOf(0) }
     var dvrTotal by remember(ch.id) { mutableStateOf(0L) }
     var dvrBehind by remember(ch.id) { mutableStateOf(0L) }
@@ -278,9 +275,6 @@ fun PlayerScreen(vm: MainVm) {
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) { playing = playWhenReady }
-
-            override fun onRenderedFirstFrame() { zapRendered = true }
-
             override fun onPlaybackStateChanged(state: Int) {
                 when (state) {
                     Player.STATE_BUFFERING -> status = "Mise en mémoire…"
@@ -446,9 +440,6 @@ fun PlayerScreen(vm: MainVm) {
                 it.resizeMode = if (displayMode == 1) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
             },
         )
-        // voile noir pendant le chargement de la nouvelle chaîne (si le réglage est activé)
-        if (blackOnZap && !zapRendered) Box(Modifier.fillMaxSize().background(Color.Black))
-
         // couche tactile par-dessus la vidéo : gestes + toucher pour afficher/masquer
         // (sur un film, seulement le haut de l'écran, pour ne pas couvrir les boutons du lecteur)
         Box(
