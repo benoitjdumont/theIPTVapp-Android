@@ -951,7 +951,8 @@ fun WelcomeDialog(vm: MainVm) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Composable BoxScope.() -> Unit) {
-    val bezel = Color(0xFF1B1F27)
+    // cadre gris-bleu un peu plus clair que le fond, pour que son contour reste visible
+    val bezel = Color(0xFF2A303C)
     Column(modifier.width(146.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
         // antennes plus courtes, de la même couleur que le cadre
         androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(8.dp)) {
@@ -973,9 +974,9 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
                     ),
             ) { content() }
             Text(
-                "THEIPTVAPP", color = Color(0xFF8A94A6), fontSize = 3.sp, maxLines = 1,
+                "THEIPTVAPP", color = Color(0xFF8A94A6), fontSize = 4.sp, maxLines = 1,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().height(4.dp),
+                modifier = Modifier.fillMaxWidth().height(7.dp),
             )
         }
         Row(Modifier.fillMaxWidth().height(4.dp), horizontalArrangement = Arrangement.SpaceAround) {
@@ -1162,14 +1163,10 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
     }
 }
 
-/** les préférences restent lisibles : jamais plus transparentes que 8 % (sinon la grille du guide passe à travers le texte) */
-// le panneau Paramètres reste opaque : le curseur de transparence ne le touche pas
-private fun panelGlass(c: Color): Color = c.copy(alpha = 1f) // totalement opaque, aucune trace de l'image ou du curseur
-// couleurs inversées : en-tête clair (couleur d'accent), corps foncé
-// la barre du titre est un ton plus clair que le corps : elle se distingue du reste des préférences
-val PanelHead get() = androidx.compose.ui.graphics.lerp(panelGlass(Accent), Color.White, 0.18f)
-// couleur de la colonne de gauche, mais opaque : le curseur de transparence ne touche pas la page Paramètres
-val PanelBody get() = panelGlass(Accent)
+// Paramètres : toujours opaques, le curseur de transparence ne les touche pas.
+// Corps = couleur de la colonne de gauche ; barre du titre = un ton plus clair pour se distinguer.
+val PanelBody get() = Accent.copy(alpha = 1f)
+val PanelHead get() = androidx.compose.ui.graphics.lerp(PanelBody, Color.White, 0.18f)
 
 /** Une ligne d'un panneau de réglages : titre, petit texte, élément à droite (interrupteur, valeur…). */
 @OptIn(ExperimentalFoundationApi::class)
@@ -1279,12 +1276,12 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                 Column(Modifier.weight(1f).focusRequester(bodyFocus).focusable().verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
                     when {
                         page == "root" -> {
-                            PanelItem("Listes de lecture", first = true) { page = "lists" }
+                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX})", first = true) { page = "profiles" }
+                            PanelItem("Listes de lecture") { page = "lists" }
                             PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
                             PanelItem("Apparence", "${ACCENTS[vm.accentIdx].first} · texte ${TEXT_SIZES[vm.textSizeIdx].first.lowercase()}") { page = "look" }
                             PanelItem("Préférences générales") { page = "playback" }
                             PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
-                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX})") { page = "profiles" }
                             PanelItem("Guide (EPG)", vm.epgStatus) { page = "epg" }
                             PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
                             PanelItem("Enregistrements") { page = "rec" }
