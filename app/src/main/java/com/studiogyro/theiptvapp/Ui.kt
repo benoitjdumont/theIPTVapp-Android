@@ -384,9 +384,11 @@ private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, sear
     ) {
         // logo en lettres seulement (sans cadre), opaque : la transparence ne le touche pas.
         // colonne ouverte : THEIPTVAPP ; colonne réduite (accordéon) : IPTV
-        Text(
-            if (focus) "THEIPTVAPP" else "IPTV", color = Color(0xFF8A94A6), fontSize = 14.sp, maxLines = 1, softWrap = false,
-            letterSpacing = 1.sp, modifier = Modifier.padding(start = if (focus) 16.dp else 6.dp, top = 2.dp, bottom = 6.dp),
+        if (focus) AppLogo(Modifier.padding(start = 16.dp, top = 2.dp, bottom = 6.dp), iconSize = 22.dp, textSize = 18.sp)
+        else Text(
+            "IPTV", color = Color(0xFFE6ECF7), fontSize = 16.sp, maxLines = 1, softWrap = false,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            modifier = Modifier.padding(start = 6.dp, top = 2.dp, bottom = 6.dp),
         )
         RailItem(!vm.favMode && vm.tab == 0, focus, "TV", { vm.selectTab(0); onChoose() }, requester = firstReq) { TvIcon() }
         RailItem(!vm.favMode && vm.tab == 1, focus, "Films", { vm.selectTab(1); onChoose() }, enabled = vm.vodEnabled(1)) { FilmIcon() }
@@ -953,6 +955,28 @@ fun WelcomeDialog(vm: MainVm) {
     )
 }
 
+/** Logo : pastille bleue avec un triangle « lecture », puis « theIPTVapp » en gras. */
+@Composable
+private fun AppLogo(modifier: Modifier, iconSize: androidx.compose.ui.unit.Dp, textSize: androidx.compose.ui.unit.TextUnit) {
+    Row(modifier, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        androidx.compose.foundation.Canvas(Modifier.size(iconSize)) {
+            drawRoundRect(Color(0xFF2F80FF), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.minDimension * 0.22f))
+            val play = androidx.compose.ui.graphics.Path().apply {
+                moveTo(size.width * 0.36f, size.height * 0.28f)
+                lineTo(size.width * 0.74f, size.height * 0.5f)
+                lineTo(size.width * 0.36f, size.height * 0.72f)
+                close()
+            }
+            drawPath(play, Color.White)
+        }
+        Spacer(Modifier.width(iconSize * 0.25f))
+        Text(
+            "theIPTVapp", color = Color(0xFFE6ECF7), fontSize = textSize, maxLines = 1, softWrap = false,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+        )
+    }
+}
+
 /** Cadre de télévision autour de l'aperçu : antennes en haut, bezel, pattes en bas. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -979,11 +1003,10 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
                         onClick = {}, onDoubleClick = onDoubleClick,
                     ),
             ) { content() }
-            Text(
-                "THEIPTVAPP", color = Color(0xFF8A94A6), fontSize = 4.sp, maxLines = 1,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().height(7.dp),
-            )
+            // logo sous l'écran, comme sur la colonne de gauche
+            Box(Modifier.fillMaxWidth().height(10.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                AppLogo(Modifier, iconSize = 6.dp, textSize = 5.sp)
+            }
         }
         Row(Modifier.fillMaxWidth().height(4.dp), horizontalArrangement = Arrangement.SpaceAround) {
             Box(Modifier.width(22.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(bezel))
