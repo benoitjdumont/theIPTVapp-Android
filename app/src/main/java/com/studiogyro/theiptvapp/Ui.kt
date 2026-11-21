@@ -1378,11 +1378,16 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Renommer des chaînes") { page = "rename" }
                         }
                         page == "playback" -> {
-                            PanelItem("Reprendre la dernière chaîne", "Au démarrage de l'appli", first = true, trailing = { PanelSwitch(vm.autoResume) }) { vm.changeAutoResume(!vm.autoResume) }
+                            PanelItem("Démarrer automatiquement l'application au démarrage d'Android", "Ouvre l'appli quand l'appareil démarre", first = true, trailing = { PanelSwitch(vm.bootStart) }) { vm.changeBootStart(!vm.bootStart) }
+                            PanelItem("Démarrer automatiquement l'application au réveil de la mise en veille", "Bientôt disponible") { }
+                            PanelItem("Lancer la dernière chaîne au démarrage de l'application", trailing = { PanelSwitch(vm.autoResume) }) { vm.changeAutoResume(!vm.autoResume) }
+                            PanelItem("Passer en mode image dans l'image en appuyant sur Accueil", "Touche Accueil pendant une chaîne", trailing = { PanelSwitch(vm.pipOnHome) }) { vm.changePipOnHome(!vm.pipOnHome) }
+                            PanelItem("Confirmer la sortie par une seconde pression sur Retour", trailing = { PanelSwitch(vm.doubleBack) }) { vm.changeDoubleBack(!vm.doubleBack) }
+                            PanelItem("User-Agent", "Ouvre la page Réseau") { page = "network" }
+                            PanelItem("UDP proxy (adresse:port)", "Ouvre la page Réseau") { page = "network" }
+                            PanelItem("Sauvegarde des données", "Ouvre la page Sauvegarde") { page = "backup" }
+                            PanelItem("Restaurer les données", "Ouvre la page Sauvegarde") { page = "backup" }
                             PanelItem("Aperçu avant le plein écran", "Un clic = aperçu, deux clics = plein écran", trailing = { PanelSwitch(vm.previewMode) }) { vm.changePreviewMode(!vm.previewMode) }
-                            PanelItem("Image dans l'image à l'accueil", "Touche Accueil pendant une chaîne", trailing = { PanelSwitch(vm.pipOnHome) }) { vm.changePipOnHome(!vm.pipOnHome) }
-                            PanelItem("Confirmer la sortie", "Retour deux fois pour quitter", trailing = { PanelSwitch(vm.doubleBack) }) { vm.changeDoubleBack(!vm.doubleBack) }
-                            PanelItem("Démarrer au démarrage d'Android", "Ouvre l'appli quand l'appareil démarre", trailing = { PanelSwitch(vm.bootStart) }) { vm.changeBootStart(!vm.bootStart) }
                         }
                         page == "network" -> NetworkPage(vm)
                         page == "advanced" -> {
