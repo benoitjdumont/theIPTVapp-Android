@@ -992,11 +992,12 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
             drawLine(bezel, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx + size.width * 0.22f, 0f), strokeWidth = sw)
         }
         Column(
-            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(start = 2.dp, top = 1.dp, end = 2.dp, bottom = 0.dp),
+            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(2.dp),
         ) {
             // écran noir, sans contour ni effet de focus : seul le cadre entoure la vidéo
             Box(
-                Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(3.dp)).background(Color.Black)
+                // coins de l'écran = coins du cadre moins la marge (8 dp - 2 dp), pour qu'ils restent dans le cadre
+                Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(Color.Black)
                     .combinedClickable(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                         indication = null,
