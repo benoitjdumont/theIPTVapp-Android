@@ -1107,8 +1107,9 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
                     ),
             ) { content() }
             // logo sous l'écran, comme sur la colonne de gauche
-            Box(Modifier.fillMaxWidth().height(10.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                AppLogo(Modifier.fillMaxWidth(), iconSize = 6.dp, textSize = 6.sp)
+            // texte plus gros et blanc, pour qu'il se lise sous l'écran de l'aperçu
+            Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                AppLogo(Modifier.fillMaxWidth(), iconSize = 8.dp, textSize = 9.sp)
             }
         }
         Row(Modifier.fillMaxWidth().height(4.dp), horizontalArrangement = Arrangement.SpaceAround) {
@@ -1155,9 +1156,9 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
             if (pv.archive > 0) {
                 Button(
                     onClick = { replay = true; vm.loadPast(pv) },
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 2.dp),
-                    modifier = Modifier.height(34.dp),
-                ) { Text("⏪  Revoir une émission", fontSize = 13.sp) }
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                    modifier = Modifier.heightIn(min = 28.dp),
+                ) { Text("⏪ Revoir une émission", fontSize = 12.sp, maxLines = 1, softWrap = false) }
             }
         }
     }
@@ -1234,6 +1235,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
                         onClick = { vm.guard(c) { if (vm.previewMode && vm.preview?.id != c.id) vm.preview = c else vm.play(list, c) } },
                         onLongClick = { vm.toggleFav(c) },
                         requester = if (i == 0) first else null,
+                        blockUp = false, // permet à la flèche Haut de remonter jusqu'à « Revoir une émission »
                     ) {
                         LaunchedEffect(c.id, vm.xmltvReady) { vm.loadEpg(c) }
                         val e = vm.epg[c.id]
