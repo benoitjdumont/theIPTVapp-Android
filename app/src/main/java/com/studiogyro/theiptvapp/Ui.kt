@@ -1108,8 +1108,8 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
             ) { content() }
             // logo sous l'écran, comme sur la colonne de gauche
             // texte plus gros et blanc, pour qu'il se lise sous l'écran de l'aperçu
-            Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                AppLogo(Modifier.fillMaxWidth(), iconSize = 6.dp, textSize = 7.sp)
+            Box(Modifier.fillMaxWidth().height(20.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                AppLogo(Modifier.fillMaxWidth(), iconSize = 7.dp, textSize = 8.sp)
             }
         }
         Row(Modifier.fillMaxWidth().height(4.dp), horizontalArrangement = Arrangement.SpaceAround) {
