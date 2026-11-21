@@ -1272,7 +1272,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("look_") -> page = "look"
             // Retour dans Enregistrements : ferme tout le panneau (les enregistrements restent dans la liste)
             page == "rec" -> back()
-            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "profiles" -> page = "root"
+            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "profiles" || page == "advanced" -> page = "root"
             canClose -> back()
         }
     }
@@ -1284,11 +1284,12 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page.startsWith("edit:") -> "Modifier la liste"
         page.startsWith("src:") -> vm.sources.firstOrNull { it.id == page.removePrefix("src:") }?.name?.ifBlank { "Liste" } ?: "Liste"
         page == "groups" -> "Groupes"
-        page == "playback" -> "Préférences générales"
+        page == "playback" -> "Général"
+        page == "advanced" -> "Paramètres avancés"
         page == "network" -> "Réseau"
         page == "profiles" -> "Profils"
         page == "rename" -> "Renommer des chaînes"
-        page == "epg" -> "Guide (EPG)"
+        page == "epg" -> "EPG (guide des programmes TV)"
         page == "backup" -> "Sauvegarde"
         page == "look" -> "Apparence"
         page == "look_color" -> "Couleur de l'interface"
@@ -1313,17 +1314,14 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                 Column(Modifier.weight(1f).focusRequester(bodyFocus).focusable().verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
                     when {
                         page == "root" -> {
-                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX})", first = true) { page = "profiles" }
+                            PanelItem("Général", "Préférences générales", first = true) { page = "playback" }
                             PanelItem("Listes de lecture") { page = "lists" }
-                            PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
+                            PanelItem("EPG (guide des programmes TV)", vm.epgStatus) { page = "epg" }
                             PanelItem("Apparence", "${ACCENTS[vm.accentIdx].first} · texte ${TEXT_SIZES[vm.textSizeIdx].first.lowercase()}") { page = "look" }
-                            PanelItem("Préférences générales") { page = "playback" }
-                            PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
-                            PanelItem("Guide (EPG)", vm.epgStatus) { page = "epg" }
-                            PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
-                            PanelItem("Enregistrements") { page = "rec" }
+                            PanelItem("Lecteur", "Bientôt disponible") { }
+                            PanelItem("Télécommande", "Bientôt disponible") { }
                             PanelItem("Contrôle parental") { page = "parental" }
-                            PanelItem("Mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
+                            PanelItem("Paramètres avancés", "Profils, groupes, réseau, sauvegarde, mises à jour") { page = "advanced" }
                             PanelItem("À propos") { page = "about" }
                         }
                         page == "lists" -> {
@@ -1387,6 +1385,14 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Démarrer au démarrage d'Android", "Ouvre l'appli quand l'appareil démarre", trailing = { PanelSwitch(vm.bootStart) }) { vm.changeBootStart(!vm.bootStart) }
                         }
                         page == "network" -> NetworkPage(vm)
+                        page == "advanced" -> {
+                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX})", first = true) { page = "profiles" }
+                            PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
+                            PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
+                            PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
+                            PanelItem("Enregistrements") { page = "rec" }
+                            PanelItem("Mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
+                        }
                         page == "profiles" -> ProfilesPage(vm)
                         page == "rename" -> RenamePage(vm)
                         page == "epg" -> EpgPage(vm)
