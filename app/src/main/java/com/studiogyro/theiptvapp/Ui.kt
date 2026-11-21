@@ -1355,6 +1355,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("edit:") -> page = "lists"
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
             page == "rename" -> page = "look_guide"
+            page == "look_color_bg" -> page = "look_color"
+            page == "logos" || page == "langue" || page == "textsize" -> page = "look"
             page.startsWith("look_") -> page = "look"
             // Retour dans Enregistrements : ferme tout le panneau (les enregistrements restent dans la liste)
             page == "rec" -> back()
@@ -1394,7 +1396,11 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "vod" -> "VOD"
         page == "rsearch" -> "Options de recherche"
         page == "remote" -> "Télécommande"
-        page == "look_color" -> "Couleur de l'interface"
+        page == "look_color" -> "Couleurs du thème"
+        page == "look_color_bg" -> "Couleur d'arrière-plan"
+        page == "logos" -> "Logos"
+        page == "langue" -> "Langue"
+        page == "textsize" -> "Taille du texte"
         page == "look_bg" -> "Image de fond"
         page == "look_guide" -> "Guide TV"
         page == "rec" -> "Enregistrements"
@@ -1460,16 +1466,36 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Guide TV", first = true) { page = "look_guide" }
                             PanelItem("Lecteur", "Bientôt disponible") { }
                             PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
-                            PanelItem("Logos", "Bientôt disponible") { }
-                            PanelItem("Langue", "Français") { }
-                            PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
-                            PanelItem("Couleurs du thème", "Sombre · ${ACCENTS[vm.accentIdx].first}") { page = "look_color" }
-                            GlassSetting(vm)
+                            PanelItem("Logos", "Préférer les logos de l'EPG, dossier, cache") { page = "logos" }
+                            PanelItem("Langue", "Système") { page = "langue" }
+                            PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first) { page = "textsize" }
+                            PanelItem("Couleurs du thème", "Transparence, couleurs d'arrière-plan et de surbrillance") { page = "look_color" }
                             PanelItem("Image de fond", if (vm.bgPath != null) "Une image est active" else "Aucune") { page = "look_bg" }
                         }
                         page == "look_color" -> {
+                            PanelItem("Couleur d'arrière-plan", ACCENTS[vm.accentIdx].first, first = true) { page = "look_color_bg" }
+                            PanelItem("Couleur de surbrillance", "Bientôt disponible") { }
+                            PanelItem("Couleur du texte sélectionné", "Bientôt disponible") { }
+                            GlassSetting(vm)
+                        }
+                        page == "look_color_bg" -> {
                             ACCENTS.forEachIndexed { i, (n, c) ->
                                 PanelItem(n, first = i == 0, trailing = { if (i == vm.accentIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeAccent(i) }
+                            }
+                        }
+                        page == "logos" -> {
+                            PanelItem("Préférer les logos de l'EPG", "Bientôt disponible", first = true) { }
+                            PanelItem("Dossier Logos", "Vide") { }
+                            PanelItem("Correspondance inexacte pour les fichiers de logos", "Bientôt disponible") { }
+                            PanelItem("Vider le cache des logos", "Bientôt disponible") { }
+                        }
+                        page == "langue" -> {
+                            PanelItem("Système", "Langue de l'appareil", first = true, trailing = { Text("✔", color = Color.White) }) { }
+                            PanelItem("Français", "Bientôt disponible") { }
+                        }
+                        page == "textsize" -> {
+                            TEXT_SIZES.forEachIndexed { i, (n, _) ->
+                                PanelItem(n, first = i == 0, trailing = { if (i == vm.textSizeIdx) Text("✔", color = Color.White) }) { vm.changeTextSize(i) }
                             }
                         }
                         page == "look_bg" -> {
