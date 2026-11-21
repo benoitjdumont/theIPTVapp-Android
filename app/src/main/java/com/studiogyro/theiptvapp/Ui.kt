@@ -228,6 +228,85 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
 
 var UiAlpha by mutableStateOf(1f)
 val TEXT_SIZES = listOf("Petite" to 0.9f, "Moyenne" to 1f, "Grande" to 1.15f, "Très grande" to 1.3f)
+
+/** Lecteur > Touches : (nom de la touche, action par défaut). Les 12 premières sont configurables (liste KEY_CHOICES). */
+val KEY_ROWS = listOf(
+    "OK" to "Afficher le panneau d'informations et le panneau de configuration",
+    "Appui long sur OK" to "Afficher le menu",
+    "Retour" to "Revenir",
+    "Appui long sur Retour" to "Arrêter la lecture",
+    "Gauche" to "Afficher la liste des chaînes en mode superposition",
+    "Appui long sur Gauche" to "Afficher la liste des chaînes en mode prévisualisation",
+    "Droite" to "Aller sur la chaîne la plus récente",
+    "Appui long sur Droite" to "Afficher la description du programme",
+    "Haut" to "Aller sur la chaîne suivante",
+    "Appui long sur Haut" to "Historique",
+    "Bas" to "Aller sur la chaîne précédente",
+    "Appui long sur Bas" to "Rechercher",
+    "Pg+ (Ch+)" to "Afficher le panneau d'informations de la chaîne suivante",
+    "Pg- (Ch-)" to "Afficher le panneau d'informations de la chaîne précédente",
+    "Augmenter le volume" to "Augmenter le son",
+    "Baisser le volume" to "Baisser le son",
+    "Muet" to "Couper le son",
+    "Menu" to "Afficher le menu",
+    "Menu Long" to "Afficher le Guide TV en mode superposition",
+    "Lecture/Pause" to "Lecture/Pause",
+    "Longue lecture/pause" to "Accéder à la diffusion en direct",
+    "Arrêter" to "Arrêter la lecture",
+    "Rembobiner (RW)" to "Afficher le panneau d'informations de la chaîne précédente",
+    "Avance Rapide (FF)" to "Afficher le panneau d'informations de la chaîne suivante",
+    "Enregistrer" to "Démarrer/arrêter l'enregistrement",
+    "Retour Arrière" to "Afficher les groupes de Guides TV en mode superposition",
+    "Info" to "Afficher le panneau d'informations",
+    "Guide" to "Afficher le Guide TV en mode superposition",
+    "Rouge" to "Afficher le Guide TV en mode superposition",
+    "Vert" to "Afficher les groupes de Guides TV en mode superposition",
+    "Jaune" to "Afficher le panneau de configuration",
+    "Bleu" to "Paramètres",
+)
+const val KEY_CONFIGURABLE = 12
+
+/** Choix possibles pour une touche (même liste pour toutes les touches configurables). */
+val KEY_CHOICES = listOf(
+    "Ignorer",
+    "Afficher le Guide TV en mode superposition",
+    "Afficher les groupes de Guides TV en mode superposition",
+    "Afficher le Guide TV en mode aperçu",
+    "Afficher les groupes de Guides TV en mode aperçu",
+    "Afficher la liste des chaînes en mode superposition",
+    "Afficher les groupes de listes de chaînes en mode superposition",
+    "Afficher la liste des chaînes en mode prévisualisation",
+    "Afficher les groupes de listes de chaînes en mode aperçu",
+    "Afficher la description du programme",
+    "Afficher le panneau d'informations et le panneau de configuration",
+    "Afficher le panneau d'informations",
+    "Afficher le panneau de configuration",
+    "Afficher le menu",
+    "Aller sur la chaîne la plus récente",
+    "Lecture/Pause",
+    "Arrêter la lecture",
+    "Redémarrer le programme en cours",
+    "Accéder à la diffusion en direct",
+    "Rechercher",
+    "Historique",
+    "Films",
+    "Séries",
+    "Enregistrements",
+    "Ma liste",
+    "Démarrer/arrêter l'enregistrement",
+    "Multi-Vue",
+    "Image dans l'image",
+    "Pistes vidéo",
+    "Pistes audio",
+    "Décalage Audio",
+    "Sous-titres",
+    "Mode d'Affichage",
+    "Minuterie de sommeil",
+    "Changer le statut des Favoris",
+    "Paramètres",
+    "Revenir",
+    "Sortir",
+)
 val TRANSPS = listOf("Très transparente" to 0.5f, "Normale" to 1f, "Presque opaque" to 1.8f)
 private fun tint(c: Long, a: Float) = Color(c or 0xFF000000L).copy(alpha = (a * UiAlpha).coerceIn(0f, 1f))
 /** Couleurs des colonnes : suivent la couleur choisie dans Apparence.
@@ -1279,7 +1358,9 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("look_") -> page = "look"
             // Retour dans Enregistrements : ferme tout le panneau (les enregistrements restent dans la liste)
             page == "rec" -> back()
-            page == "chlist" || page == "infopanel" -> page = "player"
+            page == "chlist" || page == "infopanel" || page == "menu" || page == "keys" -> page = "player"
+            page.startsWith("key:") -> page = "keys"
+            page == "rappels" || page == "vod" || page == "rsearch" -> page = "advanced"
             page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "profiles" || page == "advanced" || page == "player" || page == "remote" -> page = "root"
             canClose -> back()
             else -> return false
@@ -1306,6 +1387,12 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "player" -> "Lecteur"
         page == "chlist" -> "Liste des chaînes"
         page == "infopanel" -> "Panneau d'information"
+        page == "menu" -> "Menu"
+        page == "keys" -> "Lecteur"
+        page.startsWith("key:") -> KEY_ROWS.getOrNull(page.removePrefix("key:").toIntOrNull() ?: -1)?.first ?: "Touche"
+        page == "rappels" -> "Rappels"
+        page == "vod" -> "VOD"
+        page == "rsearch" -> "Options de recherche"
         page == "remote" -> "Télécommande"
         page == "look_color" -> "Couleur de l'interface"
         page == "look_bg" -> "Image de fond"
@@ -1417,12 +1504,50 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Guide TV", "Bientôt disponible", first = true) { }
                             PanelItem("Lecteur", "Bientôt disponible") { }
                             PanelLabel("Options de recherche")
-                            PanelItem("Utiliser RW/FF/Pause pour se déplacer ou mettre en pause pendant la lecture d'un replay", "Bientôt disponible") { }
-                            PanelItem("Utiliser RW pour rembobiner le flux d'une chaîne directe avec replay", "Bientôt disponible") { }
-                            PanelItem("Utiliser Gauche/Droite pour se déplacer pendant la lecture d'un replay", "Bientôt disponible") { }
-                            PanelItem("Utiliser Gauche pour rembobiner le flux d'une chaîne directe avec replay", "Bientôt disponible") { }
-                            PanelItem("Utiliser Bas/Haut pour rechercher tout en regardant le replay", "Bientôt disponible") { }
-                            PanelItem("Utiliser Bas pour rembobiner la diffusion en direct avec le replay", "Bientôt disponible") { }
+                            // interrupteurs affichés avec leur valeur de référence ; pas encore enregistrés
+                            PanelItem("Utiliser RW/FF/Pause pour se déplacer/mettre en pause pendant la lecture d'un Replay", "Bientôt disponible", first = true, trailing = { PanelSwitch(true) }) { }
+                            PanelItem("Utiliser RW pour rembobiner le flux d'une chaîne direct avec Replay", "Bientôt disponible", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Utiliser Gauche/Droite pour se déplacer pendant la lecture d'un Replay", "Bientôt disponible", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Utiliser Gauche pour rembobiner le flux d'une chaîne direct avec Replay", "Bientôt disponible", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Utilisez Bas/Haut pour rechercher tout en regardant le replay", "Bientôt disponible", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Utilisez Bas pour rembobiner la diffusion en direct avec le replay", "Bientôt disponible", trailing = { PanelSwitch(false) }) { }
+                        }
+                        page == "menu" -> {
+                            PanelItem("Réorganiser les boutons", "Bientôt disponible", first = true) { }
+                            PanelLabel("Boutons visibles")
+                            listOf("Rechercher", "Liste des Chaînes", "Enregistrements", "Multi-Vue", "Image dans l'image", "Pistes vidéo", "Pistes audio", "Décalage Audio", "Sous-titres", "Mode d'Affichage", "Minuterie de sommeil", "Changer le statut des Favoris", "Paramètres").forEach { PanelItem(it) { } }
+                            PanelLabel("Boutons cachés")
+                            listOf("Historique", "Films", "Séries", "Ma liste", "Sortir").forEach { PanelItem(it) { } }
+                        }
+                        page == "keys" -> {
+                            PanelLabel("Choisissez l'action de chaque touche. Enregistrement bientôt disponible.")
+                            KEY_ROWS.forEachIndexed { i, (name, action) ->
+                                PanelItem(name, action, first = i == 0) { if (i < KEY_CONFIGURABLE) page = "key:$i" }
+                            }
+                        }
+                        page.startsWith("key:") -> {
+                            val idx = page.removePrefix("key:").toIntOrNull() ?: -1
+                            val current = KEY_ROWS.getOrNull(idx)?.second
+                            PanelLabel("Bientôt disponible : le choix n'est pas encore enregistré.")
+                            KEY_CHOICES.forEachIndexed { i, c ->
+                                PanelItem(c, first = i == 0, trailing = { if (c == current) Text("●", color = Color.White) }) { }
+                            }
+                        }
+                        page == "rappels" -> {
+                            PanelItem("Rappeler avant le début du programme (minutes)", "0", first = true) { }
+                            PanelItem("Délai d'expiration de la fenêtre contextuelle (secondes)", "10") { }
+                            PanelItem("Action par défaut", "Regarder") { }
+                            PanelItem("Sortir du mode veille", "Peut ne pas fonctionner sur tous les appareils", trailing = { PanelSwitch(false) }) { }
+                        }
+                        page == "vod" -> {
+                            PanelItem("Lecture automatique du prochain épisode", first = true, trailing = { PanelSwitch(false) }) { }
+                        }
+                        page == "rsearch" -> {
+                            PanelItem("Préférer la recherche vocale", first = true, trailing = { PanelSwitch(true) }) { }
+                            PanelItem("Afficher l'historique des recherches", trailing = { PanelSwitch(true) }) { }
+                            PanelItem("Afficher d'abord les chaînes préférées", trailing = { PanelSwitch(true) }) { }
+                            PanelItem("Afficher les programmes antérieurs sans Replay", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Restez sur l'écran de recherche lorsque vous changez de chaîne", trailing = { PanelSwitch(false) }) { }
                         }
                         page == "chlist" -> {
                             PanelItem("Mettre en surbrillance les programmes actuels en couleur", "Bientôt disponible", first = true) { }
@@ -1452,29 +1577,32 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Liste des chaînes", "Surbrillance, superposition, aperçu", first = true) { page = "chlist" }
                             PanelItem("Panneau d'information", "Heure, description, propriétés du média") { page = "infopanel" }
                             PanelItem("Historique / chaînes récentes", "Bientôt disponible") { }
-                            PanelItem("Menu", "Bientôt disponible") { }
+                            PanelItem("Menu", "Réorganiser les boutons du menu") { page = "menu" }
                             PanelItem("Horloge", "Off") { }
                             PanelItem("Délai d'expiration des panneaux, sec", "5") { }
                             PanelItem("Afficher un écran noir lors du changement des chaînes", "Bientôt disponible") { }
-                            PanelItem("Mémoire tampon", "Bientôt disponible") { }
-                            PanelItem("Décodeur audio", "Bientôt disponible") { }
-                            PanelItem("Décodeur vidéo", "Bientôt disponible") { }
+                            PanelItem("Mémoire tampon", "Grande") { }
+                            PanelItem("Décodeur audio", "Matériel") { }
+                            PanelItem("Décodeur vidéo", "Matériel") { }
                             PanelItem("Fréquence d'images automatique (AFR)", "Bientôt disponible") { }
-                            PanelItem("Sélectionner la piste audio surround par défaut", "Bientôt disponible") { }
-                            PanelItem("Audio passthrough", "Bientôt disponible") { }
-                            PanelItem("Utiliser un lecteur externe", "Bientôt disponible") { }
+                            PanelItem("Sélectionner la piste audio surround par défaut", "Activé", trailing = { PanelSwitch(true) }) { }
+                            PanelItem("Audio passthrough", "Désactivé", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Lecture en tunnel", "Désactivé", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Utiliser un lecteur externe", "Non") { }
                             PanelItem("Sauts dans le temps", "Bientôt disponible") { }
+                            PanelLabel("Touches")
+                            PanelItem("Touches de la télécommande", "OK, Retour, Gauche, Droite, Haut, Bas et plus") { page = "keys" }
                         }
                         page == "advanced" -> {
                             PanelItem("Rechercher", "Chercher une chaîne, un film ou une série", first = true) { back(); vm.openSearch() }
-                            PanelItem("Rappels", "Bientôt disponible") { }
+                            PanelItem("Options de recherche", "Recherche vocale, historique, chaînes préférées") { page = "rsearch" }
+                            PanelItem("Rappels", "Rappels de programmes") { page = "rappels" }
                             PanelItem("Enregistrement", "Programmer et gérer les enregistrements") { page = "rec" }
-                            PanelItem("VOD", "Bientôt disponible") { }
+                            PanelItem("VOD", "Lecture automatique") { page = "vod" }
                             PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX})") { page = "profiles" }
                             PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
                             PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
                             PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
-                            PanelItem("Enregistrements") { page = "rec" }
                             PanelItem("Mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
                         }
                         page == "profiles" -> ProfilesPage(vm)
@@ -1486,13 +1614,13 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Changer le code PIN", "Bientôt disponible", first = true) { }
                             PanelItem("Méthode de saisie du code PIN", "Sélectionneur") { }
                             PanelItem("Ne nécessite pas de code PIN après le déverrouillage", "Toujours demander") { }
-                            PanelItem("Ne nécessite pas uniquement pour les chaînes", "Bientôt disponible") { }
+                            PanelItem("Ne nécessite pas uniquement pour les chaînes", trailing = { PanelSwitch(false) }) { }
                             PanelLabel("PIN requis pour")
-                            PanelItem("Paramètres", "Bientôt disponible") { }
-                            PanelItem("Paramètres | Listes de lecture", "Bientôt disponible") { }
-                            PanelItem("Paramètres | EPG", "Bientôt disponible") { }
-                            PanelItem("Options de chaîne", "Bientôt disponible") { }
-                            PanelItem("Options de groupe", "Bientôt disponible") { }
+                            PanelItem("Paramètres", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Paramètres | Listes de Lecture", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Paramètres | EPG", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Options de Chaîne", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Options de Groupe", trailing = { PanelSwitch(false) }) { }
                             ParentalSection(vm)
                         }
                         page == "update" -> Column(Modifier.padding(horizontal = 12.dp)) { UpdateSection(vm) }
