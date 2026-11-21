@@ -1272,7 +1272,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("look_") -> page = "look"
             // Retour dans Enregistrements : ferme tout le panneau (les enregistrements restent dans la liste)
             page == "rec" -> back()
-            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "profiles" || page == "advanced" -> page = "root"
+            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "profiles" || page == "advanced" || page == "player" || page == "remote" -> page = "root"
             canClose -> back()
         }
     }
@@ -1292,6 +1292,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "epg" -> "EPG (guide des programmes TV)"
         page == "backup" -> "Sauvegarde"
         page == "look" -> "Apparence"
+        page == "player" -> "Lecteur"
+        page == "remote" -> "Télécommande"
         page == "look_color" -> "Couleur de l'interface"
         page == "look_bg" -> "Image de fond"
         page == "look_guide" -> "Guide TV"
@@ -1318,8 +1320,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Listes de lecture") { page = "lists" }
                             PanelItem("EPG (guide des programmes TV)", vm.epgStatus) { page = "epg" }
                             PanelItem("Apparence", "${ACCENTS[vm.accentIdx].first} · texte ${TEXT_SIZES[vm.textSizeIdx].first.lowercase()}") { page = "look" }
-                            PanelItem("Lecteur", "Bientôt disponible") { }
-                            PanelItem("Télécommande", "Bientôt disponible") { }
+                            PanelItem("Lecteur", "Mémoire tampon, décodeurs, sauts") { page = "player" }
+                            PanelItem("Télécommande", "Options de recherche et de rembobinage") { page = "remote" }
                             PanelItem("Contrôle parental") { page = "parental" }
                             PanelItem("Paramètres avancés", "Profils, groupes, réseau, sauvegarde, mises à jour") { page = "advanced" }
                             PanelItem("À propos") { page = "about" }
@@ -1351,11 +1353,15 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         }
                         page == "groups" -> GroupsPage(vm)
                         page == "look" -> {
-                            PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first, first = true) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
+                            PanelItem("Guide TV", first = true) { page = "look_guide" }
+                            PanelItem("Lecteur", "Bientôt disponible") { }
+                            PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
+                            PanelItem("Logos", "Bientôt disponible") { }
+                            PanelItem("Langue", "Français") { }
+                            PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
+                            PanelItem("Couleurs du thème", "Sombre · ${ACCENTS[vm.accentIdx].first}") { page = "look_color" }
                             GlassSetting(vm)
-                            PanelItem("Couleur de l'interface", ACCENTS[vm.accentIdx].first) { page = "look_color" }
                             PanelItem("Image de fond", if (vm.bgPath != null) "Une image est active" else "Aucune") { page = "look_bg" }
-                            PanelItem("Guide TV") { page = "look_guide" }
                         }
                         page == "look_color" -> {
                             ACCENTS.forEachIndexed { i, (n, c) ->
@@ -1390,8 +1396,33 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Aperçu avant le plein écran", "Un clic = aperçu, deux clics = plein écran", trailing = { PanelSwitch(vm.previewMode) }) { vm.changePreviewMode(!vm.previewMode) }
                         }
                         page == "network" -> NetworkPage(vm)
+                        page == "remote" -> {
+                            PanelItem("Guide TV", "Bientôt disponible", first = true) { }
+                            PanelItem("Lecteur", "Bientôt disponible") { }
+                            PanelLabel("Options de recherche")
+                            PanelItem("Utiliser RW/FF/Pause pour se déplacer ou mettre en pause pendant la lecture d'un replay", "Bientôt disponible") { }
+                            PanelItem("Utiliser RW pour rembobiner le flux d'une chaîne directe avec replay", "Bientôt disponible") { }
+                            PanelItem("Utiliser Gauche/Droite pour se déplacer pendant la lecture d'un replay", "Bientôt disponible") { }
+                            PanelItem("Utiliser Gauche pour rembobiner le flux d'une chaîne directe avec replay", "Bientôt disponible") { }
+                            PanelItem("Utiliser Bas/Haut pour rechercher tout en regardant le replay", "Bientôt disponible") { }
+                            PanelItem("Utiliser Bas pour rembobiner la diffusion en direct avec le replay", "Bientôt disponible") { }
+                        }
+                        page == "player" -> {
+                            PanelItem("Mémoire tampon", "Bientôt disponible", first = true) { }
+                            PanelItem("Décodeur audio", "Bientôt disponible") { }
+                            PanelItem("Décodeur vidéo", "Bientôt disponible") { }
+                            PanelItem("Fréquence d'images automatique (AFR)", "Bientôt disponible") { }
+                            PanelItem("Sélectionner la piste audio surround par défaut", "Bientôt disponible") { }
+                            PanelItem("Audio passthrough", "Bientôt disponible") { }
+                            PanelItem("Utiliser un lecteur externe", "Bientôt disponible") { }
+                            PanelItem("Sauts dans le temps", "Bientôt disponible") { }
+                        }
                         page == "advanced" -> {
-                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX})", first = true) { page = "profiles" }
+                            PanelItem("Rechercher", "Chercher une chaîne, un film ou une série", first = true) { back(); vm.openSearch() }
+                            PanelItem("Rappels", "Bientôt disponible") { }
+                            PanelItem("Enregistrement", "Programmer et gérer les enregistrements") { page = "rec" }
+                            PanelItem("VOD", "Bientôt disponible") { }
+                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX})") { page = "profiles" }
                             PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
                             PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
                             PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
@@ -1403,9 +1434,26 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page == "epg" -> EpgPage(vm)
                         page == "backup" -> BackupPage(vm)
                         page == "rec" -> Column(Modifier.padding(horizontal = 12.dp)) { RecordingsSection(vm) }
-                        page == "parental" -> Column(Modifier.padding(horizontal = 12.dp)) { ParentalSection(vm) }
+                        page == "parental" -> Column(Modifier.padding(horizontal = 12.dp)) {
+                            PanelItem("Changer le code PIN", "Bientôt disponible", first = true) { }
+                            PanelItem("Méthode de saisie du code PIN", "Sélectionneur") { }
+                            PanelItem("Ne nécessite pas de code PIN après le déverrouillage", "Toujours demander") { }
+                            PanelItem("Ne nécessite pas uniquement pour les chaînes", "Bientôt disponible") { }
+                            PanelLabel("PIN requis pour")
+                            PanelItem("Paramètres", "Bientôt disponible") { }
+                            PanelItem("Paramètres | Listes de lecture", "Bientôt disponible") { }
+                            PanelItem("Paramètres | EPG", "Bientôt disponible") { }
+                            PanelItem("Options de chaîne", "Bientôt disponible") { }
+                            PanelItem("Options de groupe", "Bientôt disponible") { }
+                            ParentalSection(vm)
+                        }
                         page == "update" -> Column(Modifier.padding(horizontal = 12.dp)) { UpdateSection(vm) }
                         else -> {
+                            PanelItem("Mise à jour automatique de l'application", "Bientôt disponible", first = true) { }
+                            PanelItem("Participer au bêta-test", "Bientôt disponible") { }
+                            PanelItem("Rechercher des mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
+                            PanelItem("Conditions d'utilisation", "Bientôt disponible") { }
+                            PanelItem("Politique de confidentialité", "Bientôt disponible") { }
                             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(64.dp))
                                 Spacer(Modifier.size(10.dp))
