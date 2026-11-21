@@ -974,7 +974,9 @@ private fun AppLogo(modifier: Modifier, iconSize: androidx.compose.ui.unit.Dp, t
         Text(
             androidx.compose.ui.text.buildAnnotatedString {
                 append("the")
-                withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = textSize * 1.15f)) { append("IPTV") }
+                pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = textSize * 1.15f))
+                append("IPTV")
+                pop()
                 append("app")
             },
             color = Color(0xFFE6ECF7), fontSize = textSize, maxLines = 1, softWrap = false,
