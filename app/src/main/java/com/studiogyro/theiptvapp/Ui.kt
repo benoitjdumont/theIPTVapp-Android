@@ -970,9 +970,14 @@ private fun AppLogo(modifier: Modifier, iconSize: androidx.compose.ui.unit.Dp, t
             drawPath(play, Color.White)
         }
         Spacer(Modifier.width(iconSize * 0.25f))
+        // « the » et « app » en normal ; seul « IPTV » est gras et un peu plus gros
         Text(
-            "theIPTVapp", color = Color(0xFFE6ECF7), fontSize = textSize, maxLines = 1, softWrap = false,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            androidx.compose.ui.text.buildAnnotatedString {
+                append("the")
+                withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = textSize * 1.15f)) { append("IPTV") }
+                append("app")
+            },
+            color = Color(0xFFE6ECF7), fontSize = textSize, maxLines = 1, softWrap = false,
         )
     }
 }
