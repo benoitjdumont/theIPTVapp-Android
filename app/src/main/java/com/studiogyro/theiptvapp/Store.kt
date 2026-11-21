@@ -136,6 +136,10 @@ class Store(ctx: Context) {
         m.forEach { (k, v) -> o.put(k, v) }
         sp.edit().putString("renames", o.toString()).apply()
     }
+    // ---- lecteur : délai d'expiration des panneaux (secondes)
+    fun panelTimeout(): Int = sp.getInt("panel_timeout", 5)
+    fun savePanelTimeout(s: Int) = sp.edit().putInt("panel_timeout", s).apply()
+
     fun glassPct(): Int = sp.getInt("glass", 0)
     fun saveGlassPct(p: Int) = sp.edit().putInt("glass", p).apply()
     fun bgPath(): String? = sp.getString("bg", null)

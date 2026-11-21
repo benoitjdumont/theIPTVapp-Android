@@ -1617,7 +1617,14 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Historique / chaînes récentes", "Bientôt disponible") { }
                             PanelItem("Menu", "Réorganiser les boutons du menu") { page = "menu" }
                             PanelItem("Horloge", "Off") { }
-                            PanelItem("Délai d'expiration des panneaux, sec", "5") { }
+                            val ctxPt = androidx.compose.ui.platform.LocalContext.current
+                            var panelSec by remember { mutableStateOf(Store(ctxPt).panelTimeout()) }
+                            // un appui fait défiler les valeurs : 3, 5, 10, 15, 30 secondes
+                            PanelItem("Délai d'expiration des panneaux, sec", "$panelSec") {
+                                val options = listOf(3, 5, 10, 15, 30)
+                                panelSec = options[(options.indexOf(panelSec) + 1).mod(options.size)]
+                                Store(ctxPt).savePanelTimeout(panelSec)
+                            }
                             PanelItem("Afficher un écran noir lors du changement des chaînes", "Bientôt disponible") { }
                             PanelItem("Mémoire tampon", "Grande") { }
                             PanelItem("Décodeur audio", "Matériel") { }
