@@ -85,6 +85,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -769,6 +770,7 @@ fun PlayerScreen(vm: MainVm) {
                     OutlinedButton(onClick = { poke(); dvrGo(5 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−5 min", fontSize = 13.sp) }
                     OutlinedButton(onClick = { poke(); dvrGo(60 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−1 h", fontSize = 13.sp) }
                 }
+                if (ch.kind == "live") LiveBadge(live = !dvrOn, onClick = { poke(); goLive() })
                 val fav = vm.isFav(ch)
                 IconButton(onClick = { vm.toggleFav(ch) }, modifier = Modifier.focusRing()) {
                     Icon(
@@ -779,6 +781,24 @@ fun PlayerScreen(vm: MainVm) {
                 }
             }
         }
+    }
+}
+
+/**
+ * Bouton LIVE : rouge quand on regarde le direct, gris quand on est en différé.
+ * Un appui revient au direct.
+ */
+@Composable
+fun LiveBadge(live: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val color = if (live) Color(0xFFE53935) else Color(0xFF7A7F8A)
+    Box(
+        modifier
+            .clip(RoundedCornerShape(6.dp))
+            .border(2.dp, color, RoundedCornerShape(6.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    ) {
+        Text("LIVE", color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 

@@ -1141,6 +1141,8 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
                     fontSize = 22.sp,
                     modifier = Modifier.padding(start = 8.dp).clickable { vm.toggleFav(pv) },
                 )
+                // LIVE à droite de l'étoile : rouge = direct ; un appui ouvre la chaîne en plein écran sur le direct
+                if (pv.kind == "live") LiveBadge(live = true, onClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }, modifier = Modifier.padding(start = 10.dp))
             }
             val now = e?.now
             if (now != null) {
