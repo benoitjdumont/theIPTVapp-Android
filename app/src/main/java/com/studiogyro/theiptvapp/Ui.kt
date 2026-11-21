@@ -1109,7 +1109,7 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
             // logo sous l'écran, comme sur la colonne de gauche
             // texte plus gros et blanc, pour qu'il se lise sous l'écran de l'aperçu
             Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                AppLogo(Modifier.fillMaxWidth(), iconSize = 8.dp, textSize = 9.sp)
+                AppLogo(Modifier.fillMaxWidth(), iconSize = 6.dp, textSize = 7.sp)
             }
         }
         Row(Modifier.fillMaxWidth().height(4.dp), horizontalArrangement = Arrangement.SpaceAround) {
@@ -1154,11 +1154,13 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
             }
             Spacer(Modifier.weight(1f))
             if (pv.archive > 0) {
-                Button(
-                    onClick = { replay = true; vm.loadPast(pv) },
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                    modifier = Modifier.heightIn(min = 28.dp),
-                ) { Text("⏪ Revoir une émission", fontSize = 12.sp, maxLines = 1, softWrap = false) }
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Button(
+                        onClick = { replay = true; vm.loadPast(pv) },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        modifier = Modifier.heightIn(min = 28.dp),
+                    ) { Text("⏪ Revoir une émission", fontSize = 12.sp, maxLines = 1, softWrap = false) }
+                }
             }
         }
     }
