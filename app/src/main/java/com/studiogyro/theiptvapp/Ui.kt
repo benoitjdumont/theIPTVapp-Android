@@ -1125,7 +1125,7 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
     val e = vm.epg[pv.id]
     var replay by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     // pas de fond ici : la colonne parente (ListBg) le fournit déjà ; un second calque rendrait la zone plus foncée
-    Row(Modifier.fillMaxWidth().height(132.dp).padding(8.dp)) {
+    Row(Modifier.fillMaxWidth().height(180.dp).padding(8.dp)) {
         // deux touches sur l'aperçu = plein écran ; l'aperçu est dans un cadre de télévision
         TvFrame(Modifier.fillMaxHeight(), onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }) {
             PreviewBox(pv, paused = vm.previewPausedId == pv.id)
