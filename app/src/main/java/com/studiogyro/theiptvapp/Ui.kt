@@ -107,15 +107,26 @@ val Bg = Color(0xFF0B1220)
 val Panel = Color(0xFF111A2E)
 var Accent by mutableStateOf(Color(0xFF2F7BFF))
 
+/** Couleurs d'arrière-plan, dans l'ordre de la référence (teintes approximées d'après les captures). */
 val ACCENTS = listOf(
-    "Bleu" to Color(0xFF2F7BFF),
-    "Indigo" to Color(0xFF6C7BE0),
-    "Turquoise" to Color(0xFF00ACC1),
-    "Vert" to Color(0xFF2EAD6B),
-    "Orange" to Color(0xFFF57C00),
-    "Rouge" to Color(0xFFE53935),
+    "Rouge" to Color(0xFFE57373),
     "Rose" to Color(0xFFE91E8C),
-    "Gris" to Color(0xFF7C8593),
+    "Violet" to Color(0xFFAB47BC),
+    "Indigo" to Color(0xFF6C7BE0),
+    "Bleu" to Color(0xFF2F7BFF),
+    "Cyan" to Color(0xFF26C6DA),
+    "Sarcelle" to Color(0xFF00897B),
+    "Vert" to Color(0xFF2EAD6B),
+    "Citron" to Color(0xFFCDDC39),
+    "Jaune" to Color(0xFFFDD835),
+    "Ambre" to Color(0xFFFFC107),
+    "Orange" to Color(0xFFF57C00),
+    "Marron" to Color(0xFF8D6E63),
+    "Gris" to Color(0xFF9E9E9E),
+    "Bleu gris" to Color(0xFF78909C),
+    "Gris foncé" to Color(0xFF424242),
+    "Sombre" to Color(0xFF263238),
+    "Noir" to Color(0xFF000000),
 )
 
 /** ombre sous les textes de détail : lisibles même sur une image de fond */
@@ -1490,8 +1501,10 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Vider le cache des logos", "Bientôt disponible") { }
                         }
                         page == "langue" -> {
-                            PanelItem("Système", "Langue de l'appareil", first = true, trailing = { Text("✔", color = Color.White) }) { }
-                            PanelItem("Français", "Bientôt disponible") { }
+                            listOf("Système", "Čeština", "Dansk", "Deutsch", "English", "Español", "Français", "Hrvatski", "Italiano", "Latviešu", "Lietuvių", "Magyar", "Nederlands", "Norsk", "Polski", "Português (Brasil)", "Română", "Slovenský", "Slovenščina", "Srpski", "Suomi", "Svenska", "Tiếng Việt", "Türkçe", "Ελληνικά", "Български", "Русский", "Српски", "Українська", "ქართული", "עברית", "عربی", "中文").forEachIndexed { i, name ->
+                                PanelItem(name, first = i == 0, trailing = { if (i == 0) Text("✔", color = Color.White) }) { }
+                            }
+                            PanelLabel("Le choix de langue sera enregistré dans une version future.")
                         }
                         page == "textsize" -> {
                             TEXT_SIZES.forEachIndexed { i, (n, _) ->
