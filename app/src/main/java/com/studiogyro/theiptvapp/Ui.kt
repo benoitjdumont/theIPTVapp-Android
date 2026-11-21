@@ -99,6 +99,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -1108,9 +1109,9 @@ private fun TvFrame(modifier: Modifier, width: Dp = 146.dp, onDoubleClick: () ->
             ) { content() }
             // logo sous l'écran, comme sur la colonne de gauche
             // texte plus gros et blanc, pour qu'il se lise sous l'écran de l'aperçu
-            // le petit carré bleu a la même hauteur que le texte, et l'espace au-dessus égale celui du dessous
-            Box(Modifier.fillMaxWidth().height(16.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                AppLogo(Modifier.fillMaxWidth(), iconSize = 10.dp, textSize = 8.sp)
+            // logo et texte côte à côte, sur une bande fine : peu d'espace noir sous l'écran
+            Box(Modifier.fillMaxWidth().height(12.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                AppLogo(Modifier.fillMaxWidth(), iconSize = 8.dp, textSize = 8.sp)
             }
         }
         Row(Modifier.fillMaxWidth().height(4.dp), horizontalArrangement = Arrangement.SpaceAround) {
