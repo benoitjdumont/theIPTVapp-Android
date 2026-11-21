@@ -1633,7 +1633,12 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Décodeur audio", "Matériel") { }
                             PanelItem("Décodeur vidéo", "Matériel") { }
                             PanelItem("Fréquence d'images automatique (AFR)", "Bientôt disponible") { }
-                            PanelItem("Sélectionner la piste audio surround par défaut", "Activé", trailing = { PanelSwitch(true) }) { }
+                            val ctxSu = androidx.compose.ui.platform.LocalContext.current
+                            var surround by remember { mutableStateOf(Store(ctxSu).surroundDefault()) }
+                            PanelItem("Sélectionner la piste audio surround par défaut", if (surround) "Activé" else "Désactivé", trailing = { PanelSwitch(surround) }) {
+                                surround = !surround
+                                Store(ctxSu).saveSurroundDefault(surround)
+                            }
                             PanelItem("Audio passthrough", "Désactivé", trailing = { PanelSwitch(false) }) { }
                             PanelItem("Lecture en tunnel", "Désactivé", trailing = { PanelSwitch(false) }) { }
                             PanelItem("Utiliser un lecteur externe", "Non") { }

@@ -136,6 +136,10 @@ class Store(ctx: Context) {
         m.forEach { (k, v) -> o.put(k, v) }
         sp.edit().putString("renames", o.toString()).apply()
     }
+    // ---- lecteur : piste audio surround par défaut
+    fun surroundDefault(): Boolean = sp.getBoolean("surround_default", true)
+    fun saveSurroundDefault(b: Boolean) = sp.edit().putBoolean("surround_default", b).apply()
+
     // ---- lecteur : délai d'expiration des panneaux (secondes)
     fun panelTimeout(): Int = sp.getInt("panel_timeout", 5)
     fun savePanelTimeout(s: Int) = sp.edit().putInt("panel_timeout", s).apply()
