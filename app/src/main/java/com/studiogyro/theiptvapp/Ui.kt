@@ -522,7 +522,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                         Column(Modifier.weight(1f).fillMaxHeight().background(ListBg)) {
                             val pv = vm.preview
                             if (vm.tab == 0 && vm.previewMode && pv != null) PreviewHeader(vm, pv)
-                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f), listFirst) else PosterWall(vm, list, Modifier.weight(1f), listFirst)
+                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f), listFirst, headerBg = false) else PosterWall(vm, list, Modifier.weight(1f), listFirst)
                         }
                     }
                 }
@@ -985,7 +985,8 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
 private fun PreviewHeader(vm: MainVm, pv: Channel) {
     val e = vm.epg[pv.id]
     var replay by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().height(132.dp).background(ListBg).padding(8.dp)) {
+    // pas de fond ici : la colonne parente (ListBg) le fournit déjà ; un second calque rendrait la zone plus foncée
+    Row(Modifier.fillMaxWidth().height(132.dp).padding(8.dp)) {
         // deux touches sur l'aperçu = plein écran ; l'aperçu est dans un cadre de télévision
         TvFrame(Modifier.fillMaxHeight(), onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }) {
             PreviewBox(pv, paused = vm.previewPausedId == pv.id)
@@ -1058,7 +1059,7 @@ private fun EpgCell(title: String?, sub: String?, progress: Float?, modifier: Mo
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, first: androidx.compose.ui.focus.FocusRequester? = null) {
+private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, first: androidx.compose.ui.focus.FocusRequester? = null, headerBg: Boolean = true) {
     if (list.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) { Text("Aucune chaîne.", color = Color.Gray) }
         return
@@ -1073,7 +1074,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
         fun xOf(t: Long) = (((t - ws).coerceIn(0L, winMin * 60_000L)) * dpPerMs).dp
         Column(Modifier.fillMaxSize()) {
             // en-tête : date à gauche, repères horaires au-dessus de la grille
-            Row(Modifier.fillMaxWidth().background(ListBg).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().then(if (headerBg) Modifier.background(ListBg) else Modifier).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.width(leftW), verticalAlignment = Alignment.CenterVertically) {
                     val label = java.text.SimpleDateFormat("EEE d MMM  HH:mm", java.util.Locale.getDefault()).format(java.util.Date(ws))
                     Text(label, color = Color(0xFF8FB8FF), fontSize = 11.sp, maxLines = 1, modifier = Modifier.weight(1f))
