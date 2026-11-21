@@ -382,6 +382,11 @@ private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, sear
         Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(RailBg).padding(vertical = 6.dp).onFocusChanged { onFocus(it.hasFocus) },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        // logo en lettres seulement (sans cadre), opaque : la transparence ne le touche pas
+        if (focus) Text(
+            "THEIPTVAPP", color = Color(0xFF8A94A6), fontSize = 14.sp, maxLines = 1, softWrap = false,
+            letterSpacing = 1.sp, modifier = Modifier.padding(start = 16.dp, top = 2.dp, bottom = 6.dp),
+        )
         RailItem(!vm.favMode && vm.tab == 0, focus, "TV", { vm.selectTab(0); onChoose() }, requester = firstReq) { TvIcon() }
         RailItem(!vm.favMode && vm.tab == 1, focus, "Films", { vm.selectTab(1); onChoose() }, enabled = vm.vodEnabled(1)) { FilmIcon() }
         RailItem(!vm.favMode && vm.tab == 2, focus, "Séries", { vm.selectTab(2); onChoose() }, enabled = vm.vodEnabled(2)) { SeriesIcon() }
