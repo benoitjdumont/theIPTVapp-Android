@@ -88,6 +88,11 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -1264,7 +1269,9 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
     val bodyFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(page) { if (page != "root") runCatching { bodyFocus.requestFocus() } }
     val canClose = vm.sources.isNotEmpty()
-    BackHandler(true) {
+    // Retour (touche rouge de la télécommande) : une sous-page revient à la liste ; la liste principale ferme les Paramètres.
+    // Renvoie false quand il n'y a rien à faire (l'appli reçoit alors le retour normal).
+    fun goBack(): Boolean {
         when {
             page.startsWith("edit:") -> page = "lists"
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
@@ -1274,8 +1281,11 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page == "rec" -> back()
             page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "profiles" || page == "advanced" || page == "player" || page == "remote" -> page = "root"
             canClose -> back()
+            else -> return false
         }
+        return true
     }
+    BackHandler(true) { goBack() }
 
     val title = when {
         page == "root" -> "Paramètres"
@@ -1303,7 +1313,11 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         else -> "À propos"
     }
 
-    BoxWithConstraints(if (docked) Modifier.fillMaxWidth(0.42f).fillMaxHeight() else Modifier.fillMaxSize()) {
+    // la touche Retour est traitée ici, au niveau des Paramètres, avant qu'elle n'atteigne le reste de l'appli
+    BoxWithConstraints(
+        (if (docked) Modifier.fillMaxWidth(0.42f).fillMaxHeight() else Modifier.fillMaxSize())
+            .onPreviewKeyEvent { e -> e.key == Key.Back && e.type == KeyEventType.KeyUp && goBack() },
+    ) {
         val w = if (docked) maxWidth else if (maxWidth > 400.dp) 360.dp else maxWidth * 0.92f
         Row(Modifier.fillMaxSize()) {
             if (!docked) Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).clickable(enabled = canClose, onClick = back))
