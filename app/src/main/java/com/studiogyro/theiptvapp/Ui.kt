@@ -958,7 +958,7 @@ fun WelcomeDialog(vm: MainVm) {
 /** Logo : pastille bleue avec un triangle « lecture », puis « theIPTVapp » en gras. */
 @Composable
 private fun AppLogo(modifier: Modifier, iconSize: androidx.compose.ui.unit.Dp, textSize: androidx.compose.ui.unit.TextUnit) {
-    Row(modifier, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+    Row(modifier, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
         androidx.compose.foundation.Canvas(Modifier.size(iconSize)) {
             drawRoundRect(Color(0xFF2F80FF), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.minDimension * 0.22f))
             val play = androidx.compose.ui.graphics.Path().apply {
@@ -979,7 +979,7 @@ private fun AppLogo(modifier: Modifier, iconSize: androidx.compose.ui.unit.Dp, t
                 pop()
                 append("app")
             },
-            color = Color(0xFFE6ECF7), fontSize = textSize, maxLines = 1, softWrap = false,
+            color = Color.White, fontSize = textSize, maxLines = 1, softWrap = false,
         )
     }
 }
@@ -1013,7 +1013,7 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
             ) { content() }
             // logo sous l'écran, comme sur la colonne de gauche
             Box(Modifier.fillMaxWidth().height(10.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                AppLogo(Modifier, iconSize = 6.dp, textSize = 5.sp)
+                AppLogo(Modifier.fillMaxWidth(), iconSize = 6.dp, textSize = 6.sp)
             }
         }
         Row(Modifier.fillMaxWidth().height(4.dp), horizontalArrangement = Arrangement.SpaceAround) {
