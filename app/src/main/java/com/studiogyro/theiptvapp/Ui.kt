@@ -961,19 +961,24 @@ private fun TvFrame(modifier: Modifier, onDoubleClick: () -> Unit, content: @Com
             drawLine(bezel, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx + size.width * 0.22f, 0f), strokeWidth = sw)
         }
         Column(
-            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(start = 2.dp, top = 2.dp, end = 2.dp, bottom = 1.dp),
+            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(start = 2.dp, top = 1.dp, end = 2.dp, bottom = 0.dp),
         ) {
+            // écran noir, sans contour ni effet de focus : seul le cadre entoure la vidéo
             Box(
                 Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(3.dp)).background(Color.Black)
-                    .combinedClickable(onClick = {}, onDoubleClick = onDoubleClick),
+                    .combinedClickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}, onDoubleClick = onDoubleClick,
+                    ),
             ) { content() }
             Text(
-                "THEIPTVAPP", color = Color(0xFF8A94A6), fontSize = 4.sp, maxLines = 1,
+                "THEIPTVAPP", color = Color(0xFF8A94A6), fontSize = 3.sp, maxLines = 1,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(4.dp),
             )
         }
-        Row(Modifier.fillMaxWidth().height(6.dp), horizontalArrangement = Arrangement.SpaceAround) {
+        Row(Modifier.fillMaxWidth().height(4.dp), horizontalArrangement = Arrangement.SpaceAround) {
             Box(Modifier.width(22.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(bezel))
             Box(Modifier.width(22.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(bezel))
         }
