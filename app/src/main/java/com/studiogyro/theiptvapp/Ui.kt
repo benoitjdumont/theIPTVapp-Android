@@ -1279,6 +1279,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("look_") -> page = "look"
             // Retour dans Enregistrements : ferme tout le panneau (les enregistrements restent dans la liste)
             page == "rec" -> back()
+            page == "chlist" || page == "infopanel" -> page = "player"
             page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "profiles" || page == "advanced" || page == "player" || page == "remote" -> page = "root"
             canClose -> back()
             else -> return false
@@ -1303,6 +1304,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "backup" -> "Sauvegarde"
         page == "look" -> "Apparence"
         page == "player" -> "Lecteur"
+        page == "chlist" -> "Liste des chaînes"
+        page == "infopanel" -> "Panneau d'information"
         page == "remote" -> "Télécommande"
         page == "look_color" -> "Couleur de l'interface"
         page == "look_bg" -> "Image de fond"
@@ -1421,8 +1424,39 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Utiliser Bas/Haut pour rechercher tout en regardant le replay", "Bientôt disponible") { }
                             PanelItem("Utiliser Bas pour rembobiner la diffusion en direct avec le replay", "Bientôt disponible") { }
                         }
+                        page == "chlist" -> {
+                            PanelItem("Mettre en surbrillance les programmes actuels en couleur", "Bientôt disponible", first = true) { }
+                            PanelItem("Assombrir les programmes précédents", "Bientôt disponible") { }
+                            PanelLabel("Mode superposition")
+                            PanelItem("Afficher les programmes", "Bientôt disponible") { }
+                            PanelItem("Afficher la description du programme", "Bientôt disponible") { }
+                            PanelItem("Lecture automatique des chaînes", "Bientôt disponible") { }
+                            PanelItem("Rester sur la liste lorsque vous changez de chaînes", "Bientôt disponible") { }
+                            PanelLabel("Mode aperçu")
+                            PanelItem("Transition animée", "Bientôt disponible") { }
+                            PanelItem("Lecture automatique des chaînes (aperçu)", "Bientôt disponible") { }
+                            PanelItem("Rester sur la liste lorsque vous changez de chaînes (aperçu)", "Bientôt disponible") { }
+                        }
+                        page == "infopanel" -> {
+                            PanelItem("Style de carte", "Bientôt disponible", first = true) { }
+                            PanelItem("Afficher le panneau d'informations en bas lors du changement de chaîne", "Bientôt disponible") { }
+                            PanelItem("Afficher l'heure", "Bientôt disponible") { }
+                            PanelItem("Afficher la date sur l'horloge", "Bientôt disponible") { }
+                            PanelItem("Afficher la liste de lecture et le nom du groupe", "Bientôt disponible") { }
+                            PanelItem("Afficher la description du programme", "Bientôt disponible") { }
+                            PanelItem("Afficher la description lors du changement de chaîne uniquement", "Bientôt disponible") { }
+                            PanelItem("Afficher les propriétés du média", "Bientôt disponible") { }
+                            PanelItem("Afficher la résolution vidéo au lieu des étiquettes", "Bientôt disponible") { }
+                        }
                         page == "player" -> {
-                            PanelItem("Mémoire tampon", "Bientôt disponible", first = true) { }
+                            PanelItem("Liste des chaînes", "Surbrillance, superposition, aperçu", first = true) { page = "chlist" }
+                            PanelItem("Panneau d'information", "Heure, description, propriétés du média") { page = "infopanel" }
+                            PanelItem("Historique / chaînes récentes", "Bientôt disponible") { }
+                            PanelItem("Menu", "Bientôt disponible") { }
+                            PanelItem("Horloge", "Off") { }
+                            PanelItem("Délai d'expiration des panneaux, sec", "5") { }
+                            PanelItem("Afficher un écran noir lors du changement des chaînes", "Bientôt disponible") { }
+                            PanelItem("Mémoire tampon", "Bientôt disponible") { }
                             PanelItem("Décodeur audio", "Bientôt disponible") { }
                             PanelItem("Décodeur vidéo", "Bientôt disponible") { }
                             PanelItem("Fréquence d'images automatique (AFR)", "Bientôt disponible") { }
