@@ -1865,7 +1865,20 @@ private fun EpgPage(vm: MainVm) {
         PanelLabel("Statut")
         Text(vm.epgStatus, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 18.dp))
         PanelLabel("Conservation")
-        StepperRow("Garder le guide", "${vm.epgDays} j", { vm.changeEpgDays(vm.epgDays - 1) }, { vm.changeEpgDays(vm.epgDays + 1) })
+        // curseur de 1 à 30 jours (même principe que la transparence)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Garder le guide", color = Color.White, modifier = Modifier.weight(1f))
+                Text("${vm.epgDays} j", color = Color.White)
+            }
+            androidx.compose.material3.Slider(
+                value = vm.epgDays.toFloat(),
+                valueRange = 1f..30f,
+                steps = 28,
+                onValueChange = { vm.changeEpgDays(Math.round(it)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         PanelItem("Stocker les descriptions des émissions", trailing = { PanelSwitch(vm.epgDesc) }) { vm.changeEpgDesc(!vm.epgDesc) }
         PanelLabel("Mise à jour")
         StepperRow(
