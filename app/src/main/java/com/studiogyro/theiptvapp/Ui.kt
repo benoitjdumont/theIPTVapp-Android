@@ -1881,11 +1881,22 @@ private fun EpgPage(vm: MainVm) {
         }
         PanelItem("Stocker les descriptions des émissions", trailing = { PanelSwitch(vm.epgDesc) }) { vm.changeEpgDesc(!vm.epgDesc) }
         PanelLabel("Mise à jour")
-        StepperRow(
-            "Intervalle (heures, 0 = jamais)",
-            if (vm.epgInterval == 0) "aucun" else "${vm.epgInterval} h",
-            { vm.changeEpgInterval(vm.epgInterval - 1) }, { vm.changeEpgInterval(vm.epgInterval + 1) },
-        )
+        // curseur sur les intervalles de la référence : aucun, 2, 4, 8, 16, 24, 48, 72, 96, 120, 144, 168 h
+        val intervals = listOf(0, 2, 4, 8, 16, 24, 48, 72, 96, 120, 144, 168)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Intervalle de mise à jour", color = Color.White, modifier = Modifier.weight(1f))
+                Text(if (vm.epgInterval == 0) "aucun" else "${vm.epgInterval} h", color = Color.White)
+            }
+            val idx = intervals.indexOf(vm.epgInterval).coerceAtLeast(0)
+            androidx.compose.material3.Slider(
+                value = idx.toFloat(),
+                valueRange = 0f..(intervals.size - 1).toFloat(),
+                steps = intervals.size - 2,
+                onValueChange = { vm.changeEpgInterval(intervals[Math.round(it).coerceIn(0, intervals.size - 1)]) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         PanelItem("Mise à jour au démarrage de l'appli", trailing = { PanelSwitch(vm.epgOnStart) }) { vm.changeEpgOnStart(!vm.epgOnStart) }
         PanelItem("Mise à jour au changement de liste", trailing = { PanelSwitch(vm.epgOnList) }) { vm.changeEpgOnList(!vm.epgOnList) }
         PanelItem(if (vm.epgBusy) "Mise à jour en cours…" else "Mettre à jour le guide") { vm.refreshGuide() }
