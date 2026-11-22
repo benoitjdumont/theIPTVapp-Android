@@ -1619,11 +1619,18 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Liste des chaînes", "Surbrillance, superposition, aperçu", first = true) { page = "chlist" }
                             PanelItem("Panneau d'information", "Heure, description, propriétés du média") { page = "infopanel" }
                             val ctxHi = androidx.compose.ui.platform.LocalContext.current
-                            PanelItem("Historique / chaînes récentes", "${Store(ctxHi).recentLive().size} chaîne(s) récente(s)") { }
-                            PanelItem("Effacer l'historique", "Vide les chaînes récentes et l'historique de recherche") {
-                                Store(ctxHi).saveRecentLive(emptyList())
-                                Store(ctxHi).saveHistory(emptyList())
-                            }
+                            // bulle transparente à droite : efface les chaînes récentes et l'historique de recherche
+                            PanelItem("Historique / chaînes récentes", "${Store(ctxHi).recentLive().size} chaîne(s) récente(s)", trailing = {
+                                Box(
+                                    Modifier
+                                        .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
+                                        .clickable {
+                                            Store(ctxHi).saveRecentLive(emptyList())
+                                            Store(ctxHi).saveHistory(emptyList())
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                                ) { Text("Effacer", color = Color.White, fontSize = 13.sp) }
+                            }) { }
                             PanelItem("Menu", "Réorganiser les boutons du menu") { page = "menu" }
                             PanelItem("Horloge", "Off") { }
                             val ctxPt = androidx.compose.ui.platform.LocalContext.current
