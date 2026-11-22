@@ -557,6 +557,7 @@ fun PlayerScreen(vm: MainVm) {
                                 selected = c.id == ch.id,
                                 modifier = if (idx == 0) Modifier.focusRequester(stripFirst) else Modifier,
                             ) { close(); vm.play(vm.playlist, c) }
+                        }
                         // dernière case de l'historique : « Effacer », même format que les vignettes
                         item {
                             Box(
