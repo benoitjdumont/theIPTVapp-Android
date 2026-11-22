@@ -47,13 +47,13 @@ class Store(ctx: Context) {
     fun saveTransp(i: Int) = sp.edit().putInt("transp", i).apply()
     fun accent(): Int = sp.getInt("accent", 13)
     fun saveAccent(i: Int) = sp.edit().putInt("accent", i).apply()
-    fun autoResume(): Boolean = sp.getBoolean("autoresume", true)
+    fun autoResume(): Boolean = sp.getBoolean("autoresume", false)
     fun saveAutoResume(b: Boolean) = sp.edit().putBoolean("autoresume", b).apply()
 
     // ---- préférences générales
-    fun pipOnHome(): Boolean = sp.getBoolean("pip_home", true)
+    fun pipOnHome(): Boolean = sp.getBoolean("pip_home", false)
     fun savePipOnHome(b: Boolean) = sp.edit().putBoolean("pip_home", b).apply()
-    fun doubleBack(): Boolean = sp.getBoolean("double_back", true)
+    fun doubleBack(): Boolean = sp.getBoolean("double_back", false)
     fun saveDoubleBack(b: Boolean) = sp.edit().putBoolean("double_back", b).apply()
     fun bootStart(): Boolean = sp.getBoolean("boot_start", false)
     fun saveBootStart(b: Boolean) = sp.edit().putBoolean("boot_start", b).apply()
