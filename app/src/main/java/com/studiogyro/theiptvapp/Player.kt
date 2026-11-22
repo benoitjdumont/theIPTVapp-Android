@@ -168,6 +168,7 @@ fun PlayerScreen(vm: MainVm) {
     var picker by remember(ch.id) { mutableStateOf<String?>(null) }
     var listOpen by remember(ch.id) { mutableStateOf(false) }
     val menuFirst = remember { FocusRequester() }
+    val transportFirst = remember { FocusRequester() }
     val listFirst = remember { FocusRequester() }
     val focusRoot = remember { FocusRequester() }
     val activity = remember(ctx) {
@@ -351,6 +352,7 @@ fun PlayerScreen(vm: MainVm) {
         when (menuStage) {
             1 -> runCatching { stripFirst.requestFocus() }
             2 -> runCatching { menuFirst.requestFocus() }
+            3 -> runCatching { transportFirst.requestFocus() }
         }
     }
     LaunchedEffect(listOpen) { if (listOpen) runCatching { listFirst.requestFocus() } }
@@ -365,6 +367,7 @@ fun PlayerScreen(vm: MainVm) {
     BackHandler(true) {
         when {
             listOpen -> listOpen = false
+            menuStage == 3 -> menuStage = if (ch.kind == "live") 1 else 2
             menuStage == 2 -> if (ch.kind == "live") menuStage = 1 else { showUi = false; menuStage = 0 }
             menuStage == 1 -> { showUi = false; menuStage = 0 }
             else -> vm.stop(!playing)
@@ -547,7 +550,9 @@ fun PlayerScreen(vm: MainVm) {
                                 )
                             }
                             .onKeyEvent { ev ->
-                                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown) { menuStage = 2; true } else false
+                                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown) { menuStage = 2; true }
+                                else if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionUp) { menuStage = 3; true }
+                                else false
                             },
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -635,6 +640,9 @@ fun PlayerScreen(vm: MainVm) {
                     Row(
                         Modifier
                             .fillMaxWidth()
+                            .onKeyEvent { ev ->
+                                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionUp) { menuStage = if (ch.kind == "live") 1 else 3; true } else false
+                            }
                             // glisser vers le haut revient à l'historique
                             .pointerInput(Unit) {
                                 var acc = 0f
@@ -709,7 +717,7 @@ fun PlayerScreen(vm: MainVm) {
         }
 
         // barre de progression au-dessus de la rangée de contrôle (films et séries, comme sur la capture)
-        if (showUi && !vm.inPip && ch.kind != "live" && vodDur > 0) {
+        if (showUi && !vm.inPip && (menuStage == 3 || menuStage == 0) && ch.kind != "live" && vodDur > 0) {
             val frac = (vodPos.toFloat() / vodDur).coerceIn(0f, 1f)
             Box(
                 Modifier
@@ -721,9 +729,15 @@ fun PlayerScreen(vm: MainVm) {
                     .background(Color(0x55FFFFFF)),
             ) { Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(Color(0xFF2F80FF))) }
         }
-        if (showUi && !vm.inPip) {
+        if (showUi && !vm.inPip && (menuStage == 3 || (ch.kind != "live" && menuStage == 0))) {
             Row(
-                Modifier.align(Alignment.Center),
+                Modifier
+                    .align(Alignment.Center)
+                    .onKeyEvent { ev ->
+                        if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown && menuStage == 3) {
+                            menuStage = if (ch.kind == "live") 1 else 2; true
+                        } else false
+                    },
                 horizontalArrangement = Arrangement.spacedBy(32.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -733,7 +747,7 @@ fun PlayerScreen(vm: MainVm) {
                     val pos = vm.playlist.indexOf(ch)
                     vm.playlist.getOrNull(pos - 1)?.let { vm.play(vm.playlist, it) } ?: run { hud = "Première chaîne" }
                 }
-                CenterControl(IconRewind, "Reculer de 15 s") {
+                CenterControl(IconRewind, "Reculer de 15 s", modifier = Modifier.focusRequester(transportFirst)) {
                     poke()
                     if (player.isCurrentMediaItemSeekable) player.seekTo((player.currentPosition - 15_000).coerceAtLeast(0L))
                     else hud = "Retour en arrière impossible sur ce flux (pause possible)"
@@ -773,6 +787,12 @@ fun PlayerScreen(vm: MainVm) {
                         }
                     }
                 }
+                if (ch.kind == "live") LiveBadge(live = !dvrOn, onClick = { poke(); goLive() })
+                val favNow = vm.isFav(ch)
+                CenterControl(
+                    if (favNow) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    if (favNow) "Retirer le favori" else "Favori",
+                ) { vm.toggleFav(ch) }
             }
         }
         if (showUi && !vm.inPip) {
@@ -807,15 +827,6 @@ fun PlayerScreen(vm: MainVm) {
                 if (ch.kind == "live") {
                     OutlinedButton(onClick = { poke(); dvrGo(5 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−5 min", fontSize = 13.sp) }
                     OutlinedButton(onClick = { poke(); dvrGo(60 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−1 h", fontSize = 13.sp) }
-                }
-                if (ch.kind == "live") LiveBadge(live = !dvrOn, onClick = { poke(); goLive() })
-                val fav = vm.isFav(ch)
-                IconButton(onClick = { vm.toggleFav(ch) }, modifier = Modifier.focusRing()) {
-                    Icon(
-                        if (fav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        "Favori",
-                        tint = Color.White,
-                    )
                 }
             }
         }
@@ -893,9 +904,9 @@ private fun Modifier.focusRing(): Modifier {
 }
 
 @Composable
-private fun CenterControl(icon: ImageVector, label: String, tint: Color = Color.White, onClick: () -> Unit) {
+private fun CenterControl(icon: ImageVector, label: String, tint: Color = Color.White, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
-        Modifier.size(76.dp).clip(CircleShape).background(Color(0x99000000)).focusRing().clickable(onClick = onClick),
+        modifier.size(76.dp).clip(CircleShape).background(Color(0x99000000)).focusRing().clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, label, tint = tint, modifier = Modifier.size(42.dp)) }
 }
