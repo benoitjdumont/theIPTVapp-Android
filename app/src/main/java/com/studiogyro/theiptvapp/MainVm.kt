@@ -319,6 +319,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         return store.guideOpt(key, def)
     }
     fun setOpt(key: String, b: Boolean) { store.saveGuideOpt(key, b); optVersion++ }
+    fun keyChoice(i: Int): String? { @Suppress("UNUSED_VARIABLE") val seen = optVersion; return store.keyChoice(i) }
+    fun setKeyChoice(i: Int, s: String) { store.saveKeyChoice(i, s); optVersion++ }
     var renames by mutableStateOf(store.renames()); private set
     fun displayName(c: Channel): String = renames[c.id] ?: c.name
     fun rename(c: Channel, name: String) {

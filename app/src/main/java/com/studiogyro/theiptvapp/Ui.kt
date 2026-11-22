@@ -1577,15 +1577,17 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page == "keys" -> {
                             PanelLabel("Choisissez l'action de chaque touche. Enregistrement bientôt disponible.")
                             KEY_ROWS.forEachIndexed { i, (name, action) ->
-                                PanelItem(name, action, first = i == 0) { if (i < KEY_CONFIGURABLE) page = "key:$i" }
+                                // une touche configurable affiche l'action choisie, sinon l'action par défaut
+                                val shown = if (i < KEY_CONFIGURABLE) vm.keyChoice(i) ?: action else action
+                                PanelItem(name, shown, first = i == 0) { if (i < KEY_CONFIGURABLE) page = "key:$i" }
                             }
                         }
                         page.startsWith("key:") -> {
                             val idx = page.removePrefix("key:").toIntOrNull() ?: -1
                             val current = KEY_ROWS.getOrNull(idx)?.second
-                            PanelLabel("Bientôt disponible : le choix n'est pas encore enregistré.")
                             KEY_CHOICES.forEachIndexed { i, c ->
-                                PanelItem(c, first = i == 0, trailing = { if (c == current) Text("●", color = Color.White) }) { }
+                                val chosen = vm.keyChoice(idx) ?: current
+                                PanelItem(c, first = i == 0, trailing = { if (c == chosen) Text("●", color = Color.White) }) { vm.setKeyChoice(idx, c); page = "keys" }
                             }
                         }
                         page == "rappels" -> {

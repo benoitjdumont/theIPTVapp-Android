@@ -142,6 +142,10 @@ class Store(ctx: Context) {
     fun surroundDefault(): Boolean = sp.getBoolean("surround_default", true)
     fun saveSurroundDefault(b: Boolean) = sp.edit().putBoolean("surround_default", b).apply()
 
+    // ---- télécommande : action choisie pour chaque touche configurable (vide = action par défaut)
+    fun keyChoice(i: Int): String? = sp.getString("key_$i", null)
+    fun saveKeyChoice(i: Int, s: String) = sp.edit().putString("key_$i", s).apply()
+
     // ---- lecteur : délai d'expiration des panneaux (secondes)
     fun panelTimeout(): Int = sp.getInt("panel_timeout", 5)
     fun savePanelTimeout(s: Int) = sp.edit().putInt("panel_timeout", s).apply()
