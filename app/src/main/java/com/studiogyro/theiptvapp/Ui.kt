@@ -1651,7 +1651,12 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 surround = !surround
                                 Store(ctxSu).saveSurroundDefault(surround)
                             }
-                            PanelItem("Audio passthrough", "Désactivé", trailing = { PanelSwitch(false) }) { }
+                            val ctxPt2 = androidx.compose.ui.platform.LocalContext.current
+                            var passthrough by remember { mutableStateOf(Store(ctxPt2).audioPassthrough()) }
+                            PanelItem("Audio passthrough", if (passthrough) "Activé" else "Désactivé", trailing = { PanelSwitch(passthrough) }) {
+                                passthrough = !passthrough
+                                Store(ctxPt2).saveAudioPassthrough(passthrough)
+                            }
                             PanelItem("Lecture en tunnel", "Désactivé", trailing = { PanelSwitch(false) }) { }
                             PanelItem("Utiliser un lecteur externe", "Non") { }
                             PanelItem("Sauts dans le temps", "Bientôt disponible") { }

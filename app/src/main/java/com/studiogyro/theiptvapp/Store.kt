@@ -137,6 +137,8 @@ class Store(ctx: Context) {
         sp.edit().putString("renames", o.toString()).apply()
     }
     // ---- lecteur : piste audio surround par défaut
+    fun audioPassthrough(): Boolean = sp.getBoolean("audio_passthrough", false)
+    fun saveAudioPassthrough(b: Boolean) = sp.edit().putBoolean("audio_passthrough", b).apply()
     fun surroundDefault(): Boolean = sp.getBoolean("surround_default", true)
     fun saveSurroundDefault(b: Boolean) = sp.edit().putBoolean("surround_default", b).apply()
 
