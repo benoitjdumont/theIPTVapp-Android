@@ -179,7 +179,7 @@ fun AppRoot(vm: MainVm) {
         }
         Surface(Modifier.fillMaxSize().background(BgBrush), color = Color.Transparent) {
             vm.bgPath?.let { path ->
-                AsyncImage(model = java.io.File(path), contentDescription = null, contentScale = ContentScale.Crop, alpha = 0.6f, modifier = Modifier.fillMaxSize())
+                AsyncImage(model = java.io.File(path), contentDescription = null, contentScale = ContentScale.Crop, alpha = 1f, modifier = Modifier.fillMaxSize())
             }
             if (vm.current != null) {
                 PlayerScreen(vm)
