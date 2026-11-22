@@ -1863,6 +1863,45 @@ private fun NetworkPage(vm: MainVm) {
     }
 }
 
+/**
+ * Curseur utilisable à la télécommande : la ligne a le focus (même surbrillance que les autres lignes),
+ * gauche/droite changent la valeur, OK ajoute une unité. Haut/Bas passent à la ligne voisine.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun PanelStepper(title: String, value: String, fraction: Float, onMinus: () -> Unit, onPlus: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(6.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 1.dp)
+            .clip(shape)
+            .background(if (focused) AccentDark else Color.Transparent)
+            .then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier)
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .onPreviewKeyEvent { ev ->
+                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (ev.key) {
+                    Key.DirectionLeft -> { onMinus(); true }
+                    Key.DirectionRight, Key.Enter, Key.DirectionCenter -> { onPlus(); true }
+                    else -> false
+                }
+            }
+            .clickable { onPlus() }
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            Text(value, color = Color.White, fontSize = 14.sp)
+        }
+        Box(Modifier.padding(top = 6.dp).fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0x55FFFFFF))) {
+            Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).fillMaxHeight().background(Color.White))
+        }
+    }
+}
+
 @Composable
 private fun StepperRow(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
@@ -1879,38 +1918,26 @@ private fun EpgPage(vm: MainVm) {
         PanelLabel("Statut")
         Text(vm.epgStatus, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 18.dp))
         PanelLabel("Conservation")
-        // curseur de 1 à 30 jours (même principe que la transparence)
-        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Garder le guide", color = Color.White, modifier = Modifier.weight(1f))
-                Text("${vm.epgDays} j", color = Color.White)
-            }
-            androidx.compose.material3.Slider(
-                value = vm.epgDays.toFloat(),
-                valueRange = 1f..30f,
-                steps = 28,
-                onValueChange = { vm.changeEpgDays(Math.round(it)) },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        // curseur de 1 à 30 jours, pilotable à la télécommande (gauche/droite)
+        PanelStepper(
+            title = "Garder le guide",
+            value = "${vm.epgDays} j",
+            fraction = (vm.epgDays - 1) / 29f,
+            onMinus = { vm.changeEpgDays(vm.epgDays - 1) },
+            onPlus = { vm.changeEpgDays(vm.epgDays + 1) },
+        )
         PanelItem("Stocker les descriptions des émissions", trailing = { PanelSwitch(vm.epgDesc) }) { vm.changeEpgDesc(!vm.epgDesc) }
         PanelLabel("Mise à jour")
         // curseur sur les intervalles de la référence : aucun, 2, 4, 8, 16, 24, 48, 72, 96, 120, 144, 168 h
         val intervals = listOf(0, 2, 4, 8, 16, 24, 48, 72, 96, 120, 144, 168)
-        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Intervalle de mise à jour", color = Color.White, modifier = Modifier.weight(1f))
-                Text(if (vm.epgInterval == 0) "aucun" else "${vm.epgInterval} h", color = Color.White)
-            }
-            val idx = intervals.indexOf(vm.epgInterval).coerceAtLeast(0)
-            androidx.compose.material3.Slider(
-                value = idx.toFloat(),
-                valueRange = 0f..(intervals.size - 1).toFloat(),
-                steps = intervals.size - 2,
-                onValueChange = { vm.changeEpgInterval(intervals[Math.round(it).coerceIn(0, intervals.size - 1)]) },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        val idx = intervals.indexOf(vm.epgInterval).coerceAtLeast(0)
+        PanelStepper(
+            title = "Intervalle de mise à jour",
+            value = if (vm.epgInterval == 0) "aucun" else "${vm.epgInterval} h",
+            fraction = idx / (intervals.size - 1).toFloat(),
+            onMinus = { vm.changeEpgInterval(intervals[(idx - 1).coerceAtLeast(0)]) },
+            onPlus = { vm.changeEpgInterval(intervals[(idx + 1).coerceAtMost(intervals.size - 1)]) },
+        )
         PanelItem("Mise à jour au démarrage de l'appli", trailing = { PanelSwitch(vm.epgOnStart) }) { vm.changeEpgOnStart(!vm.epgOnStart) }
         PanelItem("Mise à jour au changement de liste", trailing = { PanelSwitch(vm.epgOnList) }) { vm.changeEpgOnList(!vm.epgOnList) }
         PanelItem(if (vm.epgBusy) "Mise à jour en cours…" else "Mettre à jour le guide") { vm.refreshGuide() }

@@ -313,7 +313,11 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     // ---- apparence : guide TV, noms, image de fond
     var optVersion by mutableStateOf(0); private set
-    fun opt(key: String, def: Boolean = true): Boolean = store.guideOpt(key, def)
+    // lire optVersion ici fait que chaque écran qui lit une option se redessine quand elle change
+    fun opt(key: String, def: Boolean = true): Boolean {
+        @Suppress("UNUSED_VARIABLE") val seen = optVersion
+        return store.guideOpt(key, def)
+    }
     fun setOpt(key: String, b: Boolean) { store.saveGuideOpt(key, b); optVersion++ }
     var renames by mutableStateOf(store.renames()); private set
     fun displayName(c: Channel): String = renames[c.id] ?: c.name
