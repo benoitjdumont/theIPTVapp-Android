@@ -81,8 +81,13 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     private val store = Store(app)
     fun osKey(): String = store.osKey()
     fun saveOsKey(k: String) = store.saveOsKey(k)
+    fun subLang(): String = store.subLang()
+    fun saveSubLang(l: String) = store.saveSubLang(l)
 
     var sources by mutableStateOf(store.sources()); private set
+    /** avis de bienvenue accepté une fois (première ouverture) */
+    var termsOk by mutableStateOf(store.termsAccepted()); private set
+    fun acceptTerms() { store.saveTermsAccepted(); termsOk = true }
     var activeId by mutableStateOf(store.activeId() ?: store.sources().firstOrNull()?.id); private set
     var favs by mutableStateOf(store.favorites()); private set
     var query by mutableStateOf("")
@@ -155,6 +160,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         Accent = ACCENTS[store.accent().coerceIn(0, ACCENTS.lastIndex)].second
         UiAlpha = TRANSPS[store.transp().coerceIn(0, TRANSPS.lastIndex)].second
         GlassState.transp = store.glassPct() / 100f
+        HiliteState.bg = store.hiliteIdx().let { if (it < 0) null else ACCENTS.getOrNull(it)?.second }
+        HiliteState.text = store.seltextIdx().let { if (it < 0) null else ACCENTS.getOrNull(it)?.second }
         reload()
         checkUpdate(silent = true)
         guideTimer()
@@ -282,6 +289,10 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     /** chaîne en aperçu sur l'accueil (premier clic) ; un second clic ouvre le plein écran */
     var preview by mutableStateOf<Channel?>(null)
     var accentIdx by mutableStateOf(store.accent().coerceIn(0, ACCENTS.lastIndex)); private set
+    var hiliteIdx by mutableStateOf(store.hiliteIdx()); private set
+    var seltextIdx by mutableStateOf(store.seltextIdx()); private set
+    fun changeHilite(i: Int) { hiliteIdx = i; HiliteState.bg = ACCENTS.getOrNull(i)?.second; store.saveHiliteIdx(i) }
+    fun changeSeltext(i: Int) { seltextIdx = i; HiliteState.text = ACCENTS.getOrNull(i)?.second; store.saveSeltextIdx(i) }
 
     fun changeAccent(i: Int) { accentIdx = i; Accent = ACCENTS[i].second; store.saveAccent(i) }
     private var resumed = false
@@ -308,8 +319,16 @@ class MainVm(app: Application) : AndroidViewModel(app) {
 
     // ---- apparence : guide TV, noms, image de fond
     var optVersion by mutableStateOf(0); private set
-    fun opt(key: String, def: Boolean = true): Boolean = store.guideOpt(key, def)
+    // lire optVersion ici fait que chaque écran qui lit une option se redessine quand elle change
+    fun opt(key: String, def: Boolean = true): Boolean {
+        @Suppress("UNUSED_VARIABLE") val seen = optVersion
+        return store.guideOpt(key, def)
+    }
     fun setOpt(key: String, b: Boolean) { store.saveGuideOpt(key, b); optVersion++ }
+    fun keyChoice(i: Int): String? { @Suppress("UNUSED_VARIABLE") val seen = optVersion; return store.keyChoice(i) }
+    fun setKeyChoice(i: Int, s: String) { store.saveKeyChoice(i, s); optVersion++ }
+    /** remet chaque touche à son action par défaut (celle de la capture) */
+    fun resetKeyChoices() { store.clearKeyChoices(KEY_CONFIGURABLE); optVersion++ }
     var renames by mutableStateOf(store.renames()); private set
     fun displayName(c: Channel): String = renames[c.id] ?: c.name
     fun rename(c: Channel, name: String) {
@@ -319,11 +338,16 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     var bgPath by mutableStateOf(store.bgPath()); private set
     var pickBackground: (() -> Unit)? = null
     fun setBackground(ctx: android.content.Context, uri: android.net.Uri) {
-        val f = java.io.File(ctx.filesDir, "background.jpg")
+        // nom neuf à chaque choix : Coil garde en cache l'image d'un même chemin, sinon l'ancienne image reste affichée
+        val f = java.io.File(ctx.filesDir, "background_${System.currentTimeMillis()}.jpg")
         runCatching { ctx.contentResolver.openInputStream(uri)?.use { i -> f.outputStream().use { o -> i.copyTo(o) } } }
-            .onSuccess { bgPath = f.absolutePath; store.saveBgPath(bgPath) }
+            .onSuccess {
+                val old = bgPath
+                bgPath = f.absolutePath; store.saveBgPath(bgPath)
+                if (old != null && old != bgPath) java.io.File(old).delete()
+            }
     }
-    fun clearBackground() { bgPath = null; store.saveBgPath(null) }
+    fun clearBackground() { bgPath?.let { java.io.File(it).delete() }; bgPath = null; store.saveBgPath(null) }
     /** transparence des colonnes et des préférences : 0 = opaque, 1 = transparent */
     fun changeGlass(v: Float) { GlassState.transp = v.coerceIn(0f, 1f); store.saveGlassPct(Math.round(GlassState.transp * 100)) }
 
@@ -418,11 +442,41 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     var openBackup: (() -> Unit)? = null
     var backupMessage by mutableStateOf(""); private set
 
-    fun writeBackup(ctx: android.content.Context, uri: android.net.Uri) {
+    // Sur Android TV il n'y a souvent aucun gestionnaire de fichiers : la sauvegarde va directement dans Téléchargements
+    private val backupName = "theiptvapp-sauvegarde.json"
+
+    fun saveBackupToDownloads(ctx: android.content.Context) {
         backupMessage = try {
-            ctx.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(store.backupJson()) }
-            "Sauvegarde enregistrée."
+            if (android.os.Build.VERSION.SDK_INT < 29) error("Android 10 ou plus requis")
+            val resolver = ctx.contentResolver
+            val collection = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            // remplace l'ancienne sauvegarde au lieu d'en créer une copie
+            resolver.query(collection, arrayOf(android.provider.MediaStore.Downloads._ID),
+                "${android.provider.MediaStore.Downloads.DISPLAY_NAME} = ?", arrayOf(backupName), null)?.use { c ->
+                while (c.moveToNext()) resolver.delete(android.content.ContentUris.withAppendedId(collection, c.getLong(0)), null, null)
+            }
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, backupName)
+                put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/json")
+            }
+            val uri = resolver.insert(collection, values) ?: error("dossier Téléchargements indisponible")
+            resolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(store.backupJson()) } ?: error("écriture impossible")
+            "Sauvegarde enregistrée dans Téléchargements / $backupName."
         } catch (e: Exception) { "Sauvegarde impossible : ${e.message}" }
+    }
+
+    fun restoreFromDownloads(ctx: android.content.Context) {
+        val uri = try {
+            if (android.os.Build.VERSION.SDK_INT < 29) null else {
+                val collection = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
+                ctx.contentResolver.query(collection, arrayOf(android.provider.MediaStore.Downloads._ID),
+                    "${android.provider.MediaStore.Downloads.DISPLAY_NAME} = ?", arrayOf(backupName), null)?.use { c ->
+                    if (c.moveToFirst()) android.content.ContentUris.withAppendedId(collection, c.getLong(0)) else null
+                }
+            }
+        } catch (e: Exception) { null }
+        if (uri == null) backupMessage = "Aucune sauvegarde trouvée dans Téléchargements / $backupName."
+        else readBackup(ctx, uri)
     }
 
     fun readBackup(ctx: android.content.Context, uri: android.net.Uri) {
@@ -710,6 +764,14 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         unlocked = false
     }
 
+    /** change le code : il faut connaître l'ancien. Renvoie false si l'ancien est faux. */
+    fun changePin(oldPin: String, newPin: String): Boolean {
+        if (pinHash == null || hashPin(oldPin) != pinHash) return false
+        pinHash = hashPin(newPin)
+        store.saveParental(pinHash, keywords)
+        return true
+    }
+
     fun disableParental() {
         pinHash = null
         keywords = emptyList()
@@ -725,15 +787,38 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     /** derniers canaux regardés (10 au maximum, les plus anciens sont retirés) */
     var recentIds by mutableStateOf(store.recentLive()); private set
     fun recentChannels(): List<Channel> = recentIds.mapNotNull { id -> live.items.firstOrNull { it.id == id } }
+    /** efface les chaînes récentes (bulle « Effacer » du lecteur) */
+    fun clearRecents() { recentIds = emptyList(); store.saveRecentLive(emptyList()) }
     private fun rememberRecent(c: Channel) {
         recentIds = (listOf(c.id) + recentIds.filter { it != c.id }).take(10)
         store.saveRecentLive(recentIds)
+    }
+
+    // Lecteur externe : le flux est confié à une autre appli (VLC si installé, sinon le choix de la TV)
+    var externalPlayer by mutableStateOf(store.externalPlayer()); private set
+    fun changeExternalPlayer(b: Boolean) { externalPlayer = b; store.saveExternalPlayer(b) }
+
+    fun openExternal(c: Channel): Boolean {
+        val app = getApplication<Application>()
+        val base = android.content.Intent(android.content.Intent.ACTION_VIEW)
+            .setDataAndType(android.net.Uri.parse(c.url), "video/*")
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        return try {
+            app.startActivity(android.content.Intent(base).setPackage("org.videolan.vlc"))
+            true
+        } catch (e: Exception) {
+            try {
+                app.startActivity(android.content.Intent.createChooser(base, "Ouvrir avec").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                true
+            } catch (e2: Exception) { false }
+        }
     }
 
     fun play(list: List<Channel>, c: Channel) {
         preview = null
         if (c.kind == "live") rememberRecent(c)
         if (c.kind == "movie" && !c.id.startsWith("r")) addHistory(c.id)
+        if (externalPlayer && openExternal(c)) return
         playlist = list
         playIndex = list.indexOf(c).coerceAtLeast(0)
         store.saveLast(c.id)

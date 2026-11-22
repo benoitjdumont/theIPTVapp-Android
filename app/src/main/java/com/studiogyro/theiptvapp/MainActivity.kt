@@ -8,24 +8,22 @@ import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.fillMaxSize
 
 class MainActivity : ComponentActivity() {
     private val vm: MainVm by viewModels()
 
-    private val createBackup = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
-    ) { uri -> uri?.let { vm.writeBackup(this, it) } }
-
+    // Storage Access Framework : accès aux fichiers (clé USB comprise), pas le sélecteur de photos
     private val pickBackground = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri -> uri?.let { vm.setBackground(this, it) } }
-
-    private val openBackup = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { vm.readBackup(this, it) } }
+    ) { uri -> uri?.let { vm.setBackground(this, it) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Android 13+ : demander la permission des notifications (rappels d'émissions), une fois, à l'ouverture
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
         // plein écran : l'interface touche les bords ; la barre du système se montre seulement par un glissement
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).apply {
@@ -35,10 +33,16 @@ class MainActivity : ComponentActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 28) {
             window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS }
         }
-        vm.createBackup = { createBackup.launch("theiptvapp-sauvegarde.json") }
-        vm.openBackup = { openBackup.launch(arrayOf("application/json", "text/plain", "*/*")) }
-        vm.pickBackground = { pickBackground.launch("image/*") }
-        setContent { AppRoot(vm) }
+        vm.createBackup = { vm.saveBackupToDownloads(this) }
+        vm.openBackup = { vm.restoreFromDownloads(this) }
+        vm.pickBackground = { pickBackground.launch(arrayOf("image/*")) }
+        setContent {
+            // l'animation d'ouverture est posée au-dessus de l'appli dans la même image : pas de flash de l'écran d'accueil
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                AppRoot(vm)
+                SplashOverlay(vm)
+            }
+        }
     }
 
     /**
@@ -59,6 +63,16 @@ class MainActivity : ComponentActivity() {
         return super.dispatchKeyEvent(mapped)
     }
 
+    override fun onStop() {
+        super.onStop()
+        AppState.stopped.value = true
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AppState.stopped.value = false
+    }
+
     /** Leaving the app while a channel plays shrinks it into a small floating window (si l'option est active). */
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
@@ -76,5 +90,6 @@ class MainActivity : ComponentActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         vm.inPip = isInPictureInPictureMode
+        AppState.pip.value = isInPictureInPictureMode
     }
 }

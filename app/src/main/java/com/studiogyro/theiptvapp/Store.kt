@@ -15,6 +15,9 @@ class Store(ctx: Context) {
     fun favorites(): Set<String> = sp.getStringSet("favs", emptySet())?.toSet() ?: emptySet()
     fun saveFavorites(s: Set<String>) = sp.edit().putStringSet("favs", s).apply()
 
+    fun termsAccepted(): Boolean = sp.getBoolean("terms_ok", false)
+    fun saveTermsAccepted() = sp.edit().putBoolean("terms_ok", true).apply()
+
     fun lastChannel(): String? = sp.getString("last", null)
     fun saveLast(id: String?) = sp.edit().putString("last", id).apply()
 
@@ -42,15 +45,15 @@ class Store(ctx: Context) {
     fun saveTextSize(i: Int) = sp.edit().putInt("textsize", i).apply()
     fun transp(): Int = sp.getInt("transp", 1)
     fun saveTransp(i: Int) = sp.edit().putInt("transp", i).apply()
-    fun accent(): Int = sp.getInt("accent", 0)
+    fun accent(): Int = sp.getInt("accent", 13)
     fun saveAccent(i: Int) = sp.edit().putInt("accent", i).apply()
-    fun autoResume(): Boolean = sp.getBoolean("autoresume", true)
+    fun autoResume(): Boolean = sp.getBoolean("autoresume", false)
     fun saveAutoResume(b: Boolean) = sp.edit().putBoolean("autoresume", b).apply()
 
     // ---- préférences générales
-    fun pipOnHome(): Boolean = sp.getBoolean("pip_home", true)
+    fun pipOnHome(): Boolean = sp.getBoolean("pip_home", false)
     fun savePipOnHome(b: Boolean) = sp.edit().putBoolean("pip_home", b).apply()
-    fun doubleBack(): Boolean = sp.getBoolean("double_back", true)
+    fun doubleBack(): Boolean = sp.getBoolean("double_back", false)
     fun saveDoubleBack(b: Boolean) = sp.edit().putBoolean("double_back", b).apply()
     fun bootStart(): Boolean = sp.getBoolean("boot_start", false)
     fun saveBootStart(b: Boolean) = sp.edit().putBoolean("boot_start", b).apply()
@@ -64,6 +67,9 @@ class Store(ctx: Context) {
     /** clé API OpenSubtitles : personnelle à chaque personne, jamais fournie par l'appli */
     fun osKey(): String = sp.getString("os_key", "") ?: ""
     fun saveOsKey(s: String) = sp.edit().putString("os_key", s.trim()).apply()
+    /** langue(s) des sous-titres en ligne, mémorisée : "fr", "en" ou "fr,en" */
+    fun subLang(): String = sp.getString("sub_lang", "fr,en") ?: "fr,en"
+    fun saveSubLang(l: String) = sp.edit().putString("sub_lang", l).apply()
 
     // ---- guide (EPG)
     fun epgDays(): Int = sp.getInt("epg_days", 1).coerceIn(1, 30)
@@ -130,6 +136,47 @@ class Store(ctx: Context) {
         m.forEach { (k, v) -> o.put(k, v) }
         sp.edit().putString("renames", o.toString()).apply()
     }
+    // ---- lecteur : piste audio surround par défaut
+    fun audioPassthrough(): Boolean = sp.getBoolean("audio_passthrough", false)
+    fun saveAudioPassthrough(b: Boolean) = sp.edit().putBoolean("audio_passthrough", b).apply()
+    fun surroundDefault(): Boolean = sp.getBoolean("surround_default", true)
+    fun saveSurroundDefault(b: Boolean) = sp.edit().putBoolean("surround_default", b).apply()
+
+    // ---- apparence : couleur de surbrillance et couleur du texte sélectionné (index dans ACCENTS, -1 = défaut)
+    fun hiliteIdx(): Int = sp.getInt("hilite", -1)
+    fun saveHiliteIdx(i: Int) = sp.edit().putInt("hilite", i).apply()
+    fun seltextIdx(): Int = sp.getInt("seltext", -1)
+    fun saveSeltextIdx(i: Int) = sp.edit().putInt("seltext", i).apply()
+
+    // ---- télécommande : action choisie pour chaque touche configurable (vide = action par défaut)
+    fun keyChoice(i: Int): String? = sp.getString("key_$i", null)
+    fun saveKeyChoice(i: Int, s: String) = sp.edit().putString("key_$i", s).apply()
+    fun clearKeyChoices(count: Int) { val e = sp.edit(); for (i in 0 until count) e.remove("key_$i"); e.apply() }
+
+    // ---- lecteur : fréquence d'images automatique (délai en secondes)
+    fun afrDelay(): Int = sp.getInt("afr_delay", 0)
+    fun saveAfrDelay(s: Int) = sp.edit().putInt("afr_delay", s).apply()
+
+    // ---- lecteur : mémoire tampon (0 petite, 1 moyenne, 2 grande) et lecture en tunnel
+    fun bufferSize(): Int = sp.getInt("buffer", 2).coerceIn(0, 2)
+
+    // sauts dans le temps (secondes) : mêmes valeurs que la référence, réglées avec un curseur
+    val seekSteps = listOf(5, 10, 15, 20, 25, 30, 40, 50, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600)
+    fun seekSec(key: String): Int {
+        val def = if (key == "back_bar" || key == "fwd_bar") 60 else 10
+        val v = sp.getInt("seek_$key", def)
+        return if (v in seekSteps) v else def
+    }
+    fun saveSeekSec(key: String, v: Int) = sp.edit().putInt("seek_$key", v).apply()
+    fun saveBufferSize(i: Int) = sp.edit().putInt("buffer", i.coerceIn(0, 2)).apply()
+    fun tunnel(): Boolean = sp.getBoolean("tunnel", false)
+    fun saveTunnel(b: Boolean) = sp.edit().putBoolean("tunnel", b).apply()
+    fun externalPlayer(): Boolean = sp.getBoolean("ext_player", false)
+    fun saveExternalPlayer(b: Boolean) = sp.edit().putBoolean("ext_player", b).apply()
+
+    // ---- lecteur : délai d'expiration des panneaux (secondes)
+    fun panelTimeout(): Int = sp.getInt("panel_timeout", 5)
+    fun savePanelTimeout(s: Int) = sp.edit().putInt("panel_timeout", s).apply()
     fun glassPct(): Int = sp.getInt("glass", 0)
     fun saveGlassPct(p: Int) = sp.edit().putInt("glass", p).apply()
     fun bgPath(): String? = sp.getString("bg", null)

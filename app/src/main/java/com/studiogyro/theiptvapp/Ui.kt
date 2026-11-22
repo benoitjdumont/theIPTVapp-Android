@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@file:OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 
 package com.studiogyro.theiptvapp
 
@@ -10,6 +10,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -87,12 +92,18 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -101,15 +112,26 @@ val Bg = Color(0xFF0B1220)
 val Panel = Color(0xFF111A2E)
 var Accent by mutableStateOf(Color(0xFF2F7BFF))
 
+/** Couleurs d'arrière-plan, dans l'ordre de la référence (teintes approximées d'après les captures). */
 val ACCENTS = listOf(
-    "Bleu" to Color(0xFF2F7BFF),
-    "Indigo" to Color(0xFF6C7BE0),
-    "Turquoise" to Color(0xFF00ACC1),
-    "Vert" to Color(0xFF2EAD6B),
-    "Orange" to Color(0xFFF57C00),
-    "Rouge" to Color(0xFFE53935),
+    "Rouge" to Color(0xFFE57373),
     "Rose" to Color(0xFFE91E8C),
-    "Gris" to Color(0xFF7C8593),
+    "Violet" to Color(0xFFAB47BC),
+    "Indigo" to Color(0xFF6C7BE0),
+    "Bleu" to Color(0xFF2F7BFF),
+    "Cyan" to Color(0xFF26C6DA),
+    "Sarcelle" to Color(0xFF00897B),
+    "Vert" to Color(0xFF2EAD6B),
+    "Citron" to Color(0xFFCDDC39),
+    "Jaune" to Color(0xFFFDD835),
+    "Ambre" to Color(0xFFFFC107),
+    "Orange" to Color(0xFFF57C00),
+    "Marron" to Color(0xFF8D6E63),
+    "Gris" to Color(0xFF9E9E9E),
+    "Bleu gris" to Color(0xFF78909C),
+    "Gris foncé" to Color(0xFF424242),
+    "Sombre" to Color(0xFF263238),
+    "Noir" to Color(0xFF000000),
 )
 
 /** ombre sous les textes de détail : lisibles même sur une image de fond */
@@ -139,7 +161,8 @@ fun AppRoot(vm: MainVm) {
     MaterialTheme(colorScheme = scheme) {
         PinDialog(vm)
         UpdateDialog(vm)
-        var screen by rememberSaveable { mutableStateOf(if (vm.sources.isEmpty()) "settings" else "home") }
+        if (!vm.termsOk) WelcomeDialog(vm)
+        var screen by rememberSaveable { mutableStateOf("home") }
         LaunchedEffect(vm.openSettingsRequest) {
             if (vm.openSettingsRequest) { screen = "settings"; vm.openSettingsRequest = false }
         }
@@ -160,7 +183,7 @@ fun AppRoot(vm: MainVm) {
         }
         Surface(Modifier.fillMaxSize().background(BgBrush), color = Color.Transparent) {
             vm.bgPath?.let { path ->
-                AsyncImage(model = java.io.File(path), contentDescription = null, contentScale = ContentScale.Crop, alpha = 0.6f, modifier = Modifier.fillMaxSize())
+                AsyncImage(model = java.io.File(path), contentDescription = null, contentScale = ContentScale.Crop, alpha = 1f, modifier = Modifier.fillMaxSize())
             }
             if (vm.current != null) {
                 PlayerScreen(vm)
@@ -196,15 +219,18 @@ fun AppRoot(vm: MainVm) {
 @Composable
 fun FocusRow(selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, requester: androidx.compose.ui.focus.FocusRequester? = null, blockUp: Boolean = true, content: @Composable RowScope.() -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val bringRow = remember { BringIntoViewRequester() }
+    val scopeRow = rememberCoroutineScope()
     val shape = RoundedCornerShape(10.dp)
     Row(
         Modifier
             .fillMaxWidth()
             .then(if (requester != null) Modifier.focusRequester(requester).then(if (blockUp) Modifier.focusProperties { up = androidx.compose.ui.focus.FocusRequester.Cancel } else Modifier) else Modifier)
+            .bringIntoViewRequester(bringRow)
             .clip(shape)
             .background(if (focused) Accent.copy(alpha = 0.35f) else if (selected) Accent.copy(alpha = 0.18f) else Color.Transparent)
             .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) scopeRow.launch { bringRow.bringIntoView() } }
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -221,6 +247,88 @@ fun HomeScreen(vm: MainVm, openSettings: () -> Unit) {
 
 var UiAlpha by mutableStateOf(1f)
 val TEXT_SIZES = listOf("Petite" to 0.9f, "Moyenne" to 1f, "Grande" to 1.15f, "Très grande" to 1.3f)
+
+/** Lecteur > Touches : (nom de la touche, action par défaut). Les 12 premières sont configurables (liste KEY_CHOICES). */
+val KEY_ROWS = listOf(
+    "OK" to "Afficher le panneau d'informations et le panneau de configuration",
+    "Appui long sur OK" to "Afficher le menu",
+    "Retour" to "Revenir",
+    "Appui long sur Retour" to "Arrêter la lecture",
+    "Gauche" to "Afficher la liste des chaînes en mode superposition",
+    "Appui long sur Gauche" to "Afficher la liste des chaînes en mode prévisualisation",
+    "Droite" to "Aller sur la chaîne la plus récente",
+    "Appui long sur Droite" to "Afficher la description du programme",
+    "Haut" to "Aller sur la chaîne suivante",
+    "Appui long sur Haut" to "Historique",
+    "Bas" to "Aller sur la chaîne précédente",
+    "Appui long sur Bas" to "Rechercher",
+    "Pg+ (Ch+)" to "Afficher le panneau d'informations de la chaîne suivante",
+    "Pg- (Ch-)" to "Afficher le panneau d'informations de la chaîne précédente",
+    "Augmenter le volume" to "Augmenter le son",
+    "Baisser le volume" to "Baisser le son",
+    "Muet" to "Couper le son",
+    "Menu" to "Afficher le menu",
+    "Menu Long" to "Afficher le Guide TV en mode superposition",
+    "Lecture/Pause" to "Lecture/Pause",
+    "Longue lecture/pause" to "Accéder à la diffusion en direct",
+    "Arrêter" to "Arrêter la lecture",
+    "Rembobiner (RW)" to "Afficher le panneau d'informations de la chaîne précédente",
+    "Avance Rapide (FF)" to "Afficher le panneau d'informations de la chaîne suivante",
+    "Enregistrer" to "Démarrer/arrêter l'enregistrement",
+    "Retour Arrière" to "Afficher les groupes de Guides TV en mode superposition",
+    "Info" to "Afficher le panneau d'informations",
+    "Guide" to "Afficher le Guide TV en mode superposition",
+    "Rouge" to "Afficher le Guide TV en mode superposition",
+    "Vert" to "Afficher les groupes de Guides TV en mode superposition",
+    "Jaune" to "Afficher le panneau de configuration",
+    "Bleu" to "Paramètres",
+)
+const val KEY_CONFIGURABLE = 12
+
+/** Choix possibles pour une touche (même liste pour toutes les touches configurables). */
+val KEY_CHOICES = listOf(
+    "Ignorer",
+    "Afficher le Guide TV en mode superposition",
+    "Afficher les groupes de Guides TV en mode superposition",
+    "Afficher le Guide TV en mode aperçu",
+    "Afficher les groupes de Guides TV en mode aperçu",
+    "Afficher la liste des chaînes en mode superposition",
+    "Afficher les groupes de listes de chaînes en mode superposition",
+    "Afficher la liste des chaînes en mode prévisualisation",
+    "Afficher les groupes de listes de chaînes en mode aperçu",
+    "Afficher la description du programme",
+    "Afficher le panneau d'informations et le panneau de configuration",
+    "Afficher le panneau d'informations",
+    "Afficher le panneau de configuration",
+    "Afficher le menu",
+    "Aller sur la chaîne la plus récente",
+    "Aller sur la chaîne suivante",
+    "Aller sur la chaîne précédente",
+    "Revenir",
+    "Lecture/Pause",
+    "Arrêter la lecture",
+    "Redémarrez le programme en cours",
+    "Accéder à la diffusion en direct",
+    "Rechercher",
+    "Historique",
+    "Films",
+    "Séries",
+    "Enregistrements",
+    "Ma liste",
+    "Démarrer/arrêter l'enregistrement",
+    "Multi-Vue",
+    "Image dans l'image",
+    "Pistes vidéo",
+    "Pistes audio",
+    "Décalage Audio",
+    "Sous-titres",
+    "Mode d'Affichage",
+    "Minuterie de sommeil",
+    "Changer le statut des Favoris",
+    "Paramètres",
+    "Revenir",
+    "Sortir",
+)
 val TRANSPS = listOf("Très transparente" to 0.5f, "Normale" to 1f, "Presque opaque" to 1.8f)
 private fun tint(c: Long, a: Float) = Color(c or 0xFF000000L).copy(alpha = (a * UiAlpha).coerceIn(0f, 1f))
 /** Couleurs des colonnes : suivent la couleur choisie dans Apparence.
@@ -229,6 +337,8 @@ fun darker(c: Color, f: Float): Color = androidx.compose.ui.graphics.lerp(c, Col
 val AccentDark get() = darker(Accent, 0.4f)
 /** transparence des colonnes et des préférences (réglée dans Apparence) : 0 = opaque, 1 = transparent */
 object GlassState { var transp by mutableStateOf(0f) }
+/** couleurs choisies dans Apparence ; null = valeur par défaut */
+object HiliteState { var bg by mutableStateOf<Color?>(null); var text by mutableStateOf<Color?>(null) }
 /** vrai quand le panneau Préférences est ouvert : les autres « Retour » ne doivent pas le court-circuiter */
 object Nav { var settingsOpen by mutableStateOf(false) }
 fun glass(c: Color): Color = c.copy(alpha = 1f - GlassState.transp)
@@ -380,6 +490,14 @@ private fun Rail(vm: MainVm, expanded: Boolean, onFocus: (Boolean) -> Unit, sear
         Modifier.width(if (focus) 170.dp else 56.dp).fillMaxHeight().background(RailBg).padding(vertical = 6.dp).onFocusChanged { onFocus(it.hasFocus) },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        // logo en lettres seulement (sans cadre), opaque : la transparence ne le touche pas.
+        // colonne ouverte : THEIPTVAPP ; colonne réduite (accordéon) : IPTV
+        if (focus) AppLogo(Modifier.padding(start = 16.dp, top = 2.dp, bottom = 6.dp), iconSize = 22.dp, textSize = 18.sp)
+        else Text(
+            "IPTV", color = Color(0xFFE6ECF7), fontSize = 16.sp, maxLines = 1, softWrap = false,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            modifier = Modifier.padding(start = 6.dp, top = 2.dp, bottom = 6.dp),
+        )
         RailItem(!vm.favMode && vm.tab == 0, focus, "TV", { vm.selectTab(0); onChoose() }, requester = firstReq) { TvIcon() }
         RailItem(!vm.favMode && vm.tab == 1, focus, "Films", { vm.selectTab(1); onChoose() }, enabled = vm.vodEnabled(1)) { FilmIcon() }
         RailItem(!vm.favMode && vm.tab == 2, focus, "Séries", { vm.selectTab(2); onChoose() }, enabled = vm.vodEnabled(2)) { SeriesIcon() }
@@ -447,7 +565,10 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
         if (!colsHidden) Rail(vm, railExpanded, { railFocus = it; if (it) railBig = true }, vm.searchOpen, { vm.openSearch() }, openSettings, { railBig = false; railFocus = false }, railReq)
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when {
-                vm.sources.isEmpty() -> Message("Ajoute une source dans les réglages (⚙).")
+                vm.sources.isEmpty() -> EmptyLibrary(
+                    onAdd = { vm.settingsStart = "add"; vm.openSettingsRequest = true },
+                    onSettings = { vm.openSettingsRequest = true },
+                )
                 sec.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
@@ -517,7 +638,7 @@ private fun HomeWide(vm: MainVm, openSettings: () -> Unit) {
                         Column(Modifier.weight(1f).fillMaxHeight().background(ListBg)) {
                             val pv = vm.preview
                             if (vm.tab == 0 && vm.previewMode && pv != null) PreviewHeader(vm, pv)
-                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f), listFirst) else PosterWall(vm, list, Modifier.weight(1f), listFirst)
+                            if (vm.tab == 0) ChannelList(vm, list, Modifier.weight(1f), listFirst, headerBg = false) else PosterWall(vm, list, Modifier.weight(1f), listFirst)
                         }
                     }
                 }
@@ -897,21 +1018,133 @@ private fun Message(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(text, color = Color.White) }
 }
 
+/** Accueil sans liste : explique quoi faire, avec deux boutons (comme les lecteurs multimédias). */
+@Composable
+private fun EmptyLibrary(onAdd: () -> Unit, onSettings: () -> Unit) {
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Aucune liste de lecture", color = Color.White, fontSize = 22.sp)
+            Spacer(Modifier.size(10.dp))
+            Text(
+                "theIPTVapp est un lecteur : il n'inclut aucune chaîne. Ajoute une liste de lecture (M3U ou Xtream) fournie par ton fournisseur.",
+                color = Color(0xFFB8C4EE), fontSize = 15.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+            Spacer(Modifier.size(24.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = onAdd) { Text("Ajouter une liste de lecture") }
+                Spacer(Modifier.size(12.dp))
+                androidx.compose.material3.OutlinedButton(onClick = onSettings) { Text("Paramètres", color = Color.White) }
+            }
+        }
+    }
+}
+
+/** Avis de première ouverture : le lecteur ne fournit aucun contenu ; l'utilisateur en est responsable. */
+@Composable
+fun WelcomeDialog(vm: MainVm) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = {},
+        properties = androidx.compose.ui.window.DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        title = { Text("Bienvenue dans theIPTVapp", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("theIPTVapp est un lecteur multimédia. Il ne fournit, n'héberge ni ne distribue aucune chaîne, aucun film et aucune série. Pour regarder quoi que ce soit, tu dois ajouter tes propres listes de lecture.")
+                Spacer(Modifier.size(12.dp))
+                Text("Ton contenu, ta responsabilité", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                Spacer(Modifier.size(4.dp))
+                Text("Tu es seul responsable de tout ce que tu ajoutes à l'application. En l'utilisant, tu confirmes que tu as les droits ou les autorisations nécessaires pour ce contenu, et que tu respectes les lois de ton pays.")
+            }
+        },
+        confirmButton = { Button(onClick = { vm.acceptTerms() }) { Text("Accepter") } },
+        dismissButton = {
+            androidx.compose.material3.OutlinedButton(onClick = { (ctx as? android.app.Activity)?.finish() }) { Text("Refuser et quitter") }
+        },
+    )
+}
+
+/** Logo : pastille bleue avec un triangle « lecture », puis « theIPTVapp » en gras. */
+@Composable
+private fun AppLogo(modifier: Modifier, iconSize: androidx.compose.ui.unit.Dp, textSize: androidx.compose.ui.unit.TextUnit) {
+    Row(modifier, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+        androidx.compose.foundation.Canvas(Modifier.size(iconSize)) {
+            drawRoundRect(Color(0xFF2F80FF), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.minDimension * 0.22f))
+            val play = androidx.compose.ui.graphics.Path().apply {
+                moveTo(size.width * 0.36f, size.height * 0.28f)
+                lineTo(size.width * 0.74f, size.height * 0.5f)
+                lineTo(size.width * 0.36f, size.height * 0.72f)
+                close()
+            }
+            drawPath(play, Color.White)
+        }
+        Spacer(Modifier.width(iconSize * 0.25f))
+        // « the » et « app » en normal ; seul « IPTV » est gras et un peu plus gros
+        Text(
+            androidx.compose.ui.text.buildAnnotatedString {
+                append("the")
+                pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = textSize * 1.15f))
+                append("IPTV")
+                pop()
+                append("app")
+            },
+            color = Color.White, fontSize = textSize, lineHeight = textSize * 1.2f, maxLines = 1, softWrap = false,
+        )
+    }
+}
+
+/** Cadre de télévision autour de l'aperçu : antennes en haut, bezel, pattes en bas. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TvFrame(modifier: Modifier, width: Dp = 146.dp, noOutline: Boolean = false, onDoubleClick: () -> Unit, content: @Composable BoxScope.() -> Unit) {
+    // cadre gris-bleu un peu plus clair que le fond, pour que son contour reste visible
+    // (réglage Apparence : « Enlever le contour du mini lecteur » rend le cadre transparent)
+    val bezel = if (noOutline) Color.Transparent else Color(0xFF2A303C)
+    Column(modifier.width(width), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+        // antennes plus courtes, de la même couleur que le cadre
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(8.dp)) {
+            val cx = size.width / 2f
+            val sw = 1.5.dp.toPx()
+            drawLine(bezel, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx - size.width * 0.22f, 0f), strokeWidth = sw)
+            drawLine(bezel, androidx.compose.ui.geometry.Offset(cx, size.height), androidx.compose.ui.geometry.Offset(cx + size.width * 0.22f, 0f), strokeWidth = sw)
+        }
+        Column(
+            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bezel).padding(2.dp),
+        ) {
+            // écran noir, sans contour ni effet de focus : seul le cadre entoure la vidéo
+            Box(
+                // coins de l'écran = coins du cadre moins la marge (8 dp - 2 dp), pour qu'ils restent dans le cadre
+                Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(Color.Black)
+                    .combinedClickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}, onDoubleClick = onDoubleClick,
+                    ),
+            ) { content() }
+            // logo sous l'écran, comme sur la colonne de gauche
+            // texte plus gros et blanc, pour qu'il se lise sous l'écran de l'aperçu
+            // logo et texte côte à côte, sur une bande fine : peu d'espace noir sous l'écran
+            Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                AppLogo(Modifier.fillMaxWidth(), iconSize = 6.dp, textSize = 6.sp)
+            }
+        }
+        Row(Modifier.fillMaxWidth().height(4.dp), horizontalArrangement = Arrangement.SpaceAround) {
+            Box(Modifier.width(22.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(bezel))
+            Box(Modifier.width(22.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(bezel))
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PreviewHeader(vm: MainVm, pv: Channel) {
     val e = vm.epg[pv.id]
     var replay by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().height(132.dp).background(GroupBg).padding(8.dp)) {
-        // deux touches sur l'aperçu = plein écran
-        Box(
-            Modifier
-                .fillMaxHeight()
-                .aspectRatio(16f / 9f)
-                .clip(RoundedCornerShape(6.dp))
-                .background(Color.Black)
-                .combinedClickable(onClick = {}, onDoubleClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }),
-        ) { PreviewBox(pv, paused = vm.previewPausedId == pv.id) }
+    // pas de fond ici : la colonne parente (ListBg) le fournit déjà ; un second calque rendrait la zone plus foncée
+    Row(Modifier.fillMaxWidth().height(196.dp).padding(8.dp)) {
+        // deux touches sur l'aperçu = plein écran ; l'aperçu est dans un cadre de télévision en 16:9
+        TvFrame(Modifier.fillMaxHeight(), width = 270.dp, noOutline = vm.opt("mini_nooutline", false), onDoubleClick ={ vm.guard(pv) { vm.play(vm.visible(), pv) } }) {
+            PreviewBox(pv, paused = vm.previewPausedId == pv.id)
+        }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f).fillMaxHeight()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -923,6 +1156,8 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
                     fontSize = 22.sp,
                     modifier = Modifier.padding(start = 8.dp).clickable { vm.toggleFav(pv) },
                 )
+                // LIVE à droite de l'étoile : rouge = direct ; un appui ouvre la chaîne en plein écran sur le direct
+                if (pv.kind == "live") LiveBadge(live = true, onClick = { vm.guard(pv) { vm.play(vm.visible(), pv) } }, modifier = Modifier.padding(start = 10.dp))
             }
             val now = e?.now
             if (now != null) {
@@ -936,11 +1171,13 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
             }
             Spacer(Modifier.weight(1f))
             if (pv.archive > 0) {
-                Button(
-                    onClick = { replay = true; vm.loadPast(pv) },
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 2.dp),
-                    modifier = Modifier.height(34.dp),
-                ) { Text("⏪  Revoir une émission", fontSize = 13.sp) }
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Button(
+                        onClick = { replay = true; vm.loadPast(pv) },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        modifier = Modifier.heightIn(min = 28.dp),
+                    ) { Text("⏪ Revoir une émission", fontSize = 12.sp, maxLines = 1, softWrap = false) }
+                }
             }
         }
     }
@@ -980,7 +1217,7 @@ private fun EpgCell(title: String?, sub: String?, progress: Float?, modifier: Mo
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, first: androidx.compose.ui.focus.FocusRequester? = null) {
+private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, first: androidx.compose.ui.focus.FocusRequester? = null, headerBg: Boolean = true) {
     if (list.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) { Text("Aucune chaîne.", color = Color.Gray) }
         return
@@ -995,7 +1232,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
         fun xOf(t: Long) = (((t - ws).coerceIn(0L, winMin * 60_000L)) * dpPerMs).dp
         Column(Modifier.fillMaxSize()) {
             // en-tête : date à gauche, repères horaires au-dessus de la grille
-            Row(Modifier.fillMaxWidth().background(Color(0x552B3A8F)).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().then(if (headerBg) Modifier.background(ListBg) else Modifier).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.width(leftW), verticalAlignment = Alignment.CenterVertically) {
                     val label = java.text.SimpleDateFormat("EEE d MMM  HH:mm", java.util.Locale.getDefault()).format(java.util.Date(ws))
                     Text(label, color = Color(0xFF8FB8FF), fontSize = 11.sp, maxLines = 1, modifier = Modifier.weight(1f))
@@ -1003,7 +1240,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
                     Text(if (vm.guideShiftMin == 0) "▶" else "⟲", color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { vm.shiftGuide(if (vm.guideShiftMin == 0) 60 else 0) }.padding(horizontal = 4.dp, vertical = 2.dp))
                     if (vm.guideShiftMin != 0) Text("▶", color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { vm.shiftGuide(60) }.padding(horizontal = 4.dp, vertical = 2.dp))
                 }
-                Box(Modifier.width(gridW).height(16.dp)) {
+                Box(Modifier.width(gridW).height(22.dp)) {
                     for (k in 0..(winMin / 30)) {
                         val t = ws + k * 30 * 60_000L
                         if (k < winMin / 30 || winMin % 30 == 0) Text(hm(t), color = Color(0xFFB8C4DA), fontSize = 11.sp, maxLines = 1, softWrap = false, modifier = Modifier.offset(x = xOf(t)))
@@ -1017,6 +1254,7 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
                         onClick = { vm.guard(c) { if (vm.previewMode && vm.preview?.id != c.id) vm.preview = c else vm.play(list, c) } },
                         onLongClick = { vm.toggleFav(c) },
                         requester = if (i == 0) first else null,
+                        blockUp = false, // permet à la flèche Haut de remonter jusqu'à « Revoir une émission »
                     ) {
                         LaunchedEffect(c.id, vm.xmltvReady) { vm.loadEpg(c) }
                         val e = vm.epg[c.id]
@@ -1054,7 +1292,10 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
                                     EpgCell(
                                         p.title, null, frac,
                                         Modifier.offset(x = x0).width(w).fillMaxHeight().combinedClickable(
-                                            onClick = {},
+                                            onClick = {
+                                                val ok = Reminder.schedule(sctx, c.name, p)
+                                                android.widget.Toast.makeText(sctx, if (ok) "Rappel réglé : ${p.title}" else "Émission déjà commencée", android.widget.Toast.LENGTH_SHORT).show()
+                                            },
                                             onLongClick = {
                                                 val ok = vm.schedule(sctx, c, p)
                                                 android.widget.Toast.makeText(sctx, if (ok) "Enregistrement programmé : ${p.title}" else "Émission terminée", android.widget.Toast.LENGTH_SHORT).show()
@@ -1075,10 +1316,10 @@ private fun ChannelList(vm: MainVm, list: List<Channel>, modifier: Modifier, fir
     }
 }
 
-/** les préférences restent lisibles : jamais plus transparentes que 8 % (sinon la grille du guide passe à travers le texte) */
-private fun panelGlass(c: Color): Color = c.copy(alpha = (1f - GlassState.transp).coerceAtLeast(0.97f))
-val PanelHead get() = panelGlass(darker(Accent, 0.2f))
-val PanelBody get() = panelGlass(Accent)
+// Paramètres : toujours opaques, le curseur de transparence ne les touche pas.
+// Corps = couleur de la colonne de gauche ; barre du titre = un ton plus clair pour se distinguer.
+val PanelBody get() = Accent.copy(alpha = 1f)
+val PanelHead get() = androidx.compose.ui.graphics.lerp(PanelBody, Color.White, 0.18f)
 
 /** Une ligne d'un panneau de réglages : titre, petit texte, élément à droite (interrupteur, valeur…). */
 @OptIn(ExperimentalFoundationApi::class)
@@ -1095,22 +1336,30 @@ private fun PanelItem(
     var focused by remember { mutableStateOf(false) }
     val fr = remember { androidx.compose.ui.focus.FocusRequester() }
     if (first) LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
+    // la ligne qui reçoit le focus fait défiler la page jusqu'à elle (utile en bas de liste)
+    val bring = remember { BringIntoViewRequester() }
+    val scopeBring = rememberCoroutineScope()
     val shape = RoundedCornerShape(6.dp)
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 1.dp)
             .clip(shape)
-            .background(if (focused) AccentDark else if (selected) Color.White.copy(alpha = 0.22f) else Color.Transparent)
+            .background(if (focused) (HiliteState.bg ?: AccentDark) else if (selected) Color.White.copy(alpha = 0.22f) else Color.Transparent)
             .then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier)
-            .androidx_focusRequester(fr)
-            .onFocusChanged { focused = it.isFocused }
-            .combinedClickable(onClick = onClick, onLongClick = onLong)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 14.sp)
+        // le texte est la cible de focus de la ligne ; la partie droite (bulle) a son propre focus
+        Column(
+            Modifier
+                .weight(1f)
+                .androidx_focusRequester(fr)
+                .bringIntoViewRequester(bring)
+                .onFocusChanged { focused = it.isFocused; if (it.isFocused) scopeBring.launch { bring.bringIntoView() } }
+                .combinedClickable(onClick = onClick, onLongClick = onLong),
+        ) {
+            Text(title, color = if (focused) (HiliteState.text ?: Color.White) else Color.White, fontSize = 14.sp)
             if (!sub.isNullOrBlank()) Text(sub, color = Color(0xFFB8C4EE), fontSize = 11.sp)
         }
         if (trailing != null) trailing()
@@ -1122,7 +1371,19 @@ private fun Modifier.androidx_focusRequester(fr: androidx.compose.ui.focus.Focus
 
 @Composable
 private fun PanelSwitch(on: Boolean) {
-    androidx.compose.material3.Switch(checked = on, onCheckedChange = null)
+    // couleurs explicites : sinon la piste activée se confond avec le fond et seul le point reste visible
+    androidx.compose.material3.Switch(
+        checked = on,
+        onCheckedChange = null,
+        colors = androidx.compose.material3.SwitchDefaults.colors(
+            checkedThumbColor = Color.White,
+            checkedTrackColor = Color(0xFF2F80FF),
+            checkedBorderColor = Color(0xFF8FB8FF),
+            uncheckedThumbColor = Color(0xFFB8C2D6),
+            uncheckedTrackColor = Color(0xFF2A303C),
+            uncheckedBorderColor = Color(0xFF8FB8FF)
+        )
+    )
 }
 
 @Composable
@@ -1139,18 +1400,33 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
     val bodyFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(page) { if (page != "root") runCatching { bodyFocus.requestFocus() } }
     val canClose = vm.sources.isNotEmpty()
-    BackHandler(true) {
+    // Retour (touche rouge de la télécommande) : une sous-page revient à la liste ; la liste principale ferme les Paramètres.
+    // Renvoie false quand il n'y a rien à faire (l'appli reçoit alors le retour normal).
+    fun goBack(): Boolean {
         when {
             page.startsWith("edit:") -> page = "lists"
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
             page == "rename" -> page = "look_guide"
+            page == "profiles" -> page = "lists"
+            page == "terms" || page == "privacy" -> page = "about"
+            page == "afr" -> page = "player"
+            page == "buffer" -> page = "player"
+            page == "seek" -> page = "player"
+            page == "look_color_bg" || page == "look_hilite" || page == "look_seltext" -> page = "look_color"
+            page == "logos" || page == "langue" || page == "textsize" -> page = "look"
             page.startsWith("look_") -> page = "look"
             // Retour dans Enregistrements : ferme tout le panneau (les enregistrements restent dans la liste)
             page == "rec" -> back()
-            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "profiles" -> page = "root"
+            page == "chlist" || page == "infopanel" || page == "menu" || page == "keys" -> page = "player"
+            page.startsWith("key:") -> page = "keys"
+            page == "rappels" || page == "vod" || page == "rsearch" -> page = "advanced"
+            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "advanced" || page == "player" || page == "remote" -> page = "root"
             canClose -> back()
+            else -> return false
         }
+        return true
     }
+    BackHandler(true) { goBack() }
 
     val title = when {
         page == "root" -> "Paramètres"
@@ -1159,14 +1435,36 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page.startsWith("edit:") -> "Modifier la liste"
         page.startsWith("src:") -> vm.sources.firstOrNull { it.id == page.removePrefix("src:") }?.name?.ifBlank { "Liste" } ?: "Liste"
         page == "groups" -> "Groupes"
-        page == "playback" -> "Préférences générales"
+        page == "playback" -> "Général"
+        page == "advanced" -> "Paramètres avancés"
         page == "network" -> "Réseau"
         page == "profiles" -> "Profils"
+        page == "terms" -> "Conditions d'utilisation"
+        page == "privacy" -> "Politique de confidentialité"
+        page == "afr" -> "Fréquence d'images automatique"
+        page == "buffer" -> "Mémoire tampon"
+        page == "seek" -> "Sauts dans le temps"
         page == "rename" -> "Renommer des chaînes"
-        page == "epg" -> "Guide (EPG)"
+        page == "epg" -> "EPG (guide des programmes TV)"
         page == "backup" -> "Sauvegarde"
         page == "look" -> "Apparence"
-        page == "look_color" -> "Couleur de l'interface"
+        page == "player" -> "Lecteur"
+        page == "chlist" -> "Liste des chaînes"
+        page == "infopanel" -> "Panneau d'information"
+        page == "menu" -> "Menu"
+        page == "keys" -> "Lecteur"
+        page.startsWith("key:") -> KEY_ROWS.getOrNull(page.removePrefix("key:").toIntOrNull() ?: -1)?.first ?: "Touche"
+        page == "rappels" -> "Rappels"
+        page == "vod" -> "VOD"
+        page == "rsearch" -> "Options de recherche"
+        page == "remote" -> "Télécommande"
+        page == "look_color" -> "Couleurs du thème"
+        page == "look_color_bg" -> "Couleur d'arrière-plan"
+        page == "look_hilite" -> "Couleur de surbrillance"
+        page == "look_seltext" -> "Couleur du texte sélectionné"
+        page == "logos" -> "Logos"
+        page == "langue" -> "Langue"
+        page == "textsize" -> "Taille du texte"
         page == "look_bg" -> "Image de fond"
         page == "look_guide" -> "Guide TV"
         page == "rec" -> "Enregistrements"
@@ -1175,7 +1473,11 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         else -> "À propos"
     }
 
-    BoxWithConstraints(if (docked) Modifier.fillMaxWidth(0.42f).fillMaxHeight() else Modifier.fillMaxSize()) {
+    // la touche Retour est traitée ici, au niveau des Paramètres, avant qu'elle n'atteigne le reste de l'appli
+    BoxWithConstraints(
+        (if (docked) Modifier.fillMaxWidth(0.42f).fillMaxHeight() else Modifier.fillMaxSize())
+            .onPreviewKeyEvent { e -> e.key == Key.Back && e.type == KeyEventType.KeyUp && goBack() },
+    ) {
         val w = if (docked) maxWidth else if (maxWidth > 400.dp) 360.dp else maxWidth * 0.92f
         Row(Modifier.fillMaxSize()) {
             if (!docked) Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).clickable(enabled = canClose, onClick = back))
@@ -1188,17 +1490,14 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                 Column(Modifier.weight(1f).focusRequester(bodyFocus).focusable().verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
                     when {
                         page == "root" -> {
-                            PanelItem("Listes de lecture", first = true) { page = "lists" }
-                            PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
+                            PanelItem("Général", "Préférences générales", first = true) { page = "playback" }
+                            PanelItem("Listes de lecture") { page = "lists" }
+                            PanelItem("EPG (guide des programmes TV)", vm.epgStatus) { page = "epg" }
                             PanelItem("Apparence", "${ACCENTS[vm.accentIdx].first} · texte ${TEXT_SIZES[vm.textSizeIdx].first.lowercase()}") { page = "look" }
-                            PanelItem("Préférences générales") { page = "playback" }
-                            PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
-                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX})") { page = "profiles" }
-                            PanelItem("Guide (EPG)", vm.epgStatus) { page = "epg" }
-                            PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
-                            PanelItem("Enregistrements") { page = "rec" }
+                            PanelItem("Lecteur", "Mémoire tampon, décodeurs, sauts") { page = "player" }
+                            PanelItem("Télécommande", "Options de recherche et de rembobinage") { page = "remote" }
                             PanelItem("Contrôle parental") { page = "parental" }
-                            PanelItem("Mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
+                            PanelItem("Paramètres avancés", "Groupes, réseau, sauvegarde, mises à jour") { page = "advanced" }
                             PanelItem("À propos") { page = "about" }
                         }
                         page == "lists" -> {
@@ -1211,6 +1510,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 ) { page = "src:" + s.id }
                             }
                             PanelItem("Ajouter une liste", first = vm.sources.isEmpty()) { page = "add" }
+                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX}), chacun avec un code à 4 chiffres (facultatif)") { page = "profiles" }
                         }
                         page.startsWith("src:") -> {
                             val id = page.removePrefix("src:")
@@ -1228,15 +1528,60 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         }
                         page == "groups" -> GroupsPage(vm)
                         page == "look" -> {
-                            PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first, first = true) { vm.changeTextSize((vm.textSizeIdx + 1) % TEXT_SIZES.size) }
-                            GlassSetting(vm)
-                            PanelItem("Couleur de l'interface", ACCENTS[vm.accentIdx].first) { page = "look_color" }
+                            PanelItem("Guide TV", first = true) { page = "look_guide" }
+                            PanelItem("Lecteur") { page = "player" }
+                            PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
+                            PanelItem("Logos", "Préférer les logos de l'EPG, dossier, cache") { page = "logos" }
+                            PanelItem("Langue", "Système") { page = "langue" }
+                            PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first) { page = "textsize" }
+                            PanelItem("Couleurs du thème", "Transparence, couleurs d'arrière-plan et de surbrillance") { page = "look_color" }
                             PanelItem("Image de fond", if (vm.bgPath != null) "Une image est active" else "Aucune") { page = "look_bg" }
-                            PanelItem("Guide TV") { page = "look_guide" }
+                            PanelItem("Enlever le contour du mini lecteur", "Le cadre gris autour de l'aperçu disparaît", trailing = { PanelSwitch(vm.opt("mini_nooutline", false)) }) { vm.setOpt("mini_nooutline", !vm.opt("mini_nooutline", false)) }
                         }
                         page == "look_color" -> {
+                            PanelItem("Couleur d'arrière-plan", ACCENTS[vm.accentIdx].first, first = true) { page = "look_color_bg" }
+                            PanelItem("Couleur de surbrillance", if (vm.hiliteIdx < 0) "Par défaut" else ACCENTS[vm.hiliteIdx].first) { page = "look_hilite" }
+                            PanelItem("Couleur du texte sélectionné", if (vm.seltextIdx < 0) "Blanc" else ACCENTS[vm.seltextIdx].first) { page = "look_seltext" }
+                            GlassSetting(vm)
+                        }
+                        page == "look_color_bg" -> {
                             ACCENTS.forEachIndexed { i, (n, c) ->
                                 PanelItem(n, first = i == 0, trailing = { if (i == vm.accentIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeAccent(i) }
+                            }
+                        }
+                        page == "look_hilite" -> {
+                            PanelItem("Par défaut", first = true, trailing = { if (vm.hiliteIdx < 0) Text("✔", color = Color.White) }) { vm.changeHilite(-1) }
+                            ACCENTS.forEachIndexed { i, (n, c) ->
+                                PanelItem(n, trailing = { if (i == vm.hiliteIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeHilite(i) }
+                            }
+                        }
+                        page == "look_seltext" -> {
+                            PanelItem("Blanc", first = true, trailing = { if (vm.seltextIdx < 0) Text("✔", color = Color.White) }) { vm.changeSeltext(-1) }
+                            ACCENTS.forEachIndexed { i, (n, c) ->
+                                PanelItem(n, trailing = { if (i == vm.seltextIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeSeltext(i) }
+                            }
+                        }
+                        page == "logos" -> {
+                            PanelItem("Préférer les logos de l'EPG", first = true, trailing = { PanelSwitch(vm.opt("logo_epg", false)) }) { vm.setOpt("logo_epg", !vm.opt("logo_epg", false)) }
+                            PanelItem("Dossier Logos", "Vide") { }
+                            PanelItem("Correspondance inexacte pour les fichiers de logos", trailing = { PanelSwitch(vm.opt("logo_fuzzy", true)) }) { vm.setOpt("logo_fuzzy", !vm.opt("logo_fuzzy", true)) }
+                            val ctxLg = androidx.compose.ui.platform.LocalContext.current
+                            var logoMsg by remember { mutableStateOf("") }
+                            PanelItem("Vider le cache des logos", logoMsg.ifBlank { null }) {
+                                // le cache des images de Coil est un dossier du cache de l'appli ; il se reconstruit au besoin
+                                runCatching { java.io.File(ctxLg.cacheDir, "image_cache").deleteRecursively() }
+                                logoMsg = "Cache vidé. Les logos se rechargent."
+                            }
+                        }
+                        page == "langue" -> {
+                            listOf("Système", "Čeština", "Dansk", "Deutsch", "English", "Español", "Français", "Hrvatski", "Italiano", "Latviešu", "Lietuvių", "Magyar", "Nederlands", "Norsk", "Polski", "Português (Brasil)", "Română", "Slovenský", "Slovenščina", "Srpski", "Suomi", "Svenska", "Tiếng Việt", "Türkçe", "Ελληνικά", "Български", "Русский", "Српски", "Українська", "ქართული", "עברית", "عربی", "中文").forEachIndexed { i, name ->
+                                PanelItem(name, first = i == 0, trailing = { if (i == 0) Text("✔", color = Color.White) }) { }
+                            }
+                            PanelLabel("Le choix de langue sera enregistré dans une version future.")
+                        }
+                        page == "textsize" -> {
+                            TEXT_SIZES.forEachIndexed { i, (n, _) ->
+                                PanelItem(n, first = i == 0, trailing = { if (i == vm.textSizeIdx) Text("✔", color = Color.White) }) { vm.changeTextSize(i) }
                             }
                         }
                         page == "look_bg" -> {
@@ -1244,32 +1589,215 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             if (vm.bgPath != null) PanelItem("Retirer l'image") { vm.clearBackground() }
                         }
                         page == "look_guide" -> {
-                            PanelItem("Afficher les numéros de chaîne", first = true, trailing = { PanelSwitch(vm.opt("numbers")) }) { vm.setOpt("numbers", !vm.opt("numbers")) }
-                            PanelItem("Afficher le nom de chaîne", trailing = { PanelSwitch(vm.opt("names")) }) { vm.setOpt("names", !vm.opt("names")) }
-                            PanelItem("Icône de rattrapage dans la liste", trailing = { PanelSwitch(vm.opt("replay")) }) { vm.setOpt("replay", !vm.opt("replay")) }
-                            PanelItem("Titre de programme sur deux lignes", trailing = { PanelSwitch(vm.opt("twolines", false)) }) { vm.setOpt("twolines", !vm.opt("twolines", false)) }
-                            PanelItem("Chaîne actuelle dans une autre couleur", trailing = { PanelSwitch(vm.opt("curcolor")) }) { vm.setOpt("curcolor", !vm.opt("curcolor")) }
-                            PanelItem("Mettre en évidence le programme actuel", trailing = { PanelSwitch(vm.opt("highlight")) }) { vm.setOpt("highlight", !vm.opt("highlight")) }
-                            PanelItem("Mettre en évidence uniquement la progression", trailing = { PanelSwitch(vm.opt("progonly", false)) }) { vm.setOpt("progonly", !vm.opt("progonly", false)) }
-                            PanelItem("Trier les chaînes de A à Z", "Sinon : ordre de la liste", trailing = { PanelSwitch(vm.opt("sortaz", false)) }) { vm.setOpt("sortaz", !vm.opt("sortaz", false)) }
-                            PanelItem("Renommer des chaînes") { page = "rename" }
+                            // même ordre et mêmes libellés que la référence (captures)
+                            PanelItem("Tri des Chaînes", "Par ordre dans la playlist", first = true) { }
+                            PanelItem("Aperçu", "On") { }
+                            PanelItem("Éditeur de noms de chaîne", "Off") { page = "rename" }
+                            PanelItem("Afficher les numéros de chaîne", trailing = { PanelSwitch(vm.opt("numbers")) }) { vm.setOpt("numbers", !vm.opt("numbers")) }
+                            PanelItem("Afficher les noms des chaînes", trailing = { PanelSwitch(vm.opt("names", true)) }) { vm.setOpt("names", !vm.opt("names", true)) }
+                            PanelItem("Titres de chaîne sur deux lignes", trailing = { PanelSwitch(vm.opt("chtwolines", false)) }) { vm.setOpt("chtwolines", !vm.opt("chtwolines", false)) }
+                            PanelItem("Afficher l'icône du replay dans la liste des chaînes", trailing = { PanelSwitch(vm.opt("replay", true)) }) { vm.setOpt("replay", !vm.opt("replay", true)) }
+                            PanelItem("Mettez en surbrillance la chaîne actuelle dans une autre couleur", trailing = { PanelSwitch(vm.opt("curcolor", true)) }) { vm.setOpt("curcolor", !vm.opt("curcolor", true)) }
+                            PanelItem("Titres de programmes sur deux lignes", trailing = { PanelSwitch(vm.opt("twolines", false)) }) { vm.setOpt("twolines", !vm.opt("twolines", false)) }
+                            PanelItem("Mettre en évidence les programmes actuels", trailing = { PanelSwitch(vm.opt("highlight", true)) }) { vm.setOpt("highlight", !vm.opt("highlight", true)) }
+                            PanelItem("Mettre en évidence uniquement la progression", trailing = { PanelSwitch(vm.opt("progonly", true)) }) { vm.setOpt("progonly", !vm.opt("progonly", true)) }
+                            PanelItem("Afficher l'indicateur de l'heure actuelle", trailing = { PanelSwitch(vm.opt("nowline", true)) }) { vm.setOpt("nowline", !vm.opt("nowline", true)) }
+                            PanelItem("Défilement des chaînes animées", trailing = { PanelSwitch(vm.opt("animscroll", true)) }) { vm.setOpt("animscroll", !vm.opt("animscroll", true)) }
+                            PanelItem("Restez sur le Guide TV lorsque vous changez de chaîne en mode superposition", trailing = { PanelSwitch(vm.opt("stayguide", false)) }) { vm.setOpt("stayguide", !vm.opt("stayguide", false)) }
+                            PanelItem("Utilisez Retour pour revenir aux programmes en cours", trailing = { PanelSwitch(vm.opt("backnow", true)) }) { vm.setOpt("backnow", !vm.opt("backnow", true)) }
                         }
                         page == "playback" -> {
-                            PanelItem("Reprendre la dernière chaîne", "Au démarrage de l'appli", first = true, trailing = { PanelSwitch(vm.autoResume) }) { vm.changeAutoResume(!vm.autoResume) }
+                            PanelItem("Démarrer automatiquement l'application au démarrage d'Android", "Ouvre l'appli quand l'appareil démarre", first = true, trailing = { PanelSwitch(vm.bootStart) }) { vm.changeBootStart(!vm.bootStart) }
+                            PanelItem("Lancer la dernière chaîne au démarrage de l'application", trailing = { PanelSwitch(vm.autoResume) }) { vm.changeAutoResume(!vm.autoResume) }
+                            PanelItem("Passer en mode image dans l'image en appuyant sur Accueil", "Touche Accueil pendant une chaîne", trailing = { PanelSwitch(vm.pipOnHome) }) { vm.changePipOnHome(!vm.pipOnHome) }
+                            PanelItem("Confirmer la sortie par une seconde pression sur Retour", trailing = { PanelSwitch(vm.doubleBack) }) { vm.changeDoubleBack(!vm.doubleBack) }
                             PanelItem("Aperçu avant le plein écran", "Un clic = aperçu, deux clics = plein écran", trailing = { PanelSwitch(vm.previewMode) }) { vm.changePreviewMode(!vm.previewMode) }
-                            PanelItem("Image dans l'image à l'accueil", "Touche Accueil pendant une chaîne", trailing = { PanelSwitch(vm.pipOnHome) }) { vm.changePipOnHome(!vm.pipOnHome) }
-                            PanelItem("Confirmer la sortie", "Retour deux fois pour quitter", trailing = { PanelSwitch(vm.doubleBack) }) { vm.changeDoubleBack(!vm.doubleBack) }
-                            PanelItem("Démarrer au démarrage d'Android", "Ouvre l'appli quand l'appareil démarre", trailing = { PanelSwitch(vm.bootStart) }) { vm.changeBootStart(!vm.bootStart) }
                         }
                         page == "network" -> NetworkPage(vm)
+                        page == "remote" -> {
+                            PanelItem("Guide TV", first = true) { page = "look_guide" }
+                            PanelLabel("Options de recherche")
+                            // interrupteurs affichés avec leur valeur de référence ; pas encore enregistrés
+                            PanelItem("Utiliser RW/FF/Pause pour se déplacer/mettre en pause pendant la lecture d'un Replay", first = true, trailing = { PanelSwitch(vm.opt("rm_rwff", true)) }) { vm.setOpt("rm_rwff", !vm.opt("rm_rwff", true)) }
+                            PanelItem("Utiliser RW pour rembobiner le flux d'une chaîne direct avec Replay", trailing = { PanelSwitch(vm.opt("rm_rw_live", false)) }) { vm.setOpt("rm_rw_live", !vm.opt("rm_rw_live", false)) }
+                            PanelItem("Utiliser Gauche/Droite pour se déplacer pendant la lecture d'un Replay", trailing = { PanelSwitch(vm.opt("rm_lr_seek", false)) }) { vm.setOpt("rm_lr_seek", !vm.opt("rm_lr_seek", false)) }
+                            PanelItem("Utiliser Gauche pour rembobiner le flux d'une chaîne direct avec Replay", trailing = { PanelSwitch(vm.opt("rm_left_live", false)) }) { vm.setOpt("rm_left_live", !vm.opt("rm_left_live", false)) }
+                            PanelItem("Utilisez Bas/Haut pour rechercher tout en regardant le replay", trailing = { PanelSwitch(vm.opt("rm_ud_seek", false)) }) { vm.setOpt("rm_ud_seek", !vm.opt("rm_ud_seek", false)) }
+                            PanelItem("Utilisez Bas pour rembobiner la diffusion en direct avec le replay", trailing = { PanelSwitch(vm.opt("rm_down_live", false)) }) { vm.setOpt("rm_down_live", !vm.opt("rm_down_live", false)) }
+                        }
+                        page == "menu" -> {
+                            PanelItem("Réorganiser les boutons", "Bientôt disponible", first = true) { }
+                            PanelLabel("Boutons visibles")
+                            listOf("Rechercher", "Liste des Chaînes", "Enregistrements", "Multi-Vue", "Image dans l'image", "Pistes vidéo", "Pistes audio", "Décalage Audio", "Sous-titres", "Mode d'Affichage", "Minuterie de sommeil", "Changer le statut des Favoris", "Paramètres").forEach { PanelItem(it) { } }
+                            PanelLabel("Boutons cachés")
+                            listOf("Historique", "Films", "Séries", "Ma liste", "Sortir").forEach { PanelItem(it) { } }
+                        }
+                        page == "keys" -> {
+                            PanelLabel("Choisissez l'action de chaque touche. Enregistrement bientôt disponible.")
+                            KEY_ROWS.forEachIndexed { i, (name, action) ->
+                                // une touche configurable affiche l'action choisie, sinon l'action par défaut
+                                val shown = if (i < KEY_CONFIGURABLE) vm.keyChoice(i) ?: action else action
+                                PanelItem(name, shown, first = i == 0) { if (i < KEY_CONFIGURABLE) page = "key:$i" }
+                            }
+                            PanelItem("Restaurer les paramètres par défaut") { vm.resetKeyChoices() }
+                        }
+                        page.startsWith("key:") -> {
+                            val idx = page.removePrefix("key:").toIntOrNull() ?: -1
+                            val current = KEY_ROWS.getOrNull(idx)?.second
+                            KEY_CHOICES.forEachIndexed { i, c ->
+                                val chosen = vm.keyChoice(idx) ?: current
+                                PanelItem(c, first = i == 0, trailing = { if (c == chosen) Text("●", color = Color.White) }) { vm.setKeyChoice(idx, c); page = "keys" }
+                            }
+                        }
+                        page == "rappels" -> {
+                            PanelItem("Rappeler avant le début du programme (minutes)", "0", first = true) { }
+                            PanelItem("Délai d'expiration de la fenêtre contextuelle (secondes)", "10") { }
+                            PanelItem("Action par défaut", "Regarder") { }
+                            PanelItem("Sortir du mode veille", "Peut ne pas fonctionner sur tous les appareils", trailing = { PanelSwitch(false) }) { }
+                        }
+                        page == "vod" -> {
+                            PanelItem("Lecture automatique du prochain épisode", first = true, trailing = { PanelSwitch(false) }) { }
+                        }
+                        page == "rsearch" -> {
+                            PanelItem("Préférer la recherche vocale", first = true, trailing = { PanelSwitch(true) }) { }
+                            PanelItem("Afficher l'historique des recherches", trailing = { PanelSwitch(true) }) { }
+                            PanelItem("Afficher d'abord les chaînes préférées", trailing = { PanelSwitch(true) }) { }
+                            PanelItem("Afficher les programmes antérieurs sans Replay", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Restez sur l'écran de recherche lorsque vous changez de chaîne", trailing = { PanelSwitch(false) }) { }
+                        }
+                        page == "chlist" -> {
+                            PanelItem("Mettre en surbrillance les programmes actuels en couleur", first = true, trailing = { PanelSwitch(vm.opt("cl_hilite", true)) }) { vm.setOpt("cl_hilite", !vm.opt("cl_hilite", true)) }
+                            PanelItem("Assombrir les programmes précédents", trailing = { PanelSwitch(vm.opt("cl_dim", true)) }) { vm.setOpt("cl_dim", !vm.opt("cl_dim", true)) }
+                            PanelLabel("Mode superposition")
+                            PanelItem("Afficher les programmes", trailing = { PanelSwitch(vm.opt("cl_ov_progs", true)) }) { vm.setOpt("cl_ov_progs", !vm.opt("cl_ov_progs", true)) }
+                            PanelItem("Afficher la description du programme", trailing = { PanelSwitch(vm.opt("cl_ov_desc", false)) }) { vm.setOpt("cl_ov_desc", !vm.opt("cl_ov_desc", false)) }
+                            PanelItem("Lecture automatique des chaînes", trailing = { PanelSwitch(vm.opt("cl_ov_auto", false)) }) { vm.setOpt("cl_ov_auto", !vm.opt("cl_ov_auto", false)) }
+                            PanelItem("Rester sur la liste lorsque vous changez de chaînes", trailing = { PanelSwitch(vm.opt("cl_ov_stay", false)) }) { vm.setOpt("cl_ov_stay", !vm.opt("cl_ov_stay", false)) }
+                            PanelLabel("Mode aperçu")
+                            PanelItem("Transition animée", trailing = { PanelSwitch(vm.opt("cl_pv_anim", true)) }) { vm.setOpt("cl_pv_anim", !vm.opt("cl_pv_anim", true)) }
+                            PanelItem("Lecture automatique des chaînes (aperçu)", trailing = { PanelSwitch(vm.opt("cl_pv_auto", false)) }) { vm.setOpt("cl_pv_auto", !vm.opt("cl_pv_auto", false)) }
+                            PanelItem("Rester sur la liste lorsque vous changez de chaînes (aperçu)", trailing = { PanelSwitch(vm.opt("cl_pv_stay", false)) }) { vm.setOpt("cl_pv_stay", !vm.opt("cl_pv_stay", false)) }
+                        }
+                        page == "infopanel" -> {
+                            PanelItem("Style de carte", "Bientôt disponible", first = true) { }
+                            PanelItem("Afficher le panneau d'informations en bas lors du changement de chaîne", trailing = { PanelSwitch(vm.opt("ip_bottom", true)) }) { vm.setOpt("ip_bottom", !vm.opt("ip_bottom", true)) }
+                            PanelItem("Afficher l'heure", trailing = { PanelSwitch(vm.opt("ip_time", true)) }) { vm.setOpt("ip_time", !vm.opt("ip_time", true)) }
+                            PanelItem("Afficher la date sur l'horloge", trailing = { PanelSwitch(vm.opt("ip_date", false)) }) { vm.setOpt("ip_date", !vm.opt("ip_date", false)) }
+                            PanelItem("Afficher la liste de lecture et le nom du groupe", trailing = { PanelSwitch(vm.opt("ip_group", true)) }) { vm.setOpt("ip_group", !vm.opt("ip_group", true)) }
+                            PanelItem("Afficher la description du programme", trailing = { PanelSwitch(vm.opt("ip_desc", true)) }) { vm.setOpt("ip_desc", !vm.opt("ip_desc", true)) }
+                            PanelItem("Afficher la description lors du changement de chaîne uniquement", trailing = { PanelSwitch(vm.opt("ip_desc_zap", false)) }) { vm.setOpt("ip_desc_zap", !vm.opt("ip_desc_zap", false)) }
+                            PanelItem("Afficher les propriétés du média", trailing = { PanelSwitch(vm.opt("ip_media", false)) }) { vm.setOpt("ip_media", !vm.opt("ip_media", false)) }
+                            PanelItem("Afficher la résolution vidéo au lieu des étiquettes", trailing = { PanelSwitch(vm.opt("ip_res", false)) }) { vm.setOpt("ip_res", !vm.opt("ip_res", false)) }
+                        }
+                        page == "seek" -> {
+                            SeekRow("back_bar", "Saut dans la barre de progression (en arrière)")
+                            SeekRow("fwd_bar", "Saut dans la barre de progression (en avant)")
+                            SeekRow("rw", "Saut dans le temps avec le bouton RW")
+                            SeekRow("ff", "Saut dans le temps avec le bouton FF")
+                        }
+                        page == "buffer" -> {
+                            val ctxBu = androidx.compose.ui.platform.LocalContext.current
+                            var buf by remember { mutableStateOf(Store(ctxBu).bufferSize()) }
+                            listOf("Petite", "Moyenne", "Grande").forEachIndexed { i, label ->
+                                PanelItem(label, first = i == 0, trailing = { PanelSwitch(buf == i) }) {
+                                    buf = i
+                                    Store(ctxBu).saveBufferSize(i)
+                                }
+                            }
+                            PanelLabel("La taille du tampon détermine la durée de la vidéo qui doit être téléchargée pour démarrer la lecture. Essayez d'augmenter cette taille si vous voyez s'activer fréquemment la mise en mémoire tampon. Cela peut réduire la vitesse de zapping des chaînes.")
+                        }
+                        page == "afr" -> {
+                            // réglages de la référence : Live TV et VOD désactivés, taux de rafraîchissement activé, résolution désactivée
+                            PanelItem("Activer l'AFR pour le Live TV", first = true, trailing = { PanelSwitch(vm.opt("afr_live", false)) }) { vm.setOpt("afr_live", !vm.opt("afr_live", false)) }
+                            PanelItem("Activer l'AFR pour la VOD", trailing = { PanelSwitch(vm.opt("afr_vod", false)) }) { vm.setOpt("afr_vod", !vm.opt("afr_vod", false)) }
+                            PanelItem("Changer le taux de rafraîchissement de l'écran", trailing = { PanelSwitch(vm.opt("afr_rate", true)) }) { vm.setOpt("afr_rate", !vm.opt("afr_rate", true)) }
+                            PanelItem("Changer de résolution d'écran", trailing = { PanelSwitch(vm.opt("afr_res", false)) }) { vm.setOpt("afr_res", !vm.opt("afr_res", false)) }
+                            val ctxAfr = androidx.compose.ui.platform.LocalContext.current
+                            var afrDelay by remember { mutableStateOf(Store(ctxAfr).afrDelay()) }
+                            PanelItem("Délai avant de changer, en sec", "$afrDelay") {
+                                val opts = listOf(0, 1, 2, 3, 5, 10)
+                                afrDelay = opts[(opts.indexOf(afrDelay) + 1).mod(opts.size)]
+                                Store(ctxAfr).saveAfrDelay(afrDelay)
+                            }
+                            PanelLabel("Activer cette option si vous voulez que le taux de rafraîchissement de votre TV s'adapte à celui du flux vidéo. Cela peut rendre la lecture plus fluide. Certains appareils ne sont pas compatibles.")
+                        }
+                        page == "player" -> {
+                            PanelItem("Liste des chaînes", "Surbrillance, superposition, aperçu", first = true) { page = "chlist" }
+                            PanelItem("Panneau d'information", "Heure, description, propriétés du média") { page = "infopanel" }
+                            PanelItem("Menu", "Réorganiser les boutons du menu") { page = "menu" }
+                            PanelItem("Horloge", "Off") { }
+                            val ctxPt = androidx.compose.ui.platform.LocalContext.current
+                            var panelSec by remember { mutableStateOf(Store(ctxPt).panelTimeout()) }
+                            // un appui fait défiler les valeurs : 3, 5, 10, 15, 30 secondes
+                            PanelItem("Délai d'expiration des panneaux, sec", "$panelSec") {
+                                val options = listOf(3, 5, 10, 15, 30)
+                                panelSec = options[(options.indexOf(panelSec) + 1).mod(options.size)]
+                                Store(ctxPt).savePanelTimeout(panelSec)
+                            }
+                            val ctxBuf = androidx.compose.ui.platform.LocalContext.current
+                            val bufName = listOf("Petite", "Moyenne", "Grande")[Store(ctxBuf).bufferSize()]
+                            PanelItem("Mémoire tampon", bufName) { page = "buffer" }
+                            PanelItem("Décodeur audio", "Matériel") { }
+                            PanelItem("Décodeur vidéo", "Matériel") { }
+                            PanelItem("Fréquence d'images automatique (AFR)", "Changer le taux de rafraîchissement selon la vidéo") { page = "afr" }
+                            val ctxSu = androidx.compose.ui.platform.LocalContext.current
+                            var surround by remember { mutableStateOf(Store(ctxSu).surroundDefault()) }
+                            PanelItem("Sélectionner la piste audio surround par défaut", if (surround) "Activé" else "Désactivé", trailing = { PanelSwitch(surround) }) {
+                                surround = !surround
+                                Store(ctxSu).saveSurroundDefault(surround)
+                            }
+                            val ctxPt2 = androidx.compose.ui.platform.LocalContext.current
+                            var passthrough by remember { mutableStateOf(Store(ctxPt2).audioPassthrough()) }
+                            PanelItem("Audio passthrough", if (passthrough) "Activé" else "Désactivé", trailing = { PanelSwitch(passthrough) }) {
+                                passthrough = !passthrough
+                                Store(ctxPt2).saveAudioPassthrough(passthrough)
+                            }
+                            val ctxTun = androidx.compose.ui.platform.LocalContext.current
+                            var tunnel by remember { mutableStateOf(Store(ctxTun).tunnel()) }
+                            PanelItem("Lecture en tunnel", if (tunnel) "Activé · à la prochaine lecture" else "Désactivé", trailing = { PanelSwitch(tunnel) }) {
+                                tunnel = !tunnel
+                                Store(ctxTun).saveTunnel(tunnel)
+                            }
+                            PanelItem("Utiliser un lecteur externe", if (vm.externalPlayer) "Oui : VLC si installé, sinon choix d'appli" else "Non : lecteur intégré", trailing = { PanelSwitch(vm.externalPlayer) }) { vm.changeExternalPlayer(!vm.externalPlayer) }
+                            PanelItem("Sauts dans le temps", "Barre de progression, RW et FF") { page = "seek" }
+                            PanelLabel("Touches")
+                            PanelItem("Touches de la télécommande", "OK, Retour, Gauche, Droite, Haut, Bas et plus") { page = "keys" }
+                        }
+                        page == "advanced" -> {
+                            PanelItem("Options de recherche", "Recherche vocale, historique, chaînes préférées", first = true) { page = "rsearch" }
+                            PanelItem("Rappels", "Rappels de programmes") { page = "rappels" }
+                            PanelItem("Enregistrement", "Programmer et gérer les enregistrements") { page = "rec" }
+                            PanelItem("VOD", "Lecture automatique") { page = "vod" }
+                            PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
+                            PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
+                            PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
+                            PanelItem("Mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
+                        }
                         page == "profiles" -> ProfilesPage(vm)
+                        page == "terms" -> LegalPage(TERMS_TEXT)
+                        page == "privacy" -> LegalPage(PRIVACY_TEXT)
                         page == "rename" -> RenamePage(vm)
                         page == "epg" -> EpgPage(vm)
                         page == "backup" -> BackupPage(vm)
                         page == "rec" -> Column(Modifier.padding(horizontal = 12.dp)) { RecordingsSection(vm) }
-                        page == "parental" -> Column(Modifier.padding(horizontal = 12.dp)) { ParentalSection(vm) }
+                        page == "parental" -> Column(Modifier.padding(horizontal = 12.dp)) {
+                            PinChangeSection(vm, first = true)
+                            PanelItem("Méthode de saisie du code PIN", "Sélectionneur") { }
+                            PanelItem("Ne nécessite pas de code PIN après le déverrouillage", "Toujours demander") { }
+                            PanelItem("Ne nécessite pas uniquement pour les chaînes", trailing = { PanelSwitch(false) }) { }
+                            PanelLabel("PIN requis pour")
+                            PanelItem("Paramètres", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Paramètres | Listes de Lecture", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Paramètres | EPG", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Options de Chaîne", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Options de Groupe", trailing = { PanelSwitch(false) }) { }
+                            ParentalSection(vm)
+                        }
                         page == "update" -> Column(Modifier.padding(horizontal = 12.dp)) { UpdateSection(vm) }
                         else -> {
+                            PanelItem("Rechercher des mises à jour", "Version ${BuildConfig.VERSION_NAME}", first = true) { page = "update" }
+                            PanelItem("Conditions d'utilisation", "Ce que tu acceptes au premier lancement") { page = "terms" }
+                            PanelItem("Politique de confidentialité", "Ce qui est enregistré, et où") { page = "privacy" }
                             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(64.dp))
                                 Spacer(Modifier.size(10.dp))
@@ -1326,6 +1854,8 @@ fun TvField(
     var open by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
     var focused by remember { mutableStateOf(false) }
+    val bringField = remember { BringIntoViewRequester() }
+    val scopeField = rememberCoroutineScope()
     val shown = if (secret) "•".repeat(value.length) else value
     Column(modifier.fillMaxWidth()) {
         Text(label, color = Color(0xFFB8C4EE), fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
@@ -1334,7 +1864,8 @@ fun TvField(
             color = Color(0x22FFFFFF),
             border = androidx.compose.foundation.BorderStroke(if (focused) 3.dp else 1.dp, if (focused) Color.White else Color(0x66FFFFFF)),
             modifier = Modifier.fillMaxWidth()
-                .onFocusChanged { focused = it.isFocused }
+                .bringIntoViewRequester(bringField)
+                .onFocusChanged { focused = it.isFocused; if (it.isFocused) scopeField.launch { bringField.bringIntoView() } }
                 .clickable { draft = value; open = true },
         ) {
             Text(
@@ -1368,6 +1899,24 @@ fun TvField(
     }
 }
 
+/** texte affiché dans Conditions d'utilisation (le même que l'accueil au premier lancement) */
+const val TERMS_TEXT = "theIPTVapp est un lecteur multimédia. Il ne fournit, n'héberge ni ne distribue aucune chaîne, aucun film et aucune série. Pour regarder quoi que ce soit, tu dois ajouter tes propres listes de lecture.\n\n" +
+    "Ton contenu, ta responsabilité\n" +
+    "Tu es seul responsable de tout ce que tu ajoutes à l'application. En l'utilisant, tu confirmes que tu as les droits ou les autorisations nécessaires pour ce contenu, et que tu respectes les lois de ton pays."
+
+/** brouillon à relire : décrit ce que l'appli enregistre sur l'appareil */
+const val PRIVACY_TEXT = "theIPTVapp enregistre ses données sur ton appareil seulement : tes listes de lecture (adresses que tu ajoutes), tes favoris, ton historique, tes réglages et tes profils.\n\n" +
+    "Les codes parentaux et les codes de profil sont enregistrés sous forme d'empreinte, jamais en clair.\n\n" +
+    "L'appli se connecte aux adresses de tes listes et du guide (EPG) pour les télécharger. Elle peut aussi vérifier s'il existe une nouvelle version.\n\n" +
+    "Aucun compte n'est demandé. Tu peux effacer les données en désinstallant l'appli, ou en effaçant les listes et les profils dans les réglages."
+
+@Composable
+private fun LegalPage(text: String) {
+    Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
+        Text(text, color = Color.White, fontSize = 14.sp)
+    }
+}
+
 @Composable
 private fun ProfilesPage(vm: MainVm) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -1377,31 +1926,68 @@ private fun ProfilesPage(vm: MainVm) {
     var newName by rememberSaveable { mutableStateOf("") }
     var editId by rememberSaveable { mutableStateOf("") }
     var editName by rememberSaveable { mutableStateOf("") }
+    var editCode by rememberSaveable { mutableStateOf("") }
+    var editNewCode by rememberSaveable { mutableStateOf("") }
+    var askId by rememberSaveable { mutableStateOf("") }
+    var askCode by rememberSaveable { mutableStateOf("") }
     var msg by rememberSaveable { mutableStateOf("") }
+    fun startEdit(p: Profiles.P) { editId = p.id; editName = p.name; editCode = ""; editNewCode = ""; msg = ""; askId = "" }
     Column(Modifier.padding(horizontal = 6.dp)) {
-        PanelLabel("Toucher un profil : on y passe (l'appli redémarre). Appui long : modifier le nom ou supprimer.")
+        PanelLabel("Toucher un profil : on y passe (l'appli redémarre). Appui long : modifier le nom, le code ou supprimer.")
         list.forEachIndexed { i, p ->
             PanelItem(
                 (if (p.id == active) "✔ " else "") + p.name,
-                if (p.id == active) "Profil actif" else "Toucher : passer à ce profil",
+                (if (p.pin.isNotEmpty()) "🔒 " else "") + if (p.id == active) "Profil actif" else "Toucher : passer à ce profil",
                 first = i == 0,
-                onLong = { editId = p.id; editName = p.name; msg = "" },
-                trailing = { OutlinedButton(onClick = { editId = p.id; editName = p.name; msg = "" }) { Text("Modifier", fontSize = 13.sp) } },
-            ) { if (p.id != active) Profiles.switchTo(ctx, p.id) }
+                onLong = { startEdit(p) },
+                trailing = { OutlinedButton(onClick = { startEdit(p) }) { Text("Modifier", fontSize = 13.sp) } },
+            ) {
+                if (p.id == active) return@PanelItem
+                if (Profiles.hasPin(ctx, p.id)) { askId = p.id; askCode = ""; msg = "" } else Profiles.switchTo(ctx, p.id)
+            }
+        }
+        // profil protégé par un code : on demande le code avant d'y entrer
+        if (askId.isNotEmpty()) {
+            PanelLabel("Code du profil « ${list.firstOrNull { it.id == askId }?.name ?: ""} »")
+            TvField(askCode, { askCode = it.filter(Char::isDigit).take(4) }, "Code à 4 chiffres", secret = true, keyboard = KeyboardType.NumberPassword)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 18.dp)) {
+                Button(enabled = askCode.length == 4, onClick = {
+                    if (Profiles.checkPin(ctx, askId, askCode)) Profiles.switchTo(ctx, askId)
+                    else { msg = "Code incorrect."; askCode = "" }
+                }) { Text("Ouvrir") }
+                OutlinedButton(onClick = { askId = ""; askCode = "" }) { Text("Annuler") }
+            }
         }
         if (editId.isNotEmpty()) {
+            val hasCode = Profiles.hasPin(ctx, editId)
             PanelLabel("Modifier le profil")
             TvField(editName, { editName = it }, "Nom du profil")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (hasCode) TvField(editCode, { editCode = it.filter(Char::isDigit).take(4) }, "Code actuel à 4 chiffres", secret = true, keyboard = KeyboardType.NumberPassword)
+            TvField(editNewCode, { editNewCode = it.filter(Char::isDigit).take(4) }, if (hasCode) "Nouveau code (vide = inchangé)" else "Code à 4 chiffres (vide = aucun)", secret = true, keyboard = KeyboardType.NumberPassword)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 18.dp)) {
                 Button(
-                    enabled = editName.isNotBlank(),
-                    onClick = { Profiles.rename(ctx, editId, editName); editId = ""; tick++; msg = "Nom enregistré." },
+                    enabled = editName.isNotBlank() && (editNewCode.isEmpty() || editNewCode.length == 4),
+                    onClick = {
+                        if (!Profiles.checkPin(ctx, editId, editCode)) { msg = "Code actuel incorrect."; return@Button }
+                        Profiles.rename(ctx, editId, editName)
+                        if (editNewCode.length == 4) Profiles.setPin(ctx, editId, editNewCode)
+                        editId = ""; tick++; msg = "Profil enregistré."
+                    },
                 ) { Text("Enregistrer") }
                 if (editId != active && editId != "p0") OutlinedButton(onClick = {
+                    if (!Profiles.checkPin(ctx, editId, editCode)) { msg = "Code actuel incorrect."; return@OutlinedButton }
                     val n = list.firstOrNull { it.id == editId }?.name ?: ""
                     msg = if (Profiles.delete(ctx, editId)) "Profil « $n » supprimé." else "Suppression impossible."
                     editId = ""; tick++
                 }) { Text("Supprimer") }
+                if (hasCode) OutlinedButton(
+                    enabled = editCode.length == 4,
+                    onClick = {
+                        if (!Profiles.checkPin(ctx, editId, editCode)) { msg = "Code actuel incorrect."; return@OutlinedButton }
+                        Profiles.removePin(ctx, editId)
+                        editId = ""; tick++; msg = "Code retiré."
+                    },
+                ) { Text("Retirer le code") }
                 OutlinedButton(onClick = { editId = "" }) { Text("Annuler") }
             }
         }
@@ -1409,6 +1995,7 @@ private fun ProfilesPage(vm: MainVm) {
         TvField(newName, { newName = it }, "Nom du nouveau profil")
         Button(
             enabled = newName.isNotBlank() && list.size < Profiles.MAX,
+            modifier = Modifier.padding(horizontal = 18.dp),
             onClick = { if (Profiles.add(ctx, newName)) { newName = ""; tick++; msg = "Profil ajouté. Touche-le pour y passer." } },
         ) { Text("Ajouter") }
         if (msg.isNotBlank()) Text(msg, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(18.dp))
@@ -1431,6 +2018,68 @@ private fun NetworkPage(vm: MainVm) {
     }
 }
 
+/**
+ * Curseur utilisable à la télécommande : la ligne a le focus (même surbrillance que les autres lignes),
+ * gauche/droite changent la valeur, OK ajoute une unité. Haut/Bas passent à la ligne voisine.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun SeekRow(key: String, title: String) {
+    val ctxSk = androidx.compose.ui.platform.LocalContext.current
+    val steps = Store(ctxSk).seekSteps
+    var v by remember(key) { mutableStateOf(Store(ctxSk).seekSec(key)) }
+    fun label(s: Int) = if (s < 60) "$s sec" else "${s / 60} min"
+    val idx = steps.indexOf(v).coerceAtLeast(0)
+    fun setIdx(i: Int) {
+        v = steps[i.coerceIn(0, steps.size - 1)]
+        Store(ctxSk).saveSeekSec(key, v)
+    }
+    PanelStepper(
+        title = title,
+        value = label(v),
+        fraction = idx.toFloat() / (steps.size - 1),
+        onMinus = { setIdx(idx - 1) },
+        onPlus = { setIdx(idx + 1) }
+    )
+}
+
+@Composable
+private fun PanelStepper(title: String, value: String, fraction: Float, onMinus: () -> Unit, onPlus: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(6.dp)
+    val bring = remember { BringIntoViewRequester() }
+    val scopeBring = rememberCoroutineScope()
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 1.dp)
+            .clip(shape)
+            .background(if (focused) AccentDark else Color.Transparent)
+            .then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier)
+            .bringIntoViewRequester(bring)
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) scopeBring.launch { bring.bringIntoView() } }
+            .focusable()
+            .onPreviewKeyEvent { ev ->
+                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (ev.key) {
+                    Key.DirectionLeft -> { onMinus(); true }
+                    Key.DirectionRight, Key.Enter, Key.DirectionCenter -> { onPlus(); true }
+                    else -> false
+                }
+            }
+            .clickable { onPlus() }
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            Text(value, color = Color.White, fontSize = 14.sp)
+        }
+        Box(Modifier.padding(top = 6.dp).fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0x55FFFFFF))) {
+            Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).fillMaxHeight().background(Color.White))
+        }
+    }
+}
+
 @Composable
 private fun StepperRow(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
@@ -1447,13 +2096,25 @@ private fun EpgPage(vm: MainVm) {
         PanelLabel("Statut")
         Text(vm.epgStatus, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 18.dp))
         PanelLabel("Conservation")
-        StepperRow("Garder le guide", "${vm.epgDays} j", { vm.changeEpgDays(vm.epgDays - 1) }, { vm.changeEpgDays(vm.epgDays + 1) })
+        // curseur de 1 à 30 jours, pilotable à la télécommande (gauche/droite)
+        PanelStepper(
+            title = "Garder le guide",
+            value = "${vm.epgDays} j",
+            fraction = (vm.epgDays - 1) / 29f,
+            onMinus = { vm.changeEpgDays(vm.epgDays - 1) },
+            onPlus = { vm.changeEpgDays(vm.epgDays + 1) },
+        )
         PanelItem("Stocker les descriptions des émissions", trailing = { PanelSwitch(vm.epgDesc) }) { vm.changeEpgDesc(!vm.epgDesc) }
         PanelLabel("Mise à jour")
-        StepperRow(
-            "Intervalle (heures, 0 = jamais)",
-            if (vm.epgInterval == 0) "aucun" else "${vm.epgInterval} h",
-            { vm.changeEpgInterval(vm.epgInterval - 1) }, { vm.changeEpgInterval(vm.epgInterval + 1) },
+        // curseur sur les intervalles de la référence : aucun, 2, 4, 8, 16, 24, 48, 72, 96, 120, 144, 168 h
+        val intervals = listOf(0, 2, 4, 8, 16, 24, 48, 72, 96, 120, 144, 168)
+        val idx = intervals.indexOf(vm.epgInterval).coerceAtLeast(0)
+        PanelStepper(
+            title = "Intervalle de mise à jour",
+            value = if (vm.epgInterval == 0) "aucun" else "${vm.epgInterval} h",
+            fraction = idx / (intervals.size - 1).toFloat(),
+            onMinus = { vm.changeEpgInterval(intervals[(idx - 1).coerceAtLeast(0)]) },
+            onPlus = { vm.changeEpgInterval(intervals[(idx + 1).coerceAtMost(intervals.size - 1)]) },
         )
         PanelItem("Mise à jour au démarrage de l'appli", trailing = { PanelSwitch(vm.epgOnStart) }) { vm.changeEpgOnStart(!vm.epgOnStart) }
         PanelItem("Mise à jour au changement de liste", trailing = { PanelSwitch(vm.epgOnList) }) { vm.changeEpgOnList(!vm.epgOnList) }
@@ -1466,7 +2127,7 @@ private fun EpgPage(vm: MainVm) {
 private fun BackupPage(vm: MainVm) {
     Column(Modifier.padding(horizontal = 6.dp)) {
         PanelItem("Sauvegarder les données", "Listes, favoris, réglages", first = true) { vm.createBackup?.invoke() }
-        PanelItem("Restaurer les données", "Choisir un fichier de sauvegarde") { vm.openBackup?.invoke() }
+        PanelItem("Restaurer les données", "Depuis Téléchargements / theiptvapp-sauvegarde.json") { vm.openBackup?.invoke() }
         if (vm.backupMessage.isNotBlank()) Text(vm.backupMessage, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(18.dp))
     }
 }
@@ -1552,6 +2213,38 @@ fun PinDialog(vm: MainVm) {
         confirmButton = { Button(onClick = { if (!vm.tryPin(pin)) { bad = true; pin = "" } }) { Text("OK") } },
         dismissButton = { OutlinedButton(onClick = { vm.cancelPin() }) { Text("Annuler") } },
     )
+}
+
+/** Changer le code parental : l'ancien code est demandé avant le nouveau. */
+@Composable
+private fun PinChangeSection(vm: MainVm, first: Boolean = false) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    var oldPin by rememberSaveable { mutableStateOf("") }
+    var newPin by rememberSaveable { mutableStateOf("") }
+    var msg by rememberSaveable { mutableStateOf("") }
+    val active = vm.pinHash != null
+    PanelItem(
+        "Changer le code PIN",
+        when {
+            !active -> "Activez d'abord le contrôle parental"
+            open -> "Fermer"
+            else -> "Modifier"
+        },
+        first = first,
+    ) { if (active) { open = !open; msg = "" } }
+    if (open && active) {
+        TvField(oldPin, { oldPin = it.filter(Char::isDigit) }, "Code actuel", secret = true, keyboard = KeyboardType.NumberPassword)
+        TvField(newPin, { newPin = it.filter(Char::isDigit) }, "Nouveau code (4 chiffres ou plus)", secret = true, keyboard = KeyboardType.NumberPassword)
+        Button(
+            enabled = newPin.length >= 4 && oldPin.isNotEmpty(),
+            onClick = {
+                if (vm.changePin(oldPin, newPin)) { msg = "Code modifié."; open = false; oldPin = ""; newPin = "" }
+                else { msg = "Code actuel incorrect."; oldPin = "" }
+            },
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+        ) { Text("Enregistrer") }
+    }
+    if (msg.isNotBlank()) Text(msg, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 18.dp))
 }
 
 @Composable
@@ -1708,8 +2401,11 @@ private fun RecordingsSection(vm: MainVm) {
     val storageOpts = remember { StorageChoice.options(ctx) }
     var storagePath by remember { mutableStateOf(StorageChoice.current(ctx).absolutePath) }
     Text("Où sauvegarder (enregistrements et DVR) :", color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
-    storageOpts.forEach { o ->
-        FocusRow(selected = o.root.absolutePath == storagePath, onClick = { StorageChoice.set(ctx, o.root); storagePath = o.root.absolutePath }) {
+    // le focus part sur la première option : la flèche bas descend ensuite dans la page
+    val firstStorage = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { firstStorage.requestFocus() } }
+    storageOpts.forEachIndexed { i, o ->
+        FocusRow(selected = o.root.absolutePath == storagePath, requester = if (i == 0) firstStorage else null, onClick = { StorageChoice.set(ctx, o.root); storagePath = o.root.absolutePath }) {
             Column(Modifier.weight(1f)) {
                 Text(o.label + if (o.root.absolutePath == storagePath) "  (choisi)" else "", color = Color.White, maxLines = 1)
                 Text(o.root.absolutePath, color = Color.Gray, fontSize = 11.sp, maxLines = 1)
@@ -1733,7 +2429,8 @@ private fun RecordingsSection(vm: MainVm) {
             Text("Effacer", color = Color(0xFFFF8A8A), fontSize = 12.sp)
         }
     }
-    val sched = vm.scheduled(ctx)
+    // lu seulement quand la liste change (et non à chaque recomposition)
+    val sched = remember(vm.schedVersion) { vm.scheduled(ctx) }
     if (sched.isNotEmpty()) {
         Text("Programmés", color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp))
         val fmt = java.text.SimpleDateFormat("EEE d MMM HH:mm", java.util.Locale.CANADA_FRENCH)

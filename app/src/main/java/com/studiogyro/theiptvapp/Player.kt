@@ -85,6 +85,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -142,13 +143,24 @@ fun PlayerScreen(vm: MainVm) {
     val player = remember {
         val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.streamUa)
         // grosse mémoire tampon (≈ 100 Mo) : on peut mettre le direct en pause longtemps et, sur les flux qui le permettent, reculer
+        // taille de la mémoire tampon choisie dans Lecteur > Mémoire tampon (petite, moyenne, grande)
+        val st = Store(ctx)
+        val (minMs, maxMs, bytes) = when (st.bufferSize()) {
+            0 -> Triple(5_000, 60_000, 20 * 1024 * 1024)
+            1 -> Triple(15_000, 300_000, 50 * 1024 * 1024)
+            else -> Triple(30_000, 600_000, 100 * 1024 * 1024)
+        }
         val lc = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(30_000, 600_000, 2_500, 5_000)
-            .setTargetBufferBytes(100 * 1024 * 1024)
+            .setBufferDurationsMs(minMs, maxMs, 2_500, 5_000)
+            .setTargetBufferBytes(bytes)
             .setPrioritizeTimeOverSizeThresholds(false)
             .setBackBuffer(300_000, true)
             .build()
-        ExoPlayer.Builder(ctx).setLoadControl(lc).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build()
+        // lecture en tunnel : réglage Lecteur > Lecture en tunnel (s'applique à la prochaine lecture)
+        val ts = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(ctx).also { t ->
+            t.parameters = t.buildUponParameters().setTunnelingEnabled(st.tunnel()).build()
+        }
+        ExoPlayer.Builder(ctx).setLoadControl(lc).setTrackSelector(ts).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build()
     }
     DisposableEffect(Unit) { onDispose { player.release() } }
 
@@ -161,12 +173,14 @@ fun PlayerScreen(vm: MainVm) {
     // menu du bas (comme la télé Samsung) et liste des chaînes par-dessus la vidéo
     // menu : 0 fermé ; 1 = historique des chaînes seul ; 2 = rangée d'options (remplace l'historique)
     var menuStage by remember(ch.id) { mutableIntStateOf(0) }
+    var multiOpen by remember(ch.id) { mutableStateOf(false) }
     val stripFirst = remember { FocusRequester() }
     var displayMode by remember { mutableIntStateOf(0) }
     var sleepMin by remember { mutableIntStateOf(0) }
     var picker by remember(ch.id) { mutableStateOf<String?>(null) }
     var listOpen by remember(ch.id) { mutableStateOf(false) }
     val menuFirst = remember { FocusRequester() }
+    val transportFirst = remember { FocusRequester() }
     val listFirst = remember { FocusRequester() }
     val focusRoot = remember { FocusRequester() }
     val activity = remember(ctx) {
@@ -274,7 +288,6 @@ fun PlayerScreen(vm: MainVm) {
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) { playing = playWhenReady }
-
             override fun onPlaybackStateChanged(state: Int) {
                 when (state) {
                     Player.STATE_BUFFERING -> status = "Mise en mémoire…"
@@ -331,6 +344,10 @@ fun PlayerScreen(vm: MainVm) {
 
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
+    // appli en arrière-plan (hors fenêtre flottante) : la lecture s'arrête, elle ne continue pas en silence
+    LaunchedEffect(AppState.stopped.value) {
+        if (AppState.stopped.value && !AppState.pip.value) player.playWhenReady = false
+    }
     LaunchedEffect(showUi) { if (!showUi) runCatching { focus.requestFocus() } }
     // menu ouvert : le focus va sur le menu (la télécommande le parcourt) ; fermé : retour à la vidéo
     // minuterie : arrête la lecture après le temps choisi
@@ -347,6 +364,7 @@ fun PlayerScreen(vm: MainVm) {
         when (menuStage) {
             1 -> runCatching { stripFirst.requestFocus() }
             2 -> runCatching { menuFirst.requestFocus() }
+            3 -> runCatching { transportFirst.requestFocus() }
         }
     }
     LaunchedEffect(listOpen) { if (listOpen) runCatching { listFirst.requestFocus() } }
@@ -361,6 +379,7 @@ fun PlayerScreen(vm: MainVm) {
     BackHandler(true) {
         when {
             listOpen -> listOpen = false
+            menuStage == 3 -> menuStage = if (ch.kind == "live") 1 else 2
             menuStage == 2 -> if (ch.kind == "live") menuStage = 1 else { showUi = false; menuStage = 0 }
             menuStage == 1 -> { showUi = false; menuStage = 0 }
             else -> vm.stop(!playing)
@@ -387,8 +406,8 @@ fun PlayerScreen(vm: MainVm) {
                     // menu ouvert : les flèches et OK doivent déplacer le focus dans le menu, pas faire avancer la vidéo
                     if (menuStage != 0 || listOpen) return@onKeyEvent false
                     return@onKeyEvent when (ev.key) {
-                        Key.DirectionRight -> { player.seekTo(player.currentPosition + 15_000); showUi = true; true }
-                        Key.DirectionLeft -> { player.seekTo((player.currentPosition - 15_000).coerceAtLeast(0)); showUi = true; true }
+                        Key.DirectionRight -> { player.seekTo(player.currentPosition + Store(ctx).seekSec("fwd_bar") * 1000L); showUi = true; true }
+                        Key.DirectionLeft -> { player.seekTo((player.currentPosition - Store(ctx).seekSec("back_bar") * 1000L).coerceAtLeast(0)); showUi = true; true }
                         Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause -> {
                             player.playWhenReady = !player.playWhenReady
                             showUi = true
@@ -436,7 +455,6 @@ fun PlayerScreen(vm: MainVm) {
                 it.resizeMode = if (displayMode == 1) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
             },
         )
-
         // couche tactile par-dessus la vidéo : gestes + toucher pour afficher/masquer
         // (sur un film, seulement le haut de l'écran, pour ne pas couvrir les boutons du lecteur)
         Box(
@@ -529,10 +547,13 @@ fun PlayerScreen(vm: MainVm) {
                 val recents = vm.recentChannels()
                 if (menuStage == 1 && ch.kind == "live" && recents.isNotEmpty()) {
                     // historique : une ligne de chaînes récentes, sans fond ; glisser vers le bas ouvre les options
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = tvPad + 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                     LazyRow(
                         Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = tvPad + 8.dp, vertical = 8.dp)
+                            .weight(1f)
                             .pointerInput(Unit) {
                                 var acc = 0f
                                 detectVerticalDragGestures(
@@ -541,7 +562,9 @@ fun PlayerScreen(vm: MainVm) {
                                 )
                             }
                             .onKeyEvent { ev ->
-                                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown) { menuStage = 2; true } else false
+                                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown) { menuStage = 2; true }
+                                else if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionUp) { menuStage = 3; true }
+                                else false
                             },
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -552,6 +575,19 @@ fun PlayerScreen(vm: MainVm) {
                                 modifier = if (idx == 0) Modifier.focusRequester(stripFirst) else Modifier,
                             ) { close(); vm.play(vm.playlist, c) }
                         }
+                        // dernière case de l'historique : « Effacer », même format que les vignettes
+                        item {
+                            Box(
+                                Modifier
+                                    .width(150.dp)
+                                    .height(84.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(2.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                                    .clickable { vm.clearRecents(); menuStage = 0 },
+                                contentAlignment = Alignment.Center,
+                            ) { Text("Effacer", color = Color.White, fontSize = 15.sp) }
+                        }
+                    }
                     }
                 }
                 // flèche : seulement sous l'historique ; elle ouvre les options
@@ -592,7 +628,7 @@ fun PlayerScreen(vm: MainVm) {
                             if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording()
                             close()
                         },
-                        Triple("Multi-vue", IconMultiView) { close(); hud = "Multi-vue : bientôt disponible" },
+                        Triple("Multi-vue", IconMultiView) { close(); showUi = false; multiOpen = true },
                         Triple("Image dans l'image", IconPip) { (activity as? MainActivity)?.enterPip() },
                         Triple("Résolution", IconScreen) { picker = "video" },
                         Triple("Sous-titres", IconCaption) { picker = "text" },
@@ -616,6 +652,9 @@ fun PlayerScreen(vm: MainVm) {
                     Row(
                         Modifier
                             .fillMaxWidth()
+                            .onKeyEvent { ev ->
+                                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionUp) { menuStage = if (ch.kind == "live") 1 else 3; true } else false
+                            }
                             // glisser vers le haut revient à l'historique
                             .pointerInput(Unit) {
                                 var acc = 0f
@@ -672,6 +711,9 @@ fun PlayerScreen(vm: MainVm) {
             }
         }
 
+        // multi-vue : plusieurs chaînes côte à côte (le lecteur principal garde le son)
+        if (multiOpen) MultiViewScreen(vm, ch) { multiOpen = false }
+
         // choix de résolution, sous-titres ou audio
         picker?.let { kind ->
             TrackPickerDialog(
@@ -679,6 +721,7 @@ fun PlayerScreen(vm: MainVm) {
                 query = if (ch.seriesName.isNotBlank()) cleanTitle(ch.seriesName) else cleanTitle(ch.name),
                 year = if (ch.seriesName.isNotBlank()) "" else yearOf(ch.name), key = vm.osKey(),
                 season = ch.season, episode = ch.episode,
+                lang = vm.subLang(), onLang = { vm.saveSubLang(it) },
                 live = ch.kind == "live",
                 onSubUrl = { s ->
                     subStart = if (ch.kind != "live") player.currentPosition else 0L
@@ -688,15 +731,40 @@ fun PlayerScreen(vm: MainVm) {
             ) { picker = null }
         }
 
-        if (showUi && !vm.inPip) {
+        // barre de progression au-dessus de la rangée de contrôle (films et séries, comme sur la capture)
+        if (showUi && !vm.inPip && (menuStage == 3 || menuStage == 0) && ch.kind != "live" && vodDur > 0) {
+            val frac = (vodPos.toFloat() / vodDur).coerceIn(0f, 1f)
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = tvPad + 8.dp)
+                    .padding(bottom = 96.dp)
+                    .height(4.dp)
+                    .background(Color(0x55FFFFFF)),
+            ) { Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(Color(0xFF2F80FF))) }
+        }
+        if (showUi && !vm.inPip && (menuStage == 3 || (ch.kind != "live" && menuStage == 0))) {
             Row(
-                Modifier.align(Alignment.Center),
+                Modifier
+                    .align(Alignment.Center)
+                    .onKeyEvent { ev ->
+                        if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown && menuStage == 3) {
+                            menuStage = if (ch.kind == "live") 1 else 2; true
+                        } else false
+                    },
                 horizontalArrangement = Arrangement.spacedBy(32.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                CenterControl(IconRewind, "Reculer de 15 s") {
+                // chaîne précédente / suivante, aux deux bouts de la rangée (comme sur la capture)
+                if (ch.kind == "live") CenterControl(IconSkipPrev, "Chaîne précédente") {
                     poke()
-                    if (player.isCurrentMediaItemSeekable) player.seekTo((player.currentPosition - 15_000).coerceAtLeast(0L))
+                    val pos = vm.playlist.indexOf(ch)
+                    vm.playlist.getOrNull(pos - 1)?.let { vm.play(vm.playlist, it) } ?: run { hud = "Première chaîne" }
+                }
+                CenterControl(IconRewind, "Reculer de 15 s", modifier = Modifier.focusRequester(transportFirst)) {
+                    poke()
+                    if (player.isCurrentMediaItemSeekable) player.seekTo((player.currentPosition - Store(ctx).seekSec("rw") * 1000L).coerceAtLeast(0L))
                     else hud = "Retour en arrière impossible sur ce flux (pause possible)"
                 }
                 CenterControl(if (playing) IconPause else Icons.Default.PlayArrow, if (playing) "Pause" else "Lecture") {
@@ -710,8 +778,13 @@ fun PlayerScreen(vm: MainVm) {
                     poke()
                     if (dvrOn) goLive()
                     else if (liveOffsetMs > 8_000 && player.isCurrentMediaItemSeekable) player.seekToDefaultPosition()
-                    else if (player.isCurrentMediaItemSeekable) player.seekTo(player.currentPosition + 15_000)
+                    else if (player.isCurrentMediaItemSeekable) player.seekTo(player.currentPosition + Store(ctx).seekSec("ff") * 1000L)
                     else hud = "Déjà au direct"
+                }
+                if (ch.kind == "live") CenterControl(IconSkipNext, "Chaîne suivante") {
+                    poke()
+                    val pos = vm.playlist.indexOf(ch)
+                    vm.playlist.getOrNull(pos + 1)?.let { vm.play(vm.playlist, it) } ?: run { hud = "Dernière chaîne" }
                 }
                 // enregistrer : seulement en direct (sur un film, c'est dans la rangée d'options)
                 if (ch.kind == "live") run {
@@ -729,6 +802,12 @@ fun PlayerScreen(vm: MainVm) {
                         }
                     }
                 }
+                if (ch.kind == "live") LiveBadge(live = !dvrOn, onClick = { poke(); goLive() })
+                val favNow = vm.isFav(ch)
+                CenterControl(
+                    if (favNow) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    if (favNow) "Retirer le favori" else "Favori",
+                ) { vm.toggleFav(ch) }
             }
         }
         if (showUi && !vm.inPip) {
@@ -764,16 +843,26 @@ fun PlayerScreen(vm: MainVm) {
                     OutlinedButton(onClick = { poke(); dvrGo(5 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−5 min", fontSize = 13.sp) }
                     OutlinedButton(onClick = { poke(); dvrGo(60 * 60_000L) }, modifier = Modifier.focusRing()) { Text("−1 h", fontSize = 13.sp) }
                 }
-                val fav = vm.isFav(ch)
-                IconButton(onClick = { vm.toggleFav(ch) }, modifier = Modifier.focusRing()) {
-                    Icon(
-                        if (fav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        "Favori",
-                        tint = Color.White,
-                    )
-                }
             }
         }
+    }
+}
+
+/**
+ * Bouton LIVE : rouge quand on regarde le direct, gris quand on est en différé.
+ * Un appui revient au direct.
+ */
+@Composable
+fun LiveBadge(live: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val color = if (live) Color(0xFFE53935) else Color(0xFF7A7F8A)
+    Box(
+        modifier
+            .clip(RoundedCornerShape(6.dp))
+            .border(2.dp, color, RoundedCornerShape(6.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    ) {
+        Text("LIVE", color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -830,14 +919,16 @@ private fun Modifier.focusRing(): Modifier {
 }
 
 @Composable
-private fun CenterControl(icon: ImageVector, label: String, tint: Color = Color.White, onClick: () -> Unit) {
+private fun CenterControl(icon: ImageVector, label: String, tint: Color = Color.White, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
-        Modifier.size(76.dp).clip(CircleShape).background(Color(0x99000000)).focusRing().clickable(onClick = onClick),
+        modifier.size(76.dp).clip(CircleShape).background(Color(0x99000000)).focusRing().clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, label, tint = tint, modifier = Modifier.size(42.dp)) }
 }
 
 private val IconRewind = playerIcon("rewind") { solid("M11,6l-8,6l8,6z"); solid("M21,6l-8,6l8,6z") }
+private val IconSkipPrev = playerIcon("skipprev") { solid("M6,6h2v12h-2z"); solid("M18,6l-8.5,6l8.5,6z") }
+private val IconSkipNext = playerIcon("skipnext") { solid("M16,6h2v12h-2z"); solid("M6,6l8.5,6l-8.5,6z") }
 private val IconForward = playerIcon("forward") { solid("M13,6l8,6l-8,6z"); solid("M3,6l8,6l-8,6z") }
 private val IconRecord = playerIcon("record") { solid("M12,4a8,8 0 1 1 -0.01,0z") }
 private val IconStop = playerIcon("stop") { solid("M6,6h12v12h-12z") }
@@ -917,10 +1008,12 @@ private fun TrackPickerDialog(
     player: ExoPlayer, kind: String,
     query: String = "", year: String = "", key: String = "", live: Boolean = false,
     season: Int = 0, episode: Int = 0,
+    lang: String = "fr,en", onLang: (String) -> Unit = {},
     onSubUrl: (String) -> Unit, onDone: () -> Unit,
 ) {
     var url by remember { mutableStateOf("") }
-    // recherche en ligne (OpenSubtitles, français)
+    var langSel by remember { mutableStateOf(lang) }
+    // recherche en ligne (OpenSubtitles, langue mémorisée)
     var online by remember { mutableStateOf<List<OpenSubs.Sub>?>(null) }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf("") }
@@ -959,7 +1052,14 @@ private fun TrackPickerDialog(
                     onClick = { onSubUrl(url.trim()); onDone() },
                 ) { Text("Charger ces sous-titres") }
 
-                Text("Sous-titres en français et anglais (en ligne)", color = Color.White, modifier = Modifier.padding(top = 10.dp))
+                Text("Sous-titres en ligne (OpenSubtitles)", color = Color.White, modifier = Modifier.padding(top = 10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("fr" to "Français", "en" to "Anglais", "fr,en" to "Les deux").forEach { (code, label) ->
+                        TextButton(onClick = { langSel = code; onLang(code) }) {
+                            Text(if (langSel == code) "✔ $label" else label)
+                        }
+                    }
+                }
                 Text(
                     if (key.isBlank()) "Clé OpenSubtitles absente : ajoute-la dans Préférences › Réseau."
                     else "Clé OpenSubtitles enregistrée. Lance la recherche ci-dessous.",
@@ -969,11 +1069,11 @@ private fun TrackPickerDialog(
                     TextButton(enabled = !busy && key.isNotBlank() && query.isNotBlank(), onClick = {
                         busy = true; err = ""; online = null
                         scope.launch {
-                            try { online = OpenSubs.search(key, query, year, season = season, episode = episode) }
+                            try { online = OpenSubs.search(key, query, year, lang = langSel, season = season, episode = episode) }
                             catch (e: Exception) { err = e.message ?: "Recherche impossible" }
                             finally { busy = false }
                         }
-                    }) { Text(if (busy) "Recherche…" else "Chercher « $query » (fr + en)") }
+                    }) { Text(if (busy) "Recherche…" else "Chercher « $query »") }
                     if (err.isNotEmpty()) Text(err, color = Color(0xFFFF8A80), fontSize = 12.sp)
                     online?.let { list ->
                         if (list.isEmpty()) Text("Aucun sous-titre français trouvé pour ce titre.", color = Color(0xFFB0BEC5), fontSize = 12.sp)

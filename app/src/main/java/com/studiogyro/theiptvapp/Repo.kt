@@ -232,7 +232,8 @@ object Repo {
         for (f in listOf("yyyyMMddHHmmss Z", "yyyyMMddHHmmss")) {
             val d = runCatching {
                 val fmt = java.text.SimpleDateFormat(f, java.util.Locale.US)
-                if (f.length == 14) fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                // sans décalage, le fournisseur envoie l'heure de l'Est (pas l'UTC) : on la lit donc dans ce fuseau
+                if (f.length == 14) fmt.timeZone = java.util.TimeZone.getTimeZone("America/Toronto")
                 fmt.parse(s.trim())
             }.getOrNull()
             if (d != null) return d.time

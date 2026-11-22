@@ -24,6 +24,12 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.compose.runtime.LaunchedEffect
 
+/** État d'activité partagé : l'appli est-elle en arrière-plan, et est-elle en fenêtre flottante (PiP) ? */
+object AppState {
+    val stopped = androidx.compose.runtime.mutableStateOf(false)
+    val pip = androidx.compose.runtime.mutableStateOf(false)
+}
+
 /** Petite fenêtre vidéo de l'accueil : la chaîne choisie joue ici avant de passer en plein écran. */
 @OptIn(UnstableApi::class)
 @Composable
@@ -44,7 +50,10 @@ fun PreviewBox(ch: Channel, modifier: Modifier = Modifier, paused: Boolean = fal
         val item = MediaItem.Builder().setUri(a.url).apply { if (a.mime != null) setMimeType(a.mime) }.build()
         player.setMediaItem(item)
         player.prepare()
-        player.playWhenReady = !paused
+    }
+    // lecture de l'aperçu : suit la pause et ne joue jamais quand l'appli est en arrière-plan
+    LaunchedEffect(paused, AppState.stopped.value) {
+        player.playWhenReady = !paused && !AppState.stopped.value
     }
     DisposableEffect(player, ch.id) {
         val l = object : Player.Listener {
