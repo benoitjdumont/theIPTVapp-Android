@@ -708,6 +708,19 @@ fun PlayerScreen(vm: MainVm) {
             ) { picker = null }
         }
 
+        // barre de progression au-dessus de la rangée de contrôle (films et séries, comme sur la capture)
+        if (showUi && !vm.inPip && ch.kind != "live" && vodDur > 0) {
+            val frac = (vodPos.toFloat() / vodDur).coerceIn(0f, 1f)
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = tvPad + 8.dp)
+                    .padding(bottom = 96.dp)
+                    .height(4.dp)
+                    .background(Color(0x55FFFFFF)),
+            ) { Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(Color(0xFF2F80FF))) }
+        }
         if (showUi && !vm.inPip) {
             Row(
                 Modifier.align(Alignment.Center),
