@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,8 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -61,7 +59,7 @@ fun SplashOverlay(vm: MainVm) {
     }
     if (fade > 0f) {
         Box(
-            Modifier.fillMaxSize().alpha(fade).background(Color(0xFF0B1220)),
+            Modifier.fillMaxSize().graphicsLayer { alpha = fade }.background(Color(0xFF0B1220)),
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -70,15 +68,22 @@ fun SplashOverlay(vm: MainVm) {
                     contentDescription = null,
                     modifier = Modifier
                         .size(150.dp)
-                        .scale(0.55f + 0.45f * logo.value)
-                        .alpha(logo.value.coerceIn(0f, 1f)),
+                        .graphicsLayer {
+                            val s = 0.55f + 0.45f * logo.value
+                            scaleX = s
+                            scaleY = s
+                            alpha = logo.value.coerceIn(0f, 1f)
+                        },
                 )
                 Box(Modifier.height(18.dp))
                 Text(
                     "theIPTVapp",
-                    color = Color.White.copy(alpha = title.value.coerceIn(0f, 1f)),
+                    color = Color.White,
                     fontSize = 26.sp,
-                    modifier = Modifier.offset(y = (8 * (1f - title.value)).dp),
+                    modifier = Modifier.graphicsLayer {
+                        alpha = title.value.coerceIn(0f, 1f)
+                        translationY = (1f - title.value) * 8.dp.toPx()
+                    },
                 )
             }
         }
