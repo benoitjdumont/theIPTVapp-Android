@@ -171,6 +171,8 @@ class Store(ctx: Context) {
     fun saveBufferSize(i: Int) = sp.edit().putInt("buffer", i.coerceIn(0, 2)).apply()
     fun tunnel(): Boolean = sp.getBoolean("tunnel", false)
     fun saveTunnel(b: Boolean) = sp.edit().putBoolean("tunnel", b).apply()
+    fun externalPlayer(): Boolean = sp.getBoolean("ext_player", false)
+    fun saveExternalPlayer(b: Boolean) = sp.edit().putBoolean("ext_player", b).apply()
 
     // ---- lecteur : délai d'expiration des panneaux (secondes)
     fun panelTimeout(): Int = sp.getInt("panel_timeout", 5)

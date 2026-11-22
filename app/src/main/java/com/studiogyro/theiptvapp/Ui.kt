@@ -159,6 +159,7 @@ fun AppRoot(vm: MainVm) {
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(dens.density, dens.fontScale * TEXT_SIZES[vm.textSizeIdx].second),
     ) {
     MaterialTheme(colorScheme = scheme) {
+        SplashOverlay(vm)
         PinDialog(vm)
         UpdateDialog(vm)
         if (!vm.termsOk) WelcomeDialog(vm)
@@ -1758,7 +1759,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 tunnel = !tunnel
                                 Store(ctxTun).saveTunnel(tunnel)
                             }
-                            PanelItem("Utiliser un lecteur externe", "Non") { }
+                            PanelItem("Utiliser un lecteur externe", if (vm.externalPlayer) "Oui : VLC si installé, sinon choix d'appli" else "Non : lecteur intégré", trailing = { PanelSwitch(vm.externalPlayer) }) { vm.changeExternalPlayer(!vm.externalPlayer) }
                             PanelItem("Sauts dans le temps", "Barre de progression, RW et FF") { page = "seek" }
                             PanelLabel("Touches")
                             PanelItem("Touches de la télécommande", "OK, Retour, Gauche, Droite, Haut, Bas et plus") { page = "keys" }
@@ -1854,6 +1855,8 @@ fun TvField(
     var open by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
     var focused by remember { mutableStateOf(false) }
+    val bringField = remember { BringIntoViewRequester() }
+    val scopeField = rememberCoroutineScope()
     val shown = if (secret) "•".repeat(value.length) else value
     Column(modifier.fillMaxWidth()) {
         Text(label, color = Color(0xFFB8C4EE), fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
@@ -1862,7 +1865,8 @@ fun TvField(
             color = Color(0x22FFFFFF),
             border = androidx.compose.foundation.BorderStroke(if (focused) 3.dp else 1.dp, if (focused) Color.White else Color(0x66FFFFFF)),
             modifier = Modifier.fillMaxWidth()
-                .onFocusChanged { focused = it.isFocused }
+                .bringIntoViewRequester(bringField)
+                .onFocusChanged { focused = it.isFocused; if (it.isFocused) scopeField.launch { bringField.bringIntoView() } }
                 .clickable { draft = value; open = true },
         ) {
             Text(
@@ -2398,8 +2402,11 @@ private fun RecordingsSection(vm: MainVm) {
     val storageOpts = remember { StorageChoice.options(ctx) }
     var storagePath by remember { mutableStateOf(StorageChoice.current(ctx).absolutePath) }
     Text("Où sauvegarder (enregistrements et DVR) :", color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
-    storageOpts.forEach { o ->
-        FocusRow(selected = o.root.absolutePath == storagePath, onClick = { StorageChoice.set(ctx, o.root); storagePath = o.root.absolutePath }) {
+    // le focus part sur la première option : la flèche bas descend ensuite dans la page
+    val firstStorage = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { firstStorage.requestFocus() } }
+    storageOpts.forEachIndexed { i, o ->
+        FocusRow(selected = o.root.absolutePath == storagePath, requester = if (i == 0) firstStorage else null, onClick = { StorageChoice.set(ctx, o.root); storagePath = o.root.absolutePath }) {
             Column(Modifier.weight(1f)) {
                 Text(o.label + if (o.root.absolutePath == storagePath) "  (choisi)" else "", color = Color.White, maxLines = 1)
                 Text(o.root.absolutePath, color = Color.Gray, fontSize = 11.sp, maxLines = 1)

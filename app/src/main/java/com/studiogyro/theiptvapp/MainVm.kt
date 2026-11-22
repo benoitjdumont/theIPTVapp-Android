@@ -801,10 +801,31 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         store.saveRecentLive(recentIds)
     }
 
+    // Lecteur externe : le flux est confié à une autre appli (VLC si installé, sinon le choix de la TV)
+    var externalPlayer by mutableStateOf(store.externalPlayer()); private set
+    fun changeExternalPlayer(b: Boolean) { externalPlayer = b; store.saveExternalPlayer(b) }
+
+    fun openExternal(c: Channel): Boolean {
+        val app = getApplication<Application>()
+        val base = android.content.Intent(android.content.Intent.ACTION_VIEW)
+            .setDataAndType(android.net.Uri.parse(c.url), "video/*")
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        return try {
+            app.startActivity(android.content.Intent(base).setPackage("org.videolan.vlc"))
+            true
+        } catch (e: Exception) {
+            try {
+                app.startActivity(android.content.Intent.createChooser(base, "Ouvrir avec").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                true
+            } catch (e2: Exception) { false }
+        }
+    }
+
     fun play(list: List<Channel>, c: Channel) {
         preview = null
         if (c.kind == "live") rememberRecent(c)
         if (c.kind == "movie" && !c.id.startsWith("r")) addHistory(c.id)
+        if (externalPlayer && openExternal(c)) return
         playlist = list
         playIndex = list.indexOf(c).coerceAtLeast(0)
         store.saveLast(c.id)
