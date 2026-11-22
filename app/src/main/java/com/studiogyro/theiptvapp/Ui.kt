@@ -2429,7 +2429,8 @@ private fun RecordingsSection(vm: MainVm) {
             Text("Effacer", color = Color(0xFFFF8A8A), fontSize = 12.sp)
         }
     }
-    val sched = vm.scheduled(ctx)
+    // lu seulement quand la liste change (et non à chaque recomposition)
+    val sched = remember(vm.schedVersion) { vm.scheduled(ctx) }
     if (sched.isNotEmpty()) {
         Text("Programmés", color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp))
         val fmt = java.text.SimpleDateFormat("EEE d MMM HH:mm", java.util.Locale.CANADA_FRENCH)

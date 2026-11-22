@@ -12,18 +12,10 @@ import androidx.activity.viewModels
 class MainActivity : ComponentActivity() {
     private val vm: MainVm by viewModels()
 
-    private val createBackup = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
-    ) { uri -> uri?.let { vm.writeBackup(this, it) } }
-
     // Storage Access Framework : accès aux fichiers (clé USB comprise), pas le sélecteur de photos
     private val pickBackground = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { vm.setBackground(this, it) } }
-
-    private val openBackup = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { vm.readBackup(this, it) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

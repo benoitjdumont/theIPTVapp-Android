@@ -442,13 +442,6 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     var openBackup: (() -> Unit)? = null
     var backupMessage by mutableStateOf(""); private set
 
-    fun writeBackup(ctx: android.content.Context, uri: android.net.Uri) {
-        backupMessage = try {
-            ctx.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(store.backupJson()) }
-            "Sauvegarde enregistrée."
-        } catch (e: Exception) { "Sauvegarde impossible : ${e.message}" }
-    }
-
     // Sur Android TV il n'y a souvent aucun gestionnaire de fichiers : la sauvegarde va directement dans Téléchargements
     private val backupName = "theiptvapp-sauvegarde.json"
 
