@@ -1528,15 +1528,22 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             if (vm.bgPath != null) PanelItem("Retirer l'image") { vm.clearBackground() }
                         }
                         page == "look_guide" -> {
-                            PanelItem("Afficher les numéros de chaîne", first = true, trailing = { PanelSwitch(vm.opt("numbers")) }) { vm.setOpt("numbers", !vm.opt("numbers")) }
-                            PanelItem("Afficher le nom de chaîne", trailing = { PanelSwitch(vm.opt("names")) }) { vm.setOpt("names", !vm.opt("names")) }
-                            PanelItem("Icône de rattrapage dans la liste", trailing = { PanelSwitch(vm.opt("replay")) }) { vm.setOpt("replay", !vm.opt("replay")) }
-                            PanelItem("Titre de programme sur deux lignes", trailing = { PanelSwitch(vm.opt("twolines", false)) }) { vm.setOpt("twolines", !vm.opt("twolines", false)) }
-                            PanelItem("Chaîne actuelle dans une autre couleur", trailing = { PanelSwitch(vm.opt("curcolor")) }) { vm.setOpt("curcolor", !vm.opt("curcolor")) }
-                            PanelItem("Mettre en évidence le programme actuel", trailing = { PanelSwitch(vm.opt("highlight")) }) { vm.setOpt("highlight", !vm.opt("highlight")) }
-                            PanelItem("Mettre en évidence uniquement la progression", trailing = { PanelSwitch(vm.opt("progonly", false)) }) { vm.setOpt("progonly", !vm.opt("progonly", false)) }
-                            PanelItem("Trier les chaînes de A à Z", "Sinon : ordre de la liste", trailing = { PanelSwitch(vm.opt("sortaz", false)) }) { vm.setOpt("sortaz", !vm.opt("sortaz", false)) }
-                            PanelItem("Renommer des chaînes") { page = "rename" }
+                            // même ordre et mêmes libellés que la référence (captures)
+                            PanelItem("Tri des Chaînes", "Par ordre dans la playlist", first = true) { }
+                            PanelItem("Aperçu", "On") { }
+                            PanelItem("Éditeur de noms de chaîne", "Off") { page = "rename" }
+                            PanelItem("Afficher les numéros de chaîne", trailing = { PanelSwitch(vm.opt("numbers")) }) { vm.setOpt("numbers", !vm.opt("numbers")) }
+                            PanelItem("Afficher les noms des chaînes", trailing = { PanelSwitch(vm.opt("names", true)) }) { vm.setOpt("names", !vm.opt("names", true)) }
+                            PanelItem("Titres de chaîne sur deux lignes", trailing = { PanelSwitch(vm.opt("chtwolines", false)) }) { vm.setOpt("chtwolines", !vm.opt("chtwolines", false)) }
+                            PanelItem("Afficher l'icône du replay dans la liste des chaînes", trailing = { PanelSwitch(vm.opt("replay", true)) }) { vm.setOpt("replay", !vm.opt("replay", true)) }
+                            PanelItem("Mettez en surbrillance la chaîne actuelle dans une autre couleur", trailing = { PanelSwitch(vm.opt("curcolor", true)) }) { vm.setOpt("curcolor", !vm.opt("curcolor", true)) }
+                            PanelItem("Titres de programmes sur deux lignes", trailing = { PanelSwitch(vm.opt("twolines", false)) }) { vm.setOpt("twolines", !vm.opt("twolines", false)) }
+                            PanelItem("Mettre en évidence les programmes actuels", trailing = { PanelSwitch(vm.opt("highlight", true)) }) { vm.setOpt("highlight", !vm.opt("highlight", true)) }
+                            PanelItem("Mettre en évidence uniquement la progression", trailing = { PanelSwitch(vm.opt("progonly", true)) }) { vm.setOpt("progonly", !vm.opt("progonly", true)) }
+                            PanelItem("Afficher l'indicateur de l'heure actuelle", trailing = { PanelSwitch(vm.opt("nowline", true)) }) { vm.setOpt("nowline", !vm.opt("nowline", true)) }
+                            PanelItem("Défilement des chaînes animées", trailing = { PanelSwitch(vm.opt("animscroll", true)) }) { vm.setOpt("animscroll", !vm.opt("animscroll", true)) }
+                            PanelItem("Restez sur le Guide TV lorsque vous changez de chaîne en mode superposition", trailing = { PanelSwitch(vm.opt("stayguide", false)) }) { vm.setOpt("stayguide", !vm.opt("stayguide", false)) }
+                            PanelItem("Utilisez Retour pour revenir aux programmes en cours", trailing = { PanelSwitch(vm.opt("backnow", true)) }) { vm.setOpt("backnow", !vm.opt("backnow", true)) }
                         }
                         page == "playback" -> {
                             PanelItem("Démarrer automatiquement l'application au démarrage d'Android", "Ouvre l'appli quand l'appareil démarre", first = true, trailing = { PanelSwitch(vm.bootStart) }) { vm.changeBootStart(!vm.bootStart) }
