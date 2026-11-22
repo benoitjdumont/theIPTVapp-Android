@@ -330,11 +330,16 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     var bgPath by mutableStateOf(store.bgPath()); private set
     var pickBackground: (() -> Unit)? = null
     fun setBackground(ctx: android.content.Context, uri: android.net.Uri) {
-        val f = java.io.File(ctx.filesDir, "background.jpg")
+        // nom neuf à chaque choix : Coil garde en cache l'image d'un même chemin, sinon l'ancienne image reste affichée
+        val f = java.io.File(ctx.filesDir, "background_${System.currentTimeMillis()}.jpg")
         runCatching { ctx.contentResolver.openInputStream(uri)?.use { i -> f.outputStream().use { o -> i.copyTo(o) } } }
-            .onSuccess { bgPath = f.absolutePath; store.saveBgPath(bgPath) }
+            .onSuccess {
+                val old = bgPath
+                bgPath = f.absolutePath; store.saveBgPath(bgPath)
+                if (old != null && old != bgPath) java.io.File(old).delete()
+            }
     }
-    fun clearBackground() { bgPath = null; store.saveBgPath(null) }
+    fun clearBackground() { bgPath?.let { java.io.File(it).delete() }; bgPath = null; store.saveBgPath(null) }
     /** transparence des colonnes et des préférences : 0 = opaque, 1 = transparent */
     fun changeGlass(v: Float) { GlassState.transp = v.coerceIn(0f, 1f); store.saveGlassPct(Math.round(GlassState.transp * 100)) }
 
