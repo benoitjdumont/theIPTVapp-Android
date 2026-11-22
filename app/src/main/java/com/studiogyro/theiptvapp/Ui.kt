@@ -1386,6 +1386,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page == "rename" -> page = "look_guide"
             page == "profiles" -> page = "lists"
             page == "terms" || page == "privacy" -> page = "about"
+            page == "afr" -> page = "player"
             page == "look_color_bg" || page == "look_hilite" || page == "look_seltext" -> page = "look_color"
             page == "logos" || page == "langue" || page == "textsize" -> page = "look"
             page.startsWith("look_") -> page = "look"
@@ -1415,6 +1416,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "profiles" -> "Profils"
         page == "terms" -> "Conditions d'utilisation"
         page == "privacy" -> "Politique de confidentialité"
+        page == "afr" -> "Fréquence d'images automatique"
         page == "rename" -> "Renommer des chaînes"
         page == "epg" -> "EPG (guide des programmes TV)"
         page == "backup" -> "Sauvegarde"
@@ -1661,6 +1663,21 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Afficher les propriétés du média", trailing = { PanelSwitch(vm.opt("ip_media", false)) }) { vm.setOpt("ip_media", !vm.opt("ip_media", false)) }
                             PanelItem("Afficher la résolution vidéo au lieu des étiquettes", trailing = { PanelSwitch(vm.opt("ip_res", false)) }) { vm.setOpt("ip_res", !vm.opt("ip_res", false)) }
                         }
+                        page == "afr" -> {
+                            // réglages de la référence : Live TV et VOD désactivés, taux de rafraîchissement activé, résolution désactivée
+                            PanelItem("Activer l'AFR pour le Live TV", first = true, trailing = { PanelSwitch(vm.opt("afr_live", false)) }) { vm.setOpt("afr_live", !vm.opt("afr_live", false)) }
+                            PanelItem("Activer l'AFR pour la VOD", trailing = { PanelSwitch(vm.opt("afr_vod", false)) }) { vm.setOpt("afr_vod", !vm.opt("afr_vod", false)) }
+                            PanelItem("Changer le taux de rafraîchissement de l'écran", trailing = { PanelSwitch(vm.opt("afr_rate", true)) }) { vm.setOpt("afr_rate", !vm.opt("afr_rate", true)) }
+                            PanelItem("Changer de résolution d'écran", trailing = { PanelSwitch(vm.opt("afr_res", false)) }) { vm.setOpt("afr_res", !vm.opt("afr_res", false)) }
+                            val ctxAfr = androidx.compose.ui.platform.LocalContext.current
+                            var afrDelay by remember { mutableStateOf(Store(ctxAfr).afrDelay()) }
+                            PanelItem("Délai avant de changer, en sec", "$afrDelay") {
+                                val opts = listOf(0, 1, 2, 3, 5, 10)
+                                afrDelay = opts[(opts.indexOf(afrDelay) + 1).mod(opts.size)]
+                                Store(ctxAfr).saveAfrDelay(afrDelay)
+                            }
+                            PanelLabel("Activer cette option si vous voulez que le taux de rafraîchissement de votre TV s'adapte à celui du flux vidéo. Cela peut rendre la lecture plus fluide. Certains appareils ne sont pas compatibles.")
+                        }
                         page == "player" -> {
                             PanelItem("Liste des chaînes", "Surbrillance, superposition, aperçu", first = true) { page = "chlist" }
                             PanelItem("Panneau d'information", "Heure, description, propriétés du média") { page = "infopanel" }
@@ -1680,7 +1697,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Mémoire tampon", "Grande") { }
                             PanelItem("Décodeur audio", "Matériel") { }
                             PanelItem("Décodeur vidéo", "Matériel") { }
-                            PanelItem("Fréquence d'images automatique (AFR)", "Bientôt disponible") { }
+                            PanelItem("Fréquence d'images automatique (AFR)", "Changer le taux de rafraîchissement selon la vidéo") { page = "afr" }
                             val ctxSu = androidx.compose.ui.platform.LocalContext.current
                             var surround by remember { mutableStateOf(Store(ctxSu).surroundDefault()) }
                             PanelItem("Sélectionner la piste audio surround par défaut", if (surround) "Activé" else "Désactivé", trailing = { PanelSwitch(surround) }) {

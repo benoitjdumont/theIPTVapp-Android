@@ -153,6 +153,10 @@ class Store(ctx: Context) {
     fun saveKeyChoice(i: Int, s: String) = sp.edit().putString("key_$i", s).apply()
     fun clearKeyChoices(count: Int) { val e = sp.edit(); for (i in 0 until count) e.remove("key_$i"); e.apply() }
 
+    // ---- lecteur : fréquence d'images automatique (délai en secondes)
+    fun afrDelay(): Int = sp.getInt("afr_delay", 0)
+    fun saveAfrDelay(s: Int) = sp.edit().putInt("afr_delay", s).apply()
+
     // ---- lecteur : mémoire tampon (0 petite, 1 moyenne, 2 grande) et lecture en tunnel
     fun bufferSize(): Int = sp.getInt("buffer", 2).coerceIn(0, 2)
     fun saveBufferSize(i: Int) = sp.edit().putInt("buffer", i.coerceIn(0, 2)).apply()
