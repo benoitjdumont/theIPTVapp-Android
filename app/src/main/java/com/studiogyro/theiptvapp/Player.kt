@@ -156,10 +156,11 @@ fun PlayerScreen(vm: MainVm) {
             .setPrioritizeTimeOverSizeThresholds(false)
             .setBackBuffer(300_000, true)
             .build()
-        ExoPlayer.Builder(ctx).setLoadControl(lc).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build().also { p ->
-            // lecture en tunnel : réglage Lecteur > Lecture en tunnel (s'applique à la prochaine lecture)
-            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setTunnelingEnabled(st.tunnel()).build()
+        // lecture en tunnel : réglage Lecteur > Lecture en tunnel (s'applique à la prochaine lecture)
+        val ts = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(ctx).also { t ->
+            t.parameters = t.buildUponParameters().setTunnelingEnabled(st.tunnel()).build()
         }
+        ExoPlayer.Builder(ctx).setLoadControl(lc).setTrackSelector(ts).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build()
     }
     DisposableEffect(Unit) { onDispose { player.release() } }
 
