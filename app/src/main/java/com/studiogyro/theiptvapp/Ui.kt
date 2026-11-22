@@ -1618,7 +1618,12 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page == "player" -> {
                             PanelItem("Liste des chaînes", "Surbrillance, superposition, aperçu", first = true) { page = "chlist" }
                             PanelItem("Panneau d'information", "Heure, description, propriétés du média") { page = "infopanel" }
-                            PanelItem("Historique / chaînes récentes", "Bientôt disponible") { }
+                            val ctxHi = androidx.compose.ui.platform.LocalContext.current
+                            PanelItem("Historique / chaînes récentes", "${Store(ctxHi).recentLive().size} chaîne(s) récente(s)") { }
+                            PanelItem("Effacer l'historique", "Vide les chaînes récentes et l'historique de recherche") {
+                                Store(ctxHi).saveRecentLive(emptyList())
+                                Store(ctxHi).saveHistory(emptyList())
+                            }
                             PanelItem("Menu", "Réorganiser les boutons du menu") { page = "menu" }
                             PanelItem("Horloge", "Off") { }
                             val ctxPt = androidx.compose.ui.platform.LocalContext.current
