@@ -1509,9 +1509,9 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             }
                         }
                         page == "logos" -> {
-                            PanelItem("Préférer les logos de l'EPG", "Bientôt disponible", first = true) { }
+                            PanelItem("Préférer les logos de l'EPG", first = true, trailing = { PanelSwitch(vm.opt("logo_epg", false)) }) { vm.setOpt("logo_epg", !vm.opt("logo_epg", false)) }
                             PanelItem("Dossier Logos", "Vide") { }
-                            PanelItem("Correspondance inexacte pour les fichiers de logos", "Bientôt disponible") { }
+                            PanelItem("Correspondance inexacte pour les fichiers de logos", trailing = { PanelSwitch(vm.opt("logo_fuzzy", true)) }) { vm.setOpt("logo_fuzzy", !vm.opt("logo_fuzzy", true)) }
                             PanelItem("Vider le cache des logos", "Bientôt disponible") { }
                         }
                         page == "langue" -> {
