@@ -43,7 +43,13 @@ class MainActivity : ComponentActivity() {
         vm.createBackup = { vm.saveBackupToDownloads(this) }
         vm.openBackup = { vm.restoreFromDownloads(this) }
         vm.pickBackground = { pickBackground.launch(arrayOf("image/*")) }
-        setContent { AppRoot(vm) }
+        setContent {
+            // l'animation d'ouverture est posée au-dessus de l'appli dans la même image : pas de flash de l'écran d'accueil
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                AppRoot(vm)
+                SplashOverlay(vm)
+            }
+        }
     }
 
     /**

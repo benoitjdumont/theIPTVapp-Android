@@ -2,7 +2,9 @@ package com.studiogyro.theiptvapp
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,13 +30,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 
 /**
- * Animation d'ouverture : le logo apparaît, puis l'écran s'efface une fois la liste chargée.
- * Reste au moins 1,6 s, au plus 4 s, pendant que la liste des chaînes se charge.
+ * Animation d'ouverture, dessinée dans la même composition que l'appli (pas de fenêtre séparée),
+ * pour qu'elle recouvre l'écran dès la première image. Le logo grossit avec un léger rebond,
+ * le nom arrive juste après, puis tout s'efface quand la liste est chargée (1,6 s à 4 s).
  */
 @Composable
 fun SplashOverlay(vm: MainVm) {
@@ -47,31 +49,37 @@ fun SplashOverlay(vm: MainVm) {
         }
         visible = false
     }
-    val fade by animateFloatAsState(if (visible) 1f else 0f, tween(500), label = "splashFade")
+    val fade by animateFloatAsState(if (visible) 1f else 0f, tween(550, easing = FastOutSlowInEasing), label = "splashFade")
+    val logo = remember { Animatable(0f) }
+    val title = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        logo.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessLow))
+    }
+    LaunchedEffect(Unit) {
+        delay(250)
+        title.animateTo(1f, tween(500, easing = FastOutSlowInEasing))
+    }
     if (fade > 0f) {
-        val intro = remember { Animatable(0f) }
-        LaunchedEffect(Unit) { intro.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
-        Dialog(
-            onDismissRequest = {},
-            properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false),
+        Box(
+            Modifier.fillMaxSize().alpha(fade).background(Color(0xFF0B1220)),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                Modifier.fillMaxSize().alpha(fade).background(Color(0xFF0B0F1A)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Image(
-                        painter = painterResource(R.mipmap.ic_launcher),
-                        contentDescription = null,
-                        modifier = Modifier.size(150.dp).scale(0.75f + 0.25f * intro.value).alpha(intro.value),
-                    )
-                    Box(Modifier.height(18.dp))
-                    Text(
-                        "theIPTVapp",
-                        color = Color.White.copy(alpha = intro.value),
-                        fontSize = 26.sp,
-                    )
-                }
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Image(
+                    painter = painterResource(R.mipmap.ic_launcher),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(150.dp)
+                        .scale(0.55f + 0.45f * logo.value)
+                        .alpha(logo.value.coerceIn(0f, 1f)),
+                )
+                Box(Modifier.height(18.dp))
+                Text(
+                    "theIPTVapp",
+                    color = Color.White.copy(alpha = title.value.coerceIn(0f, 1f)),
+                    fontSize = 26.sp,
+                    modifier = Modifier.offset(y = (8 * (1f - title.value)).dp),
+                )
             }
         }
     }

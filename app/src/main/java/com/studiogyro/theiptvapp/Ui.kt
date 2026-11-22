@@ -159,7 +159,6 @@ fun AppRoot(vm: MainVm) {
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(dens.density, dens.fontScale * TEXT_SIZES[vm.textSizeIdx].second),
     ) {
     MaterialTheme(colorScheme = scheme) {
-        SplashOverlay(vm)
         PinDialog(vm)
         UpdateDialog(vm)
         if (!vm.termsOk) WelcomeDialog(vm)
