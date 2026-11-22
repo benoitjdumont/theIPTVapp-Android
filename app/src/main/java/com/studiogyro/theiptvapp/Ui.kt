@@ -1360,7 +1360,19 @@ private fun Modifier.androidx_focusRequester(fr: androidx.compose.ui.focus.Focus
 
 @Composable
 private fun PanelSwitch(on: Boolean) {
-    androidx.compose.material3.Switch(checked = on, onCheckedChange = null)
+    // couleurs explicites : sinon la piste activée se confond avec le fond et seul le point reste visible
+    androidx.compose.material3.Switch(
+        checked = on,
+        onCheckedChange = null,
+        colors = androidx.compose.material3.SwitchDefaults.colors(
+            checkedThumbColor = Color.White,
+            checkedTrackColor = Color(0xFF2F80FF),
+            checkedBorderColor = Color(0xFF8FB8FF),
+            uncheckedThumbColor = Color(0xFFB8C2D6),
+            uncheckedTrackColor = Color(0xFF2A303C),
+            uncheckedBorderColor = Color(0xFF8FB8FF)
+        )
+    )
 }
 
 @Composable
