@@ -4,71 +4,155 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>theIPTVapp : lecteur IPTV pour Android et Google TV</title>
-<meta name="description" content="Lecteur IPTV pour téléphone Android et Google TV : guide EPG, enregistrement, multi-vue, sous-titres.">
+<meta name="description" content="theIPTVapp, lecteur IPTV pour téléphone Android et Google TV : guide EPG, enregistrement, multi-vue, sous-titres. Gratuit.">
+<link rel="icon" href="img/logo.png">
 <style>
-  :root { --bg:#0B1220; --panel:#131C2E; --text:#E8EEFA; --muted:#9FB0CC; --accent:#2F80FF; }
+  :root { --bg:#0B1220; --panel:#131C2E; --panel2:#1A2540; --text:#E8EEFA; --muted:#9FB0CC; --accent:#2F80FF; --accent2:#5AA0FF; }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
-  header { padding: 64px 0 32px; text-align: center; }
-  h1 { font-size: clamp(30px, 6vw, 46px); margin: 0 0 12px; }
-  .lead { color: var(--muted); font-size: 18px; max-width: 640px; margin: 0 auto 24px; }
-  .btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; padding:12px 22px; border-radius:10px; font-weight:600; margin:4px; }
-  .btn.ghost { background:transparent; border:1px solid var(--accent); color:var(--accent); }
-  section { padding: 28px 0; }
-  h2 { font-size: 24px; margin: 0 0 14px; }
-  .grid { display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-  .card { background:var(--panel); border-radius:14px; padding:18px; }
-  .card h3 { margin:0 0 6px; font-size:17px; }
-  .card p { margin:0; color:var(--muted); font-size:15px; }
-  .shots { display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-  .shots img { width:100%; border-radius:12px; display:block; border:1px solid #22304A; }
-  .steps li { margin: 6px 0; color: var(--muted); }
-  footer { color: var(--muted); font-size: 14px; text-align:center; padding: 32px 0 48px; }
-  a { color: #8CB8FF; }
+  html { scroll-behavior: smooth; }
+  body { margin:0; background: radial-gradient(1200px 600px at 50% -200px, #1B2D55 0%, var(--bg) 60%) fixed, var(--bg); color:var(--text); font:16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 18px; }
+  a { color: var(--accent2); }
+
+  /* en-tête */
+  .top { display:flex; align-items:center; justify-content:space-between; padding: 18px 0; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:18px; color:var(--text); text-decoration:none; }
+  .brand img { width:34px; height:34px; border-radius:9px; }
+  .nav a { color: var(--muted); text-decoration:none; margin-left:18px; font-size:15px; }
+  .nav a:hover { color: var(--text); }
+
+  /* accueil */
+  .hero { display:grid; gap:32px; grid-template-columns: 1.1fr 1fr; align-items:center; padding: 36px 0 28px; }
+  .hero h1 { font-size: clamp(34px, 6vw, 56px); line-height:1.1; margin:0 0 14px; letter-spacing:-0.02em; }
+  .hero h1 span { color: var(--accent2); }
+  .hero p.lead { color: var(--muted); font-size: 18px; margin: 0 0 24px; max-width: 560px; }
+  .cta { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  .btn { display:inline-flex; align-items:center; gap:10px; background: linear-gradient(180deg, var(--accent2), var(--accent)); color:#fff; text-decoration:none; padding:14px 24px; border-radius:12px; font-weight:700; font-size:16px; box-shadow: 0 10px 30px rgba(47,128,255,.35); transition: transform .15s ease, box-shadow .15s ease; }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(47,128,255,.45); }
+  .btn svg { width:20px; height:20px; }
+  .btn.ghost { background:transparent; border:1px solid #33456B; color:var(--text); box-shadow:none; }
+  .btn.ghost:hover { border-color: var(--accent2); }
+  .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
+  .hero-img { position:relative; }
+  .hero-img img { width:100%; border-radius:18px; border:1px solid #22304A; box-shadow: 0 24px 60px rgba(0,0,0,.45); display:block; }
+
+  /* sections */
+  section { padding: 44px 0; }
+  .eyebrow { color: var(--accent2); font-size:13px; text-transform:uppercase; letter-spacing:.12em; font-weight:700; margin-bottom:8px; }
+  h2 { font-size: clamp(24px, 4vw, 34px); margin: 0 0 10px; letter-spacing:-0.01em; }
+  .sub { color: var(--muted); margin: 0 0 26px; max-width: 680px; }
+  .grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card { background: linear-gradient(180deg, var(--panel2), var(--panel)); border:1px solid #22304A; border-radius:16px; padding:22px; }
+  .card .ico { width:40px; height:40px; border-radius:12px; background: rgba(47,128,255,.16); display:grid; place-items:center; margin-bottom:14px; color: var(--accent2); font-weight:700; }
+  .card h3 { margin:0 0 6px; font-size:18px; }
+  .card p { margin:0; color: var(--muted); font-size:15px; }
+
+  .shots { display:grid; gap:18px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .shot { margin:0; }
+  .shot img { width:100%; border-radius:14px; border:1px solid #22304A; display:block; }
+  .shot figcaption { color: var(--muted); font-size:14px; margin-top:10px; }
+
+  .steps { counter-reset: s; list-style:none; padding:0; margin:0; display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .steps li { counter-increment: s; background: var(--panel); border:1px solid #22304A; border-radius:14px; padding:20px 20px 20px 66px; position:relative; color: var(--muted); }
+  .steps li::before { content: counter(s); position:absolute; left:20px; top:18px; width:32px; height:32px; border-radius:50%; background: var(--accent); color:#fff; display:grid; place-items:center; font-weight:700; }
+  .steps b { color: var(--text); }
+
+  .cta-band { background: linear-gradient(135deg, #1B2D55, #132040); border:1px solid #22304A; border-radius:20px; padding: 34px; text-align:center; margin: 10px 0 0; }
+  .cta-band h2 { margin-bottom: 8px; }
+  .cta-band p { color: var(--muted); margin: 0 0 22px; }
+
+  footer { border-top:1px solid #1B2740; color: var(--muted); font-size: 14px; padding: 28px 0 40px; margin-top: 30px; }
+  footer .wrap { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; }
+
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; padding-top: 18px; }
+    .nav a { margin-left:12px; font-size:14px; }
+  }
 </style>
 </head>
 <body>
-<header class="wrap">
-  <h1>theIPTVapp</h1>
-  <p class="lead">Un lecteur IPTV pour téléphone Android et Google TV. Une seule appli : tactile sur le téléphone, télécommande sur la télé.</p>
-  <a class="btn" href="https://github.com/benoitjdumont/theIPTVapp-Android">Voir le code sur GitHub</a>
-  <a class="btn ghost" href="https://github.com/benoitjdumont/theIPTVapp-Android#installer">Installer</a>
+
+<div class="wrap top">
+  <a class="brand" href="#"><img src="img/logo.png" alt="" width="34" height="34">theIPTVapp</a>
+  <nav class="nav">
+    <a href="#fonctions">Fonctions</a>
+    <a href="#captures">Captures</a>
+    <a href="#installer">Installer</a>
+    <a href="https://github.com/benoitjdumont/theIPTVapp-Android">Code</a>
+  </nav>
+</div>
+
+<header class="wrap hero">
+  <div>
+    <h1>Votre télé, <span>mieux</span> organisée.</h1>
+    <p class="lead">theIPTVapp est un lecteur IPTV pour téléphone Android et Google TV. Un guide des programmes, des enregistrements, la multi-vue à 4 chaînes et les sous-titres, le tout à la télécommande ou au doigt.</p>
+    <div class="cta">
+      <a class="btn" href="https://github.com/benoitjdumont/theIPTVapp-Android/releases/latest/download/theIPTVapp.apk">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        Télécharger l'APK
+      </a>
+      <a class="btn ghost" href="#installer">Comment installer</a>
+    </div>
+    <p class="note">Gratuit. Dernière version publiée sur GitHub. Pour téléphone Android ou Google TV.</p>
+  </div>
+  <div class="hero-img">
+    <img src="img/tv.jpg" alt="Écran TV de theIPTVapp avec le guide des programmes">
+  </div>
 </header>
 
-<section class="wrap">
-  <div class="shots">
-    <img src="img/tv.jpg" alt="Écran TV avec le guide">
-    <img src="img/enregistrements.jpg" alt="Page des enregistrements">
-    <img src="img/recherche.jpg" alt="Recherche dans TV, films et séries">
-  </div>
-</section>
-
-<section class="wrap">
-  <h2>Ce qu'elle fait</h2>
+<section class="wrap" id="fonctions">
+  <div class="eyebrow">Fonctions</div>
+  <h2>Tout ce qu'il faut pour regarder la télé</h2>
+  <p class="sub">Une seule appli pour le téléphone (tactile) et la télé (télécommande). L'appli ne fournit aucune chaîne : tu ajoutes tes propres listes.</p>
   <div class="grid">
-    <div class="card"><h3>Multi-vue</h3><p>Jusqu'à 4 chaînes en direct côte à côte.</p></div>
-    <div class="card"><h3>Guide EPG</h3><p>Grille des programmes, rappels d'émissions, enregistrement des chaînes.</p></div>
-    <div class="card"><h3>Sous-titres</h3><p>Pistes intégrées, fichiers .srt ou .vtt, recherche en ligne en français et en anglais.</p></div>
-    <div class="card"><h3>Lecteur</h3><p>Barre de contrôle, sauts réglables, mémoire tampon, lecture en tunnel, lecteur externe (VLC).</p></div>
-    <div class="card"><h3>Profils</h3><p>Plusieurs profils, chacun protégeable par un code à 4 chiffres.</p></div>
-    <div class="card"><h3>Sources</h3><p>Listes M3U (adresse web) et Xtream Codes. L'appli ne fournit aucune chaîne.</p></div>
+    <div class="card"><div class="ico">1</div><h3>Multi-vue</h3><p>Jusqu'à 4 chaînes en direct côte à côte sur le même écran.</p></div>
+    <div class="card"><div class="ico">2</div><h3>Guide des programmes</h3><p>Grille EPG, rappels d'émissions et enregistrement des chaînes en direct.</p></div>
+    <div class="card"><div class="ico">3</div><h3>Sous-titres</h3><p>Pistes intégrées, fichiers .srt ou .vtt, et recherche en ligne en français et en anglais.</p></div>
+    <div class="card"><div class="ico">4</div><h3>Lecteur complet</h3><p>Barre de contrôle, sauts réglables, mémoire tampon, lecture en tunnel, et ouverture dans VLC si tu préfères.</p></div>
+    <div class="card"><div class="ico">5</div><h3>Profils protégés</h3><p>Plusieurs profils, chacun avec son code à 4 chiffres si tu veux.</p></div>
+    <div class="card"><div class="ico">6</div><h3>Tes listes</h3><p>Listes M3U par adresse web et comptes Xtream Codes, modifiables à tout moment.</p></div>
   </div>
 </section>
 
-<section class="wrap">
-  <h2>Installer</h2>
+<section class="wrap" id="captures">
+  <div class="eyebrow">Captures</div>
+  <h2>Sur grand écran</h2>
+  <p class="sub">Les captures sont prises sur une Google TV.</p>
+  <div class="shots">
+    <figure class="shot"><img src="img/tv.jpg" alt="Guide TV"><figcaption>Guide TV et chaînes</figcaption></figure>
+    <figure class="shot"><img src="img/enregistrements.jpg" alt="Enregistrements"><figcaption>Enregistrements et programmes</figcaption></figure>
+    <figure class="shot"><img src="img/recherche.jpg" alt="Recherche"><figcaption>Recherche dans la TV, les films et les séries</figcaption></figure>
+  </div>
+</section>
+
+<section class="wrap" id="installer">
+  <div class="eyebrow">Installer</div>
+  <h2>En trois étapes</h2>
+  <p class="sub">Installation directe, sans passer par le magasin d'applications.</p>
   <ol class="steps">
-    <li>Sur GitHub, ouvre l'onglet <b>Actions</b>, puis la dernière exécution verte.</li>
-    <li>Télécharge l'artefact <b>theIPTVapp-debug-apk</b> et décompresse-le.</li>
-    <li>Installe <code>app-debug.apk</code>. Autorise les « sources inconnues ».</li>
+    <li><b>Télécharge l'APK</b> avec le bouton ci-dessus.</li>
+    <li><b>Autorise les sources inconnues</b> dans les réglages de sécurité de ton appareil, ou de la TV.</li>
+    <li><b>Ouvre le fichier</b> <code>theIPTVapp.apk</code> pour l'installer, puis lance l'appli.</li>
   </ol>
-  <p style="color:var(--muted)">Sur Google TV, copie le fichier sur une clé USB ou passe par une appli de transfert de fichiers.</p>
+  <p class="sub" style="margin-top:18px">Sur Google TV, copie le fichier sur une clé USB ou utilise une appli de transfert de fichiers.</p>
+</section>
+
+<section class="wrap">
+  <div class="cta-band">
+    <h2>Prêt à essayer ?</h2>
+    <p>Téléchargement gratuit, mises à jour automatiques à partir de GitHub.</p>
+    <div class="cta" style="justify-content:center">
+      <a class="btn" href="https://github.com/benoitjdumont/theIPTVapp-Android/releases/latest/download/theIPTVapp.apk">Télécharger l'APK</a>
+    </div>
+  </div>
 </section>
 
 <footer>
-  <p>Créé par Benoît Dumont avec l'aide de l'IA, Studio Gyro. theIPTVapp est un lecteur : il ne fournit aucune chaîne.</p>
-  <p><a href="https://github.com/benoitjdumont/theIPTVapp-Android">Code source</a></p>
+  <div class="wrap">
+    <span>theIPTVapp, créé par Benoît Dumont avec l'aide de l'IA (Studio Gyro).</span>
+    <span><a href="https://github.com/benoitjdumont/theIPTVapp-Android">Code source sur GitHub</a></span>
+  </div>
 </footer>
+
 </body>
 </html>
