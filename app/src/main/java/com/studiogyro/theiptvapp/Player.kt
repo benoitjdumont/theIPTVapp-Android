@@ -172,6 +172,7 @@ fun PlayerScreen(vm: MainVm) {
     // menu du bas (comme la télé Samsung) et liste des chaînes par-dessus la vidéo
     // menu : 0 fermé ; 1 = historique des chaînes seul ; 2 = rangée d'options (remplace l'historique)
     var menuStage by remember(ch.id) { mutableIntStateOf(0) }
+    var multiOpen by remember(ch.id) { mutableStateOf(false) }
     val stripFirst = remember { FocusRequester() }
     var displayMode by remember { mutableIntStateOf(0) }
     var sleepMin by remember { mutableIntStateOf(0) }
@@ -626,7 +627,7 @@ fun PlayerScreen(vm: MainVm) {
                             if (rec == null) vm.startRecording(ctx, ch) else vm.stopRecording()
                             close()
                         },
-                        Triple("Multi-vue", IconMultiView) { close(); hud = "Multi-vue : bientôt disponible" },
+                        Triple("Multi-vue", IconMultiView) { close(); showUi = false; multiOpen = true },
                         Triple("Image dans l'image", IconPip) { (activity as? MainActivity)?.enterPip() },
                         Triple("Résolution", IconScreen) { picker = "video" },
                         Triple("Sous-titres", IconCaption) { picker = "text" },
@@ -708,6 +709,9 @@ fun PlayerScreen(vm: MainVm) {
                 }
             }
         }
+
+        // multi-vue : plusieurs chaînes côte à côte (le lecteur principal garde le son)
+        if (multiOpen) MultiViewScreen(vm, ch) { multiOpen = false }
 
         // choix de résolution, sous-titres ou audio
         picker?.let { kind ->
