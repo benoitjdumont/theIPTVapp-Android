@@ -1387,6 +1387,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page == "profiles" -> page = "lists"
             page == "terms" || page == "privacy" -> page = "about"
             page == "afr" -> page = "player"
+            page == "buffer" -> page = "player"
             page == "look_color_bg" || page == "look_hilite" || page == "look_seltext" -> page = "look_color"
             page == "logos" || page == "langue" || page == "textsize" -> page = "look"
             page.startsWith("look_") -> page = "look"
@@ -1417,6 +1418,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "terms" -> "Conditions d'utilisation"
         page == "privacy" -> "Politique de confidentialité"
         page == "afr" -> "Fréquence d'images automatique"
+        page == "buffer" -> "Mémoire tampon"
         page == "rename" -> "Renommer des chaînes"
         page == "epg" -> "EPG (guide des programmes TV)"
         page == "backup" -> "Sauvegarde"
@@ -1663,6 +1665,17 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Afficher les propriétés du média", trailing = { PanelSwitch(vm.opt("ip_media", false)) }) { vm.setOpt("ip_media", !vm.opt("ip_media", false)) }
                             PanelItem("Afficher la résolution vidéo au lieu des étiquettes", trailing = { PanelSwitch(vm.opt("ip_res", false)) }) { vm.setOpt("ip_res", !vm.opt("ip_res", false)) }
                         }
+                        page == "buffer" -> {
+                            val ctxBu = androidx.compose.ui.platform.LocalContext.current
+                            var buf by remember { mutableStateOf(Store(ctxBu).bufferSize()) }
+                            listOf("Petite", "Moyenne", "Grande").forEachIndexed { i, label ->
+                                PanelItem(label, first = i == 0, trailing = { PanelSwitch(buf == i) }) {
+                                    buf = i
+                                    Store(ctxBu).saveBufferSize(i)
+                                }
+                            }
+                            PanelLabel("La taille du tampon détermine la durée de la vidéo qui doit être téléchargée pour démarrer la lecture. Essayez d'augmenter cette taille si vous voyez s'activer fréquemment la mise en mémoire tampon. Cela peut réduire la vitesse de zapping des chaînes.")
+                        }
                         page == "afr" -> {
                             // réglages de la référence : Live TV et VOD désactivés, taux de rafraîchissement activé, résolution désactivée
                             PanelItem("Activer l'AFR pour le Live TV", first = true, trailing = { PanelSwitch(vm.opt("afr_live", false)) }) { vm.setOpt("afr_live", !vm.opt("afr_live", false)) }
@@ -1691,8 +1704,9 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 panelSec = options[(options.indexOf(panelSec) + 1).mod(options.size)]
                                 Store(ctxPt).savePanelTimeout(panelSec)
                             }
-                            // comme sur la référence : seule la valeur Grande existe
-                            PanelItem("Mémoire tampon", "Grande") { }
+                            val ctxBuf = androidx.compose.ui.platform.LocalContext.current
+                            val bufName = listOf("Petite", "Moyenne", "Grande")[Store(ctxBuf).bufferSize()]
+                            PanelItem("Mémoire tampon", bufName) { page = "buffer" }
                             PanelItem("Décodeur audio", "Matériel") { }
                             PanelItem("Décodeur vidéo", "Matériel") { }
                             PanelItem("Fréquence d'images automatique (AFR)", "Changer le taux de rafraîchissement selon la vidéo") { page = "afr" }
