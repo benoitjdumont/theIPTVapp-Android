@@ -1,35 +1,71 @@
-# theIPTVapp — Android & Google TV
+# theIPTVapp — Android et Google TV
 
-Lecteur IPTV pour **téléphone Android** et **Google TV / Android TV**, version mobile de theIPTVapp (Windows).
+Lecteur IPTV pour **téléphone Android** et **Google TV / Android TV**. C'est la version Android de theIPTVapp (Windows).
 Une seule application : tactile sur téléphone, télécommande (flèches, OK, Retour) sur la télé.
 
-*Créé par Benoît Dumont à l'aide de l'IA — Studio Gyro.* theIPTVapp est un lecteur : il ne fournit aucune chaîne.
+*Créé par Benoît Dumont avec l'aide de l'IA, Studio Gyro. theIPTVapp est un lecteur : il ne fournit aucune chaîne.*
 
 ## Aperçu
 
-| TV + guide | Enregistrements | Recherche |
+| TV et guide | Enregistrements | Recherche |
 |---|---|---|
 | ![TV](screenshots/tv.jpg) | ![Enregistrements](screenshots/enregistrements.jpg) | ![Recherche](screenshots/recherche.jpg) |
 
 ## Fonctions
-- Sources **M3U** (adresse web) et **Xtream Codes** : plusieurs listes, que l'on peut **modifier** à tout moment.
-- **TV, Films, Séries** : colonne de gauche (noms au départ, icônes une fois un choix fait), catégories, puis liste ou murs d'affiches en plein écran ; poignée sur le bord gauche pour rouvrir les colonnes.
-- **Ma liste** : favoris de la TV, des films et des séries, chacun dans sa propre catégorie. **Enregistrements** : accès direct depuis la colonne.
-- **Recherche** dans sa propre fenêtre : TV, Films et Séries à la fois, avec l'endroit où chaque résultat a été trouvé.
-- **Lecteur** Media3/ExoPlayer (HLS, TS, AC-3, HEVC selon l'appareil) : pause et enregistrement au centre, historique des chaînes, menu d'options (image dans l'image, résolution, sous-titres, audio, minuterie…) accessible à la télécommande comme au toucher.
-- **Sous-titres (CC)** : dans le menu d'options, sous « Sous-titres ». Films et séries : pistes intégrées au fichier, ou fichier `.srt` / `.vtt` chargé par adresse. TV en direct : seulement si le flux contient des sous-titres ; un fichier chargé par adresse ne se synchronise pas bien avec le direct. Recherche en ligne (OpenSubtitles) pour les films et séries, en français et en anglais : mets ta clé personnelle (gratuite, à créer sur opensubtitles.com) dans Préférences › Réseau. Elle reste sur l'appareil.
-- **Guide EPG** (Xtream) en grille ; reprise de lecture des films et épisodes ; saisons et épisodes.
-- **Enregistrement** des chaînes en direct.
-- **Préférences** dans un panneau qui glisse par-dessus l'interface : apparence (taille du texte, couleur, image de fond, transparence réglable à la manette), groupes (masquer ou verrouiller), réseau (User-Agent, proxy), sauvegarde, contrôle parental, mises à jour.
-- Plein écran bord à bord, téléphone (tactile) et Google TV (télécommande).
-- Essais automatiques de lecture : `.m3u8`, puis `.ts`, puis HLS forcé.
+
+**Sources et navigation**
+- Sources **M3U** (adresse web) et **Xtream Codes**. Plusieurs listes, modifiables à tout moment.
+- **TV, Films, Séries** : colonne de gauche, catégories, puis liste ou murs d'affiches en plein écran.
+- **Ma liste** : favoris de la TV, des films et des séries. **Enregistrements** : accès direct depuis la colonne.
+- **Recherche** dans sa propre fenêtre : TV, Films et Séries à la fois.
+
+**Lecteur**
+- Media3 / ExoPlayer (HLS, TS, AC-3, HEVC selon l'appareil).
+- Barre de contrôle : recule, pause, avance, retour au direct, chaîne précédente et suivante, enregistrement, favori.
+- **Multi-vue** : jusqu'à 4 chaînes en direct côte à côte.
+- Sauts dans le temps réglables (barre de progression, RW, FF), taille de la mémoire tampon, lecture en tunnel.
+- **Lecteur externe** (option) : la chaîne s'ouvre dans VLC s'il est installé, sinon dans l'appli de ton choix.
+- Historique des chaînes, menu d'options (image dans l'image, résolution, sous-titres, audio, minuterie).
+
+**Sous-titres**
+- Films et séries : pistes intégrées au fichier, ou fichier `.srt` / `.vtt` chargé par adresse.
+- TV en direct : seulement si le flux contient des sous-titres.
+- Recherche en ligne (OpenSubtitles) en français et en anglais. Mets ta clé personnelle, gratuite et à créer sur opensubtitles.com, dans Préférences › Réseau. Elle reste sur l'appareil.
+
+**Guide et enregistrements**
+- **Guide EPG** (Xtream) en grille, avec rappels d'émissions.
+- **Enregistrement** des chaînes en direct, et DVR (2 h) pour revenir en arrière dans le direct.
+- Reprise de lecture des films et épisodes ; saisons et épisodes.
+
+**Réglages** (panneau qui glisse par-dessus l'interface)
+- Apparence : taille du texte, couleurs, surbrillance, image de fond, transparence.
+- Profils avec code à 4 chiffres, groupes masquables ou verrouillables, contrôle parental.
+- Réseau (User-Agent, proxy), sauvegarde et restauration (fichier dans Téléchargements), mises à jour.
+
+**Ouverture**
+- Animation d'ouverture avec le logo, qui s'efface quand la liste est chargée.
 
 ## Installer
-Onglet **Actions** → dernière exécution verte → artefact **theIPTVapp-android-apk** → décompresser → installer `app-debug.apk`
-(autoriser « sources inconnues » ; sur Google TV, passer par une clé USB ou une application de transfert de fichiers).
+1. Onglet **Actions**, puis la dernière exécution verte, puis l'artefact **theIPTVapp-debug-apk**.
+2. Décompresser, puis installer `app-debug.apk`.
+
+Il faut autoriser les « sources inconnues ». Sur Google TV, copie le fichier sur une clé USB ou passe par une appli de transfert de fichiers.
 
 ## Construire soi-même
-Android Studio (ouvrir le dossier) ou `gradle assembleDebug` (Gradle 8.10, JDK 17, Android SDK 35).
+Ouvre le dossier dans Android Studio, ou lance `gradle assembleDebug` (Gradle 8.10, JDK 17, Android SDK 35).
+
+## Structure du code
+| Fichier | Rôle |
+|---|---|
+| `Ui.kt` | Accueil, colonnes, réglages, recherche |
+| `Player.kt` | Lecteur, barre de contrôle, menus |
+| `MultiView.kt` | Multi-vue (4 lecteurs au maximum) |
+| `MainVm.kt` | État de l'appli, listes, guide, enregistrements |
+| `Store.kt` | Réglages sauvegardés sur l'appareil |
+| `Splash.kt` | Animation d'ouverture |
 
 ## Mises à jour
-L'appli vérifie les nouvelles versions (GitHub Releases) au démarrage ; Préférences → Mises à jour pour vérifier à la main.
+L'appli vérifie les nouvelles versions (GitHub Releases) au démarrage. Préférences › Mises à jour permet de vérifier à la main.
+
+## Confidentialité et conditions
+Les conditions d'utilisation et la politique de confidentialité sont dans l'appli (À propos). Elles sont en cours de relecture.

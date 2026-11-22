@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>theIPTVapp : lecteur IPTV pour Android et Google TV</title>
+<meta name="description" content="Lecteur IPTV pour téléphone Android et Google TV : guide EPG, enregistrement, multi-vue, sous-titres.">
+<style>
+  :root { --bg:#0B1220; --panel:#131C2E; --text:#E8EEFA; --muted:#9FB0CC; --accent:#2F80FF; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+  header { padding: 64px 0 32px; text-align: center; }
+  h1 { font-size: clamp(30px, 6vw, 46px); margin: 0 0 12px; }
+  .lead { color: var(--muted); font-size: 18px; max-width: 640px; margin: 0 auto 24px; }
+  .btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; padding:12px 22px; border-radius:10px; font-weight:600; margin:4px; }
+  .btn.ghost { background:transparent; border:1px solid var(--accent); color:var(--accent); }
+  section { padding: 28px 0; }
+  h2 { font-size: 24px; margin: 0 0 14px; }
+  .grid { display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card { background:var(--panel); border-radius:14px; padding:18px; }
+  .card h3 { margin:0 0 6px; font-size:17px; }
+  .card p { margin:0; color:var(--muted); font-size:15px; }
+  .shots { display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .shots img { width:100%; border-radius:12px; display:block; border:1px solid #22304A; }
+  .steps li { margin: 6px 0; color: var(--muted); }
+  footer { color: var(--muted); font-size: 14px; text-align:center; padding: 32px 0 48px; }
+  a { color: #8CB8FF; }
+</style>
+</head>
+<body>
+<header class="wrap">
+  <h1>theIPTVapp</h1>
+  <p class="lead">Un lecteur IPTV pour téléphone Android et Google TV. Une seule appli : tactile sur le téléphone, télécommande sur la télé.</p>
+  <a class="btn" href="https://github.com/benoitjdumont/theIPTVapp-Android">Voir le code sur GitHub</a>
+  <a class="btn ghost" href="https://github.com/benoitjdumont/theIPTVapp-Android#installer">Installer</a>
+</header>
+
+<section class="wrap">
+  <div class="shots">
+    <img src="img/tv.jpg" alt="Écran TV avec le guide">
+    <img src="img/enregistrements.jpg" alt="Page des enregistrements">
+    <img src="img/recherche.jpg" alt="Recherche dans TV, films et séries">
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Ce qu'elle fait</h2>
+  <div class="grid">
+    <div class="card"><h3>Multi-vue</h3><p>Jusqu'à 4 chaînes en direct côte à côte.</p></div>
+    <div class="card"><h3>Guide EPG</h3><p>Grille des programmes, rappels d'émissions, enregistrement des chaînes.</p></div>
+    <div class="card"><h3>Sous-titres</h3><p>Pistes intégrées, fichiers .srt ou .vtt, recherche en ligne en français et en anglais.</p></div>
+    <div class="card"><h3>Lecteur</h3><p>Barre de contrôle, sauts réglables, mémoire tampon, lecture en tunnel, lecteur externe (VLC).</p></div>
+    <div class="card"><h3>Profils</h3><p>Plusieurs profils, chacun protégeable par un code à 4 chiffres.</p></div>
+    <div class="card"><h3>Sources</h3><p>Listes M3U (adresse web) et Xtream Codes. L'appli ne fournit aucune chaîne.</p></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Installer</h2>
+  <ol class="steps">
+    <li>Sur GitHub, ouvre l'onglet <b>Actions</b>, puis la dernière exécution verte.</li>
+    <li>Télécharge l'artefact <b>theIPTVapp-debug-apk</b> et décompresse-le.</li>
+    <li>Installe <code>app-debug.apk</code>. Autorise les « sources inconnues ».</li>
+  </ol>
+  <p style="color:var(--muted)">Sur Google TV, copie le fichier sur une clé USB ou passe par une appli de transfert de fichiers.</p>
+</section>
+
+<footer>
+  <p>Créé par Benoît Dumont avec l'aide de l'IA, Studio Gyro. theIPTVapp est un lecteur : il ne fournit aucune chaîne.</p>
+  <p><a href="https://github.com/benoitjdumont/theIPTVapp-Android">Code source</a></p>
+</footer>
+</body>
+</html>
