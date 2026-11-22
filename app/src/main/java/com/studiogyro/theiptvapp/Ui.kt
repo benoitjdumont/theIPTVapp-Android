@@ -1608,6 +1608,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 val shown = if (i < KEY_CONFIGURABLE) vm.keyChoice(i) ?: action else action
                                 PanelItem(name, shown, first = i == 0) { if (i < KEY_CONFIGURABLE) page = "key:$i" }
                             }
+                            PanelItem("Restaurer les paramètres par défaut") { vm.resetKeyChoices() }
                         }
                         page.startsWith("key:") -> {
                             val idx = page.removePrefix("key:").toIntOrNull() ?: -1
