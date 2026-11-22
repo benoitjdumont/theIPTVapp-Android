@@ -1603,28 +1603,28 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Restez sur l'écran de recherche lorsque vous changez de chaîne", trailing = { PanelSwitch(false) }) { }
                         }
                         page == "chlist" -> {
-                            PanelItem("Mettre en surbrillance les programmes actuels en couleur", "Bientôt disponible", first = true) { }
-                            PanelItem("Assombrir les programmes précédents", "Bientôt disponible") { }
+                            PanelItem("Mettre en surbrillance les programmes actuels en couleur", first = true, trailing = { PanelSwitch(vm.opt("cl_hilite", true)) }) { vm.setOpt("cl_hilite", !vm.opt("cl_hilite", true)) }
+                            PanelItem("Assombrir les programmes précédents", trailing = { PanelSwitch(vm.opt("cl_dim", true)) }) { vm.setOpt("cl_dim", !vm.opt("cl_dim", true)) }
                             PanelLabel("Mode superposition")
-                            PanelItem("Afficher les programmes", "Bientôt disponible") { }
-                            PanelItem("Afficher la description du programme", "Bientôt disponible") { }
-                            PanelItem("Lecture automatique des chaînes", "Bientôt disponible") { }
-                            PanelItem("Rester sur la liste lorsque vous changez de chaînes", "Bientôt disponible") { }
+                            PanelItem("Afficher les programmes", trailing = { PanelSwitch(vm.opt("cl_ov_progs", true)) }) { vm.setOpt("cl_ov_progs", !vm.opt("cl_ov_progs", true)) }
+                            PanelItem("Afficher la description du programme", trailing = { PanelSwitch(vm.opt("cl_ov_desc", false)) }) { vm.setOpt("cl_ov_desc", !vm.opt("cl_ov_desc", false)) }
+                            PanelItem("Lecture automatique des chaînes", trailing = { PanelSwitch(vm.opt("cl_ov_auto", false)) }) { vm.setOpt("cl_ov_auto", !vm.opt("cl_ov_auto", false)) }
+                            PanelItem("Rester sur la liste lorsque vous changez de chaînes", trailing = { PanelSwitch(vm.opt("cl_ov_stay", false)) }) { vm.setOpt("cl_ov_stay", !vm.opt("cl_ov_stay", false)) }
                             PanelLabel("Mode aperçu")
-                            PanelItem("Transition animée", "Bientôt disponible") { }
-                            PanelItem("Lecture automatique des chaînes (aperçu)", "Bientôt disponible") { }
-                            PanelItem("Rester sur la liste lorsque vous changez de chaînes (aperçu)", "Bientôt disponible") { }
+                            PanelItem("Transition animée", trailing = { PanelSwitch(vm.opt("cl_pv_anim", true)) }) { vm.setOpt("cl_pv_anim", !vm.opt("cl_pv_anim", true)) }
+                            PanelItem("Lecture automatique des chaînes (aperçu)", trailing = { PanelSwitch(vm.opt("cl_pv_auto", false)) }) { vm.setOpt("cl_pv_auto", !vm.opt("cl_pv_auto", false)) }
+                            PanelItem("Rester sur la liste lorsque vous changez de chaînes (aperçu)", trailing = { PanelSwitch(vm.opt("cl_pv_stay", false)) }) { vm.setOpt("cl_pv_stay", !vm.opt("cl_pv_stay", false)) }
                         }
                         page == "infopanel" -> {
                             PanelItem("Style de carte", "Bientôt disponible", first = true) { }
-                            PanelItem("Afficher le panneau d'informations en bas lors du changement de chaîne", "Bientôt disponible") { }
-                            PanelItem("Afficher l'heure", "Bientôt disponible") { }
-                            PanelItem("Afficher la date sur l'horloge", "Bientôt disponible") { }
-                            PanelItem("Afficher la liste de lecture et le nom du groupe", "Bientôt disponible") { }
-                            PanelItem("Afficher la description du programme", "Bientôt disponible") { }
-                            PanelItem("Afficher la description lors du changement de chaîne uniquement", "Bientôt disponible") { }
-                            PanelItem("Afficher les propriétés du média", "Bientôt disponible") { }
-                            PanelItem("Afficher la résolution vidéo au lieu des étiquettes", "Bientôt disponible") { }
+                            PanelItem("Afficher le panneau d'informations en bas lors du changement de chaîne", trailing = { PanelSwitch(vm.opt("ip_bottom", true)) }) { vm.setOpt("ip_bottom", !vm.opt("ip_bottom", true)) }
+                            PanelItem("Afficher l'heure", trailing = { PanelSwitch(vm.opt("ip_time", true)) }) { vm.setOpt("ip_time", !vm.opt("ip_time", true)) }
+                            PanelItem("Afficher la date sur l'horloge", trailing = { PanelSwitch(vm.opt("ip_date", false)) }) { vm.setOpt("ip_date", !vm.opt("ip_date", false)) }
+                            PanelItem("Afficher la liste de lecture et le nom du groupe", trailing = { PanelSwitch(vm.opt("ip_group", true)) }) { vm.setOpt("ip_group", !vm.opt("ip_group", true)) }
+                            PanelItem("Afficher la description du programme", trailing = { PanelSwitch(vm.opt("ip_desc", true)) }) { vm.setOpt("ip_desc", !vm.opt("ip_desc", true)) }
+                            PanelItem("Afficher la description lors du changement de chaîne uniquement", trailing = { PanelSwitch(vm.opt("ip_desc_zap", false)) }) { vm.setOpt("ip_desc_zap", !vm.opt("ip_desc_zap", false)) }
+                            PanelItem("Afficher les propriétés du média", trailing = { PanelSwitch(vm.opt("ip_media", false)) }) { vm.setOpt("ip_media", !vm.opt("ip_media", false)) }
+                            PanelItem("Afficher la résolution vidéo au lieu des étiquettes", trailing = { PanelSwitch(vm.opt("ip_res", false)) }) { vm.setOpt("ip_res", !vm.opt("ip_res", false)) }
                         }
                         page == "player" -> {
                             PanelItem("Liste des chaînes", "Surbrillance, superposition, aperçu", first = true) { page = "chlist" }
