@@ -35,7 +35,7 @@ import kotlinx.coroutines.delay
 /**
  * Animation d'ouverture, dessinée dans la même composition que l'appli (pas de fenêtre séparée),
  * pour qu'elle recouvre l'écran dès la première image. Le logo grossit avec un léger rebond,
- * le nom arrive juste après, puis tout s'efface quand la liste est chargée (1,6 s à 4 s).
+ * le nom arrive juste après, puis tout s'efface quand la liste est chargée (1,6 s à 2,5 s).
  */
 @Composable
 fun SplashOverlay(vm: MainVm) {
@@ -45,7 +45,7 @@ fun SplashOverlay(vm: MainVm) {
         while (true) {
             delay(100)
             val elapsed = System.currentTimeMillis() - t0
-            if (elapsed >= 4000 || (elapsed >= 1600 && !vm.live.loading)) break
+            if (elapsed >= 2500 || (elapsed >= 1600 && !vm.live.loading)) break
         }
         visible = false
     }
