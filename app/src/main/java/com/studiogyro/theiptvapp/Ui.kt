@@ -1382,6 +1382,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
             page == "rename" -> page = "look_guide"
             page == "profiles" -> page = "lists"
+            page == "terms" || page == "privacy" -> page = "about"
             page == "look_color_bg" || page == "look_hilite" || page == "look_seltext" -> page = "look_color"
             page == "logos" || page == "langue" || page == "textsize" -> page = "look"
             page.startsWith("look_") -> page = "look"
@@ -1409,6 +1410,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "advanced" -> "Paramètres avancés"
         page == "network" -> "Réseau"
         page == "profiles" -> "Profils"
+        page == "terms" -> "Conditions d'utilisation"
+        page == "privacy" -> "Politique de confidentialité"
         page == "rename" -> "Renommer des chaînes"
         page == "epg" -> "EPG (guide des programmes TV)"
         page == "backup" -> "Sauvegarde"
@@ -1494,7 +1497,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page == "groups" -> GroupsPage(vm)
                         page == "look" -> {
                             PanelItem("Guide TV", first = true) { page = "look_guide" }
-                            PanelItem("Lecteur", "Bientôt disponible") { }
+                            PanelItem("Lecteur") { page = "player" }
                             PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
                             PanelItem("Logos", "Préférer les logos de l'EPG, dossier, cache") { page = "logos" }
                             PanelItem("Langue", "Système") { page = "langue" }
@@ -1530,7 +1533,13 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Préférer les logos de l'EPG", first = true, trailing = { PanelSwitch(vm.opt("logo_epg", false)) }) { vm.setOpt("logo_epg", !vm.opt("logo_epg", false)) }
                             PanelItem("Dossier Logos", "Vide") { }
                             PanelItem("Correspondance inexacte pour les fichiers de logos", trailing = { PanelSwitch(vm.opt("logo_fuzzy", true)) }) { vm.setOpt("logo_fuzzy", !vm.opt("logo_fuzzy", true)) }
-                            PanelItem("Vider le cache des logos", "Bientôt disponible") { }
+                            val ctxLg = androidx.compose.ui.platform.LocalContext.current
+                            var logoMsg by remember { mutableStateOf("") }
+                            PanelItem("Vider le cache des logos", logoMsg.ifBlank { null }) {
+                                // le cache des images de Coil est un dossier du cache de l'appli ; il se reconstruit au besoin
+                                runCatching { java.io.File(ctxLg.cacheDir, "image_cache").deleteRecursively() }
+                                logoMsg = "Cache vidé. Les logos se rechargent."
+                            }
                         }
                         page == "langue" -> {
                             listOf("Système", "Čeština", "Dansk", "Deutsch", "English", "Español", "Français", "Hrvatski", "Italiano", "Latviešu", "Lietuvių", "Magyar", "Nederlands", "Norsk", "Polski", "Português (Brasil)", "Română", "Slovenský", "Slovenščina", "Srpski", "Suomi", "Svenska", "Tiếng Việt", "Türkçe", "Ελληνικά", "Български", "Русский", "Српски", "Українська", "ქართული", "עברית", "عربی", "中文").forEachIndexed { i, name ->
@@ -1574,8 +1583,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         }
                         page == "network" -> NetworkPage(vm)
                         page == "remote" -> {
-                            PanelItem("Guide TV", "Bientôt disponible", first = true) { }
-                            PanelItem("Lecteur", "Bientôt disponible") { }
+                            PanelItem("Guide TV", first = true) { page = "look_guide" }
+                            PanelItem("Lecteur") { page = "player" }
                             PanelLabel("Options de recherche")
                             // interrupteurs affichés avec leur valeur de référence ; pas encore enregistrés
                             PanelItem("Utiliser RW/FF/Pause pour se déplacer/mettre en pause pendant la lecture d'un Replay", first = true, trailing = { PanelSwitch(vm.opt("rm_rwff", true)) }) { vm.setOpt("rm_rwff", !vm.opt("rm_rwff", true)) }
@@ -1697,6 +1706,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
                         }
                         page == "profiles" -> ProfilesPage(vm)
+                        page == "terms" -> LegalPage(TERMS_TEXT)
+                        page == "privacy" -> LegalPage(PRIVACY_TEXT)
                         page == "rename" -> RenamePage(vm)
                         page == "epg" -> EpgPage(vm)
                         page == "backup" -> BackupPage(vm)
@@ -1719,8 +1730,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Mise à jour automatique de l'application", first = true, trailing = { PanelSwitch(vm.opt("upd_auto", true)) }) { vm.setOpt("upd_auto", !vm.opt("upd_auto", true)) }
                             PanelItem("Participer au bêta-test", trailing = { PanelSwitch(vm.opt("beta", false)) }) { vm.setOpt("beta", !vm.opt("beta", false)) }
                             PanelItem("Rechercher des mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
-                            PanelItem("Conditions d'utilisation", "Bientôt disponible") { }
-                            PanelItem("Politique de confidentialité", "Bientôt disponible") { }
+                            PanelItem("Conditions d'utilisation", "Ce que tu acceptes au premier lancement") { page = "terms" }
+                            PanelItem("Politique de confidentialité", "Ce qui est enregistré, et où") { page = "privacy" }
                             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Image(painterResource(R.mipmap.ic_launcher), null, Modifier.size(64.dp))
                                 Spacer(Modifier.size(10.dp))
@@ -1819,6 +1830,24 @@ fun TvField(
     }
 }
 
+/** texte affiché dans Conditions d'utilisation (le même que l'accueil au premier lancement) */
+const val TERMS_TEXT = "theIPTVapp est un lecteur multimédia. Il ne fournit, n'héberge ni ne distribue aucune chaîne, aucun film et aucune série. Pour regarder quoi que ce soit, tu dois ajouter tes propres listes de lecture.\n\n" +
+    "Ton contenu, ta responsabilité\n" +
+    "Tu es seul responsable de tout ce que tu ajoutes à l'application. En l'utilisant, tu confirmes que tu as les droits ou les autorisations nécessaires pour ce contenu, et que tu respectes les lois de ton pays."
+
+/** brouillon à relire : décrit ce que l'appli enregistre sur l'appareil */
+const val PRIVACY_TEXT = "theIPTVapp enregistre ses données sur ton appareil seulement : tes listes de lecture (adresses que tu ajoutes), tes favoris, ton historique, tes réglages et tes profils.\n\n" +
+    "Les codes parentaux et les codes de profil sont enregistrés sous forme d'empreinte, jamais en clair.\n\n" +
+    "L'appli se connecte aux adresses de tes listes et du guide (EPG) pour les télécharger. Elle peut aussi vérifier s'il existe une nouvelle version.\n\n" +
+    "Aucun compte n'est demandé. Tu peux effacer les données en désinstallant l'appli, ou en effaçant les listes et les profils dans les réglages."
+
+@Composable
+private fun LegalPage(text: String) {
+    Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
+        Text(text, color = Color.White, fontSize = 14.sp)
+    }
+}
+
 @Composable
 private fun ProfilesPage(vm: MainVm) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -1882,6 +1911,14 @@ private fun ProfilesPage(vm: MainVm) {
                     msg = if (Profiles.delete(ctx, editId)) "Profil « $n » supprimé." else "Suppression impossible."
                     editId = ""; tick++
                 }) { Text("Supprimer") }
+                if (hasCode) OutlinedButton(
+                    enabled = editCode.length == 4,
+                    onClick = {
+                        if (!Profiles.checkPin(ctx, editId, editCode)) { msg = "Code actuel incorrect."; return@OutlinedButton }
+                        Profiles.removePin(ctx, editId)
+                        editId = ""; tick++; msg = "Code retiré."
+                    },
+                ) { Text("Retirer le code") }
                 OutlinedButton(onClick = { editId = "" }) { Text("Annuler") }
             }
         }

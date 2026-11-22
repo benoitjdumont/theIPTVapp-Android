@@ -68,6 +68,11 @@ object Profiles {
         save(ctx, list(ctx).map { if (it.id == id) it.copy(pin = hash(code)) else it })
     }
 
+    /** retire le code d'un profil (il faut le code actuel, vérifié par l'appelant) */
+    fun removePin(ctx: Context, id: String) {
+        save(ctx, list(ctx).map { if (it.id == id) it.copy(pin = "") else it })
+    }
+
     fun rename(ctx: Context, id: String, name: String) {
         if (name.isBlank()) return
         save(ctx, list(ctx).map { if (it.id == id) it.copy(name = name.trim()) else it })
