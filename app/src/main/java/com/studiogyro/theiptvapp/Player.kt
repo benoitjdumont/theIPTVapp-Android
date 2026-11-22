@@ -714,6 +714,12 @@ fun PlayerScreen(vm: MainVm) {
                 horizontalArrangement = Arrangement.spacedBy(32.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // chaîne précédente / suivante, aux deux bouts de la rangée (comme sur la capture)
+                if (ch.kind == "live") CenterControl(IconSkipPrev, "Chaîne précédente") {
+                    poke()
+                    val pos = vm.playlist.indexOf(ch)
+                    vm.playlist.getOrNull(pos - 1)?.let { vm.play(vm.playlist, it) } ?: run { hud = "Première chaîne" }
+                }
                 CenterControl(IconRewind, "Reculer de 15 s") {
                     poke()
                     if (player.isCurrentMediaItemSeekable) player.seekTo((player.currentPosition - 15_000).coerceAtLeast(0L))
@@ -732,6 +738,11 @@ fun PlayerScreen(vm: MainVm) {
                     else if (liveOffsetMs > 8_000 && player.isCurrentMediaItemSeekable) player.seekToDefaultPosition()
                     else if (player.isCurrentMediaItemSeekable) player.seekTo(player.currentPosition + 15_000)
                     else hud = "Déjà au direct"
+                }
+                if (ch.kind == "live") CenterControl(IconSkipNext, "Chaîne suivante") {
+                    poke()
+                    val pos = vm.playlist.indexOf(ch)
+                    vm.playlist.getOrNull(pos + 1)?.let { vm.play(vm.playlist, it) } ?: run { hud = "Dernière chaîne" }
                 }
                 // enregistrer : seulement en direct (sur un film, c'est dans la rangée d'options)
                 if (ch.kind == "live") run {
@@ -877,6 +888,8 @@ private fun CenterControl(icon: ImageVector, label: String, tint: Color = Color.
 }
 
 private val IconRewind = playerIcon("rewind") { solid("M11,6l-8,6l8,6z"); solid("M21,6l-8,6l8,6z") }
+private val IconSkipPrev = playerIcon("skipprev") { solid("M6,6h2v12h-2z"); solid("M18,6l-8.5,6l8.5,6z") }
+private val IconSkipNext = playerIcon("skipnext") { solid("M16,6h2v12h-2z"); solid("M6,6l8.5,6l-8.5,6z") }
 private val IconForward = playerIcon("forward") { solid("M13,6l8,6l-8,6z"); solid("M3,6l8,6l-8,6z") }
 private val IconRecord = playerIcon("record") { solid("M12,4a8,8 0 1 1 -0.01,0z") }
 private val IconStop = playerIcon("stop") { solid("M6,6h12v12h-12z") }
