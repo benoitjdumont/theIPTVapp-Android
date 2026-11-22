@@ -1613,7 +1613,6 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page == "network" -> NetworkPage(vm)
                         page == "remote" -> {
                             PanelItem("Guide TV", first = true) { page = "look_guide" }
-                            PanelItem("Lecteur") { page = "player" }
                             PanelLabel("Options de recherche")
                             // interrupteurs affichés avec leur valeur de référence ; pas encore enregistrés
                             PanelItem("Utiliser RW/FF/Pause pour se déplacer/mettre en pause pendant la lecture d'un Replay", first = true, trailing = { PanelSwitch(vm.opt("rm_rwff", true)) }) { vm.setOpt("rm_rwff", !vm.opt("rm_rwff", true)) }
