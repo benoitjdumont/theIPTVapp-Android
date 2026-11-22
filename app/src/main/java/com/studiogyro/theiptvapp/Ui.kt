@@ -47,6 +47,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -1329,6 +1333,9 @@ private fun PanelItem(
     var focused by remember { mutableStateOf(false) }
     val fr = remember { androidx.compose.ui.focus.FocusRequester() }
     if (first) LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
+    // la ligne qui reçoit le focus fait défiler la page jusqu'à elle (utile en bas de liste)
+    val bring = remember { BringIntoViewRequester() }
+    val scopeBring = rememberCoroutineScope()
     val shape = RoundedCornerShape(6.dp)
     Row(
         Modifier
@@ -1345,7 +1352,8 @@ private fun PanelItem(
             Modifier
                 .weight(1f)
                 .androidx_focusRequester(fr)
-                .onFocusChanged { focused = it.isFocused }
+                .bringIntoViewRequester(bring)
+                .onFocusChanged { focused = it.isFocused; if (it.isFocused) scopeBring.launch { bring.bringIntoView() } }
                 .combinedClickable(onClick = onClick, onLongClick = onLong),
         ) {
             Text(title, color = if (focused) (HiliteState.text ?: Color.White) else Color.White, fontSize = 14.sp)
@@ -2035,6 +2043,8 @@ private fun SeekRow(key: String, title: String) {
 private fun PanelStepper(title: String, value: String, fraction: Float, onMinus: () -> Unit, onPlus: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(6.dp)
+    val bring = remember { BringIntoViewRequester() }
+    val scopeBring = rememberCoroutineScope()
     Column(
         Modifier
             .fillMaxWidth()
@@ -2042,7 +2052,8 @@ private fun PanelStepper(title: String, value: String, fraction: Float, onMinus:
             .clip(shape)
             .background(if (focused) AccentDark else Color.Transparent)
             .then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier)
-            .onFocusChanged { focused = it.isFocused }
+            .bringIntoViewRequester(bring)
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) scopeBring.launch { bring.bringIntoView() } }
             .focusable()
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
