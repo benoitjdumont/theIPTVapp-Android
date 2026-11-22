@@ -17,21 +17,22 @@ object Profiles {
     const val MAX = 4
     private const val BOOT = "profiles_boot"
 
-    data class P(val id: String, val name: String)
+    /** pin = empreinte SHA-256 du code à 4 chiffres, vide = pas de code */
+    data class P(val id: String, val name: String, val pin: String = "")
 
     private fun boot(ctx: Context) = ctx.getSharedPreferences(BOOT, Context.MODE_PRIVATE)
 
     fun list(ctx: Context): List<P> {
         val out = try {
             val a = JSONArray(boot(ctx).getString("list", "[]") ?: "[]")
-            (0 until a.length()).map { i -> a.getJSONObject(i).let { P(it.getString("id"), it.getString("name")) } }
+            (0 until a.length()).map { i -> a.getJSONObject(i).let { P(it.getString("id"), it.getString("name"), it.optString("pin", "")) } }
         } catch (e: Exception) { emptyList() }
         return out.ifEmpty { listOf(P("p0", "Principal")) }
     }
 
     private fun save(ctx: Context, l: List<P>) {
         val a = JSONArray()
-        l.forEach { a.put(JSONObject().put("id", it.id).put("name", it.name)) }
+        l.forEach { a.put(JSONObject().put("id", it.id).put("name", it.name).put("pin", it.pin)) }
         boot(ctx).edit().putString("list", a.toString()).apply()
     }
 
@@ -48,6 +49,23 @@ object Profiles {
         if (name.isBlank() || l.size >= MAX) return false
         save(ctx, l + P("p${System.currentTimeMillis()}", name.trim()))
         return true
+    }
+
+    private fun hash(code: String): String =
+        java.security.MessageDigest.getInstance("SHA-256").digest(("profil:" + code).toByteArray()).joinToString("") { "%02x".format(it) }
+
+    fun hasPin(ctx: Context, id: String): Boolean = list(ctx).firstOrNull { it.id == id }?.pin?.isNotEmpty() == true
+
+    /** vrai si le profil n'a pas de code, ou si le code donné est le bon */
+    fun checkPin(ctx: Context, id: String, code: String): Boolean {
+        val p = list(ctx).firstOrNull { it.id == id } ?: return false
+        return p.pin.isEmpty() || hash(code) == p.pin
+    }
+
+    /** définit le code d'un profil (4 chiffres). Code vide : aucun changement. */
+    fun setPin(ctx: Context, id: String, code: String) {
+        if (code.length != 4) return
+        save(ctx, list(ctx).map { if (it.id == id) it.copy(pin = hash(code)) else it })
     }
 
     fun rename(ctx: Context, id: String, name: String) {

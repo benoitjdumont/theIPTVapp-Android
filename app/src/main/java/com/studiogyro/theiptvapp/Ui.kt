@@ -1381,6 +1381,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("edit:") -> page = "lists"
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
             page == "rename" -> page = "look_guide"
+            page == "profiles" -> page = "lists"
             page == "look_color_bg" || page == "look_hilite" || page == "look_seltext" -> page = "look_color"
             page == "logos" || page == "langue" || page == "textsize" -> page = "look"
             page.startsWith("look_") -> page = "look"
@@ -1389,7 +1390,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page == "chlist" || page == "infopanel" || page == "menu" || page == "keys" -> page = "player"
             page.startsWith("key:") -> page = "keys"
             page == "rappels" || page == "vod" || page == "rsearch" -> page = "advanced"
-            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "profiles" || page == "advanced" || page == "player" || page == "remote" -> page = "root"
+            page == "lists" || page == "groups" || page == "look" || page == "playback" || page == "network" || page == "epg" || page == "backup" || page == "parental" || page == "update" || page == "about" || page == "advanced" || page == "player" || page == "remote" -> page = "root"
             canClose -> back()
             else -> return false
         }
@@ -1461,7 +1462,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Lecteur", "Mémoire tampon, décodeurs, sauts") { page = "player" }
                             PanelItem("Télécommande", "Options de recherche et de rembobinage") { page = "remote" }
                             PanelItem("Contrôle parental") { page = "parental" }
-                            PanelItem("Paramètres avancés", "Profils, groupes, réseau, sauvegarde, mises à jour") { page = "advanced" }
+                            PanelItem("Paramètres avancés", "Groupes, réseau, sauvegarde, mises à jour") { page = "advanced" }
                             PanelItem("À propos") { page = "about" }
                         }
                         page == "lists" -> {
@@ -1474,6 +1475,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 ) { page = "src:" + s.id }
                             }
                             PanelItem("Ajouter une liste", first = vm.sources.isEmpty()) { page = "add" }
+                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX}), chacun avec un code à 4 chiffres (facultatif)") { page = "profiles" }
                         }
                         page.startsWith("src:") -> {
                             val id = page.removePrefix("src:")
@@ -1689,7 +1691,6 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Rappels", "Rappels de programmes") { page = "rappels" }
                             PanelItem("Enregistrement", "Programmer et gérer les enregistrements") { page = "rec" }
                             PanelItem("VOD", "Lecture automatique") { page = "vod" }
-                            PanelItem("Profils", "Plusieurs comptes (jusqu'à ${Profiles.MAX})") { page = "profiles" }
                             PanelItem("Groupes", "Masquer ou verrouiller des catégories") { page = "groups" }
                             PanelItem("Réseau", "User-Agent, proxy") { page = "network" }
                             PanelItem("Sauvegarde", "Exporter ou restaurer les données") { page = "backup" }
@@ -1827,27 +1828,56 @@ private fun ProfilesPage(vm: MainVm) {
     var newName by rememberSaveable { mutableStateOf("") }
     var editId by rememberSaveable { mutableStateOf("") }
     var editName by rememberSaveable { mutableStateOf("") }
+    var editCode by rememberSaveable { mutableStateOf("") }
+    var editNewCode by rememberSaveable { mutableStateOf("") }
+    var askId by rememberSaveable { mutableStateOf("") }
+    var askCode by rememberSaveable { mutableStateOf("") }
     var msg by rememberSaveable { mutableStateOf("") }
+    fun startEdit(p: Profiles.P) { editId = p.id; editName = p.name; editCode = ""; editNewCode = ""; msg = ""; askId = "" }
     Column(Modifier.padding(horizontal = 6.dp)) {
-        PanelLabel("Toucher un profil : on y passe (l'appli redémarre). Appui long : modifier le nom ou supprimer.")
+        PanelLabel("Toucher un profil : on y passe (l'appli redémarre). Appui long : modifier le nom, le code ou supprimer.")
         list.forEachIndexed { i, p ->
             PanelItem(
                 (if (p.id == active) "✔ " else "") + p.name,
-                if (p.id == active) "Profil actif" else "Toucher : passer à ce profil",
+                (if (p.pin.isNotEmpty()) "🔒 " else "") + if (p.id == active) "Profil actif" else "Toucher : passer à ce profil",
                 first = i == 0,
-                onLong = { editId = p.id; editName = p.name; msg = "" },
-                trailing = { OutlinedButton(onClick = { editId = p.id; editName = p.name; msg = "" }) { Text("Modifier", fontSize = 13.sp) } },
-            ) { if (p.id != active) Profiles.switchTo(ctx, p.id) }
+                onLong = { startEdit(p) },
+                trailing = { OutlinedButton(onClick = { startEdit(p) }) { Text("Modifier", fontSize = 13.sp) } },
+            ) {
+                if (p.id == active) return@PanelItem
+                if (Profiles.hasPin(ctx, p.id)) { askId = p.id; askCode = ""; msg = "" } else Profiles.switchTo(ctx, p.id)
+            }
+        }
+        // profil protégé par un code : on demande le code avant d'y entrer
+        if (askId.isNotEmpty()) {
+            PanelLabel("Code du profil « ${list.firstOrNull { it.id == askId }?.name ?: ""} »")
+            TvField(askCode, { askCode = it.filter(Char::isDigit).take(4) }, "Code à 4 chiffres", secret = true, keyboard = KeyboardType.NumberPassword)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 18.dp)) {
+                Button(enabled = askCode.length == 4, onClick = {
+                    if (Profiles.checkPin(ctx, askId, askCode)) Profiles.switchTo(ctx, askId)
+                    else { msg = "Code incorrect."; askCode = "" }
+                }) { Text("Ouvrir") }
+                OutlinedButton(onClick = { askId = ""; askCode = "" }) { Text("Annuler") }
+            }
         }
         if (editId.isNotEmpty()) {
+            val hasCode = Profiles.hasPin(ctx, editId)
             PanelLabel("Modifier le profil")
             TvField(editName, { editName = it }, "Nom du profil")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (hasCode) TvField(editCode, { editCode = it.filter(Char::isDigit).take(4) }, "Code actuel à 4 chiffres", secret = true, keyboard = KeyboardType.NumberPassword)
+            TvField(editNewCode, { editNewCode = it.filter(Char::isDigit).take(4) }, if (hasCode) "Nouveau code (vide = inchangé)" else "Code à 4 chiffres (vide = aucun)", secret = true, keyboard = KeyboardType.NumberPassword)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 18.dp)) {
                 Button(
-                    enabled = editName.isNotBlank(),
-                    onClick = { Profiles.rename(ctx, editId, editName); editId = ""; tick++; msg = "Nom enregistré." },
+                    enabled = editName.isNotBlank() && (editNewCode.isEmpty() || editNewCode.length == 4),
+                    onClick = {
+                        if (!Profiles.checkPin(ctx, editId, editCode)) { msg = "Code actuel incorrect."; return@Button }
+                        Profiles.rename(ctx, editId, editName)
+                        if (editNewCode.length == 4) Profiles.setPin(ctx, editId, editNewCode)
+                        editId = ""; tick++; msg = "Profil enregistré."
+                    },
                 ) { Text("Enregistrer") }
                 if (editId != active && editId != "p0") OutlinedButton(onClick = {
+                    if (!Profiles.checkPin(ctx, editId, editCode)) { msg = "Code actuel incorrect."; return@OutlinedButton }
                     val n = list.firstOrNull { it.id == editId }?.name ?: ""
                     msg = if (Profiles.delete(ctx, editId)) "Profil « $n » supprimé." else "Suppression impossible."
                     editId = ""; tick++
@@ -1859,6 +1889,7 @@ private fun ProfilesPage(vm: MainVm) {
         TvField(newName, { newName = it }, "Nom du nouveau profil")
         Button(
             enabled = newName.isNotBlank() && list.size < Profiles.MAX,
+            modifier = Modifier.padding(horizontal = 18.dp),
             onClick = { if (Profiles.add(ctx, newName)) { newName = ""; tick++; msg = "Profil ajouté. Touche-le pour y passer." } },
         ) { Text("Ajouter") }
         if (msg.isNotBlank()) Text(msg, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(18.dp))
