@@ -45,7 +45,7 @@ class Store(ctx: Context) {
     fun saveTextSize(i: Int) = sp.edit().putInt("textsize", i).apply()
     fun transp(): Int = sp.getInt("transp", 1)
     fun saveTransp(i: Int) = sp.edit().putInt("transp", i).apply()
-    fun accent(): Int = sp.getInt("accent", 0)
+    fun accent(): Int = sp.getInt("accent", 13)
     fun saveAccent(i: Int) = sp.edit().putInt("accent", i).apply()
     fun autoResume(): Boolean = sp.getBoolean("autoresume", true)
     fun saveAutoResume(b: Boolean) = sp.edit().putBoolean("autoresume", b).apply()

@@ -16,8 +16,9 @@ class MainActivity : ComponentActivity() {
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
     ) { uri -> uri?.let { vm.writeBackup(this, it) } }
 
+    // Storage Access Framework : accès aux fichiers (clé USB comprise), pas le sélecteur de photos
     private val pickBackground = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { vm.setBackground(this, it) } }
 
     private val openBackup = registerForActivityResult(
@@ -41,7 +42,7 @@ class MainActivity : ComponentActivity() {
         }
         vm.createBackup = { createBackup.launch("theiptvapp-sauvegarde.json") }
         vm.openBackup = { openBackup.launch(arrayOf("application/json", "text/plain", "*/*")) }
-        vm.pickBackground = { pickBackground.launch("image/*") }
+        vm.pickBackground = { pickBackground.launch(arrayOf("image/*")) }
         setContent { AppRoot(vm) }
     }
 
