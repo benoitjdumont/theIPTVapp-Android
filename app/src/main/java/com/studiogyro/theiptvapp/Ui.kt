@@ -1130,7 +1130,7 @@ private fun PreviewHeader(vm: MainVm, pv: Channel) {
     // pas de fond ici : la colonne parente (ListBg) le fournit déjà ; un second calque rendrait la zone plus foncée
     Row(Modifier.fillMaxWidth().height(196.dp).padding(8.dp)) {
         // deux touches sur l'aperçu = plein écran ; l'aperçu est dans un cadre de télévision en 16:9
-        TvFrame(Modifier.fillMaxHeight(), width = 270.dp, noOutline = vm.opt("mini_nooutline", true), onDoubleClick ={ vm.guard(pv) { vm.play(vm.visible(), pv) } }) {
+        TvFrame(Modifier.fillMaxHeight(), width = 270.dp, noOutline = vm.opt("mini_nooutline", false), onDoubleClick ={ vm.guard(pv) { vm.play(vm.visible(), pv) } }) {
             PreviewBox(pv, paused = vm.previewPausedId == pv.id)
         }
         Spacer(Modifier.width(12.dp))
@@ -1495,7 +1495,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Taille du texte", TEXT_SIZES[vm.textSizeIdx].first) { page = "textsize" }
                             PanelItem("Couleurs du thème", "Transparence, couleurs d'arrière-plan et de surbrillance") { page = "look_color" }
                             PanelItem("Image de fond", if (vm.bgPath != null) "Une image est active" else "Aucune") { page = "look_bg" }
-                            PanelItem("Enlever le contour du mini lecteur", "Le cadre gris autour de l'aperçu disparaît", trailing = { PanelSwitch(vm.opt("mini_nooutline", true)) }) { vm.setOpt("mini_nooutline", !vm.opt("mini_nooutline", true)) }
+                            PanelItem("Enlever le contour du mini lecteur", "Le cadre gris autour de l'aperçu disparaît", trailing = { PanelSwitch(vm.opt("mini_nooutline", false)) }) { vm.setOpt("mini_nooutline", !vm.opt("mini_nooutline", false)) }
                         }
                         page == "look_color" -> {
                             PanelItem("Couleur d'arrière-plan", ACCENTS[vm.accentIdx].first, first = true) { page = "look_color_bg" }
