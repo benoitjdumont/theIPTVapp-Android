@@ -1676,7 +1676,13 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 panelSec = options[(options.indexOf(panelSec) + 1).mod(options.size)]
                                 Store(ctxPt).savePanelTimeout(panelSec)
                             }
-                            PanelItem("Mémoire tampon", "Grande") { }
+                            val ctxBuf = androidx.compose.ui.platform.LocalContext.current
+                            var bufIdx by remember { mutableStateOf(Store(ctxBuf).bufferSize()) }
+                            val bufNames = listOf("Petite", "Moyenne", "Grande")
+                            PanelItem("Mémoire tampon", bufNames[bufIdx] + " · à la prochaine lecture") {
+                                bufIdx = (bufIdx + 1) % bufNames.size
+                                Store(ctxBuf).saveBufferSize(bufIdx)
+                            }
                             PanelItem("Décodeur audio", "Matériel") { }
                             PanelItem("Décodeur vidéo", "Matériel") { }
                             PanelItem("Fréquence d'images automatique (AFR)", "Bientôt disponible") { }
@@ -1692,7 +1698,12 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 passthrough = !passthrough
                                 Store(ctxPt2).saveAudioPassthrough(passthrough)
                             }
-                            PanelItem("Lecture en tunnel", "Désactivé", trailing = { PanelSwitch(false) }) { }
+                            val ctxTun = androidx.compose.ui.platform.LocalContext.current
+                            var tunnel by remember { mutableStateOf(Store(ctxTun).tunnel()) }
+                            PanelItem("Lecture en tunnel", if (tunnel) "Activé · à la prochaine lecture" else "Désactivé", trailing = { PanelSwitch(tunnel) }) {
+                                tunnel = !tunnel
+                                Store(ctxTun).saveTunnel(tunnel)
+                            }
                             PanelItem("Utiliser un lecteur externe", "Non") { }
                             PanelItem("Sauts dans le temps", "Bientôt disponible") { }
                             PanelLabel("Touches")

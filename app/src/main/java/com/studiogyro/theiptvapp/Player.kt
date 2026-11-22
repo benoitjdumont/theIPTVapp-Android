@@ -143,13 +143,23 @@ fun PlayerScreen(vm: MainVm) {
     val player = remember {
         val ds = OkHttpDataSource.Factory(Repo.client).setUserAgent(Repo.streamUa)
         // grosse mémoire tampon (≈ 100 Mo) : on peut mettre le direct en pause longtemps et, sur les flux qui le permettent, reculer
+        // taille de la mémoire tampon choisie dans Lecteur > Mémoire tampon (petite, moyenne, grande)
+        val st = Store(ctx)
+        val (minMs, maxMs, bytes) = when (st.bufferSize()) {
+            0 -> Triple(5_000, 60_000, 20 * 1024 * 1024)
+            1 -> Triple(15_000, 300_000, 50 * 1024 * 1024)
+            else -> Triple(30_000, 600_000, 100 * 1024 * 1024)
+        }
         val lc = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(30_000, 600_000, 2_500, 5_000)
-            .setTargetBufferBytes(100 * 1024 * 1024)
+            .setBufferDurationsMs(minMs, maxMs, 2_500, 5_000)
+            .setTargetBufferBytes(bytes)
             .setPrioritizeTimeOverSizeThresholds(false)
             .setBackBuffer(300_000, true)
             .build()
-        ExoPlayer.Builder(ctx).setLoadControl(lc).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build()
+        ExoPlayer.Builder(ctx).setLoadControl(lc).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, ds))).build().also { p ->
+            // lecture en tunnel : réglage Lecteur > Lecture en tunnel (s'applique à la prochaine lecture)
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setTunnelingEnabled(st.tunnel()).build()
+        }
     }
     DisposableEffect(Unit) { onDispose { player.release() } }
 

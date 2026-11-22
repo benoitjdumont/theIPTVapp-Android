@@ -153,6 +153,12 @@ class Store(ctx: Context) {
     fun saveKeyChoice(i: Int, s: String) = sp.edit().putString("key_$i", s).apply()
     fun clearKeyChoices(count: Int) { val e = sp.edit(); for (i in 0 until count) e.remove("key_$i"); e.apply() }
 
+    // ---- lecteur : mémoire tampon (0 petite, 1 moyenne, 2 grande) et lecture en tunnel
+    fun bufferSize(): Int = sp.getInt("buffer", 2).coerceIn(0, 2)
+    fun saveBufferSize(i: Int) = sp.edit().putInt("buffer", i.coerceIn(0, 2)).apply()
+    fun tunnel(): Boolean = sp.getBoolean("tunnel", false)
+    fun saveTunnel(b: Boolean) = sp.edit().putBoolean("tunnel", b).apply()
+
     // ---- lecteur : délai d'expiration des panneaux (secondes)
     fun panelTimeout(): Int = sp.getInt("panel_timeout", 5)
     fun savePanelTimeout(s: Int) = sp.edit().putInt("panel_timeout", s).apply()
