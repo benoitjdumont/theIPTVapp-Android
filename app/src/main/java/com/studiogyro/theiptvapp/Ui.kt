@@ -219,15 +219,18 @@ fun AppRoot(vm: MainVm) {
 @Composable
 fun FocusRow(selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, requester: androidx.compose.ui.focus.FocusRequester? = null, blockUp: Boolean = true, content: @Composable RowScope.() -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val bringRow = remember { BringIntoViewRequester() }
+    val scopeRow = rememberCoroutineScope()
     val shape = RoundedCornerShape(10.dp)
     Row(
         Modifier
             .fillMaxWidth()
             .then(if (requester != null) Modifier.focusRequester(requester).then(if (blockUp) Modifier.focusProperties { up = androidx.compose.ui.focus.FocusRequester.Cancel } else Modifier) else Modifier)
+            .bringIntoViewRequester(bringRow)
             .clip(shape)
             .background(if (focused) Accent.copy(alpha = 0.35f) else if (selected) Accent.copy(alpha = 0.18f) else Color.Transparent)
             .then(if (focused) Modifier.border(2.dp, Accent, shape) else Modifier)
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) scopeRow.launch { bringRow.bringIntoView() } }
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1761,8 +1764,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Touches de la télécommande", "OK, Retour, Gauche, Droite, Haut, Bas et plus") { page = "keys" }
                         }
                         page == "advanced" -> {
-                            PanelItem("Rechercher", "Chercher une chaîne, un film ou une série", first = true) { back(); vm.openSearch() }
-                            PanelItem("Options de recherche", "Recherche vocale, historique, chaînes préférées") { page = "rsearch" }
+                            PanelItem("Options de recherche", "Recherche vocale, historique, chaînes préférées", first = true) { page = "rsearch" }
                             PanelItem("Rappels", "Rappels de programmes") { page = "rappels" }
                             PanelItem("Enregistrement", "Programmer et gérer les enregistrements") { page = "rec" }
                             PanelItem("VOD", "Lecture automatique") { page = "vod" }
@@ -2122,7 +2124,7 @@ private fun EpgPage(vm: MainVm) {
 private fun BackupPage(vm: MainVm) {
     Column(Modifier.padding(horizontal = 6.dp)) {
         PanelItem("Sauvegarder les données", "Listes, favoris, réglages", first = true) { vm.createBackup?.invoke() }
-        PanelItem("Restaurer les données", "Choisir un fichier de sauvegarde") { vm.openBackup?.invoke() }
+        PanelItem("Restaurer les données", "Depuis Téléchargements / theiptvapp-sauvegarde.json") { vm.openBackup?.invoke() }
         if (vm.backupMessage.isNotBlank()) Text(vm.backupMessage, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(18.dp))
     }
 }

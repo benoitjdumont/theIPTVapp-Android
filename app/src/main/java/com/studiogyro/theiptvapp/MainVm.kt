@@ -449,6 +449,43 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         } catch (e: Exception) { "Sauvegarde impossible : ${e.message}" }
     }
 
+    // Sur Android TV il n'y a souvent aucun gestionnaire de fichiers : la sauvegarde va directement dans Téléchargements
+    private val backupName = "theiptvapp-sauvegarde.json"
+
+    fun saveBackupToDownloads(ctx: android.content.Context) {
+        backupMessage = try {
+            if (android.os.Build.VERSION.SDK_INT < 29) error("Android 10 ou plus requis")
+            val resolver = ctx.contentResolver
+            val collection = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            // remplace l'ancienne sauvegarde au lieu d'en créer une copie
+            resolver.query(collection, arrayOf(android.provider.MediaStore.Downloads._ID),
+                "${android.provider.MediaStore.Downloads.DISPLAY_NAME} = ?", arrayOf(backupName), null)?.use { c ->
+                while (c.moveToNext()) resolver.delete(android.content.ContentUris.withAppendedId(collection, c.getLong(0)), null, null)
+            }
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, backupName)
+                put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/json")
+            }
+            val uri = resolver.insert(collection, values) ?: error("dossier Téléchargements indisponible")
+            resolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(store.backupJson()) } ?: error("écriture impossible")
+            "Sauvegarde enregistrée dans Téléchargements / $backupName."
+        } catch (e: Exception) { "Sauvegarde impossible : ${e.message}" }
+    }
+
+    fun restoreFromDownloads(ctx: android.content.Context) {
+        val uri = try {
+            if (android.os.Build.VERSION.SDK_INT < 29) null else {
+                val collection = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
+                ctx.contentResolver.query(collection, arrayOf(android.provider.MediaStore.Downloads._ID),
+                    "${android.provider.MediaStore.Downloads.DISPLAY_NAME} = ?", arrayOf(backupName), null)?.use { c ->
+                    if (c.moveToFirst()) android.content.ContentUris.withAppendedId(collection, c.getLong(0)) else null
+                }
+            }
+        } catch (e: Exception) { null }
+        if (uri == null) backupMessage = "Aucune sauvegarde trouvée dans Téléchargements / $backupName."
+        else readBackup(ctx, uri)
+    }
+
     fun readBackup(ctx: android.content.Context, uri: android.net.Uri) {
         val text = try { ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } } catch (e: Exception) { null }
         backupMessage = if (text != null && store.restoreJson(text)) {

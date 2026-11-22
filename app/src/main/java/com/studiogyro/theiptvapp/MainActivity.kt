@@ -40,8 +40,8 @@ class MainActivity : ComponentActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 28) {
             window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS }
         }
-        vm.createBackup = { createBackup.launch("theiptvapp-sauvegarde.json") }
-        vm.openBackup = { openBackup.launch(arrayOf("application/json", "text/plain", "*/*")) }
+        vm.createBackup = { vm.saveBackupToDownloads(this) }
+        vm.openBackup = { vm.restoreFromDownloads(this) }
         vm.pickBackground = { pickBackground.launch(arrayOf("image/*")) }
         setContent { AppRoot(vm) }
     }
