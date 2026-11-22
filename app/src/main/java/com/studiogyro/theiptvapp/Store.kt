@@ -159,6 +159,15 @@ class Store(ctx: Context) {
 
     // ---- lecteur : mémoire tampon (0 petite, 1 moyenne, 2 grande) et lecture en tunnel
     fun bufferSize(): Int = sp.getInt("buffer", 2).coerceIn(0, 2)
+
+    // sauts dans le temps (secondes) : mêmes valeurs que la référence, réglées avec un curseur
+    val seekSteps = listOf(5, 10, 15, 20, 25, 30, 40, 50, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600)
+    fun seekSec(key: String): Int {
+        val def = if (key == "back_bar" || key == "fwd_bar") 60 else 10
+        val v = sp.getInt("seek_$key", def)
+        return if (v in seekSteps) v else def
+    }
+    fun saveSeekSec(key: String, v: Int) = sp.edit().putInt("seek_$key", v).apply()
     fun saveBufferSize(i: Int) = sp.edit().putInt("buffer", i.coerceIn(0, 2)).apply()
     fun tunnel(): Boolean = sp.getBoolean("tunnel", false)
     fun saveTunnel(b: Boolean) = sp.edit().putBoolean("tunnel", b).apply()

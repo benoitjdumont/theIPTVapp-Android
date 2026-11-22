@@ -406,8 +406,8 @@ fun PlayerScreen(vm: MainVm) {
                     // menu ouvert : les flèches et OK doivent déplacer le focus dans le menu, pas faire avancer la vidéo
                     if (menuStage != 0 || listOpen) return@onKeyEvent false
                     return@onKeyEvent when (ev.key) {
-                        Key.DirectionRight -> { player.seekTo(player.currentPosition + 15_000); showUi = true; true }
-                        Key.DirectionLeft -> { player.seekTo((player.currentPosition - 15_000).coerceAtLeast(0)); showUi = true; true }
+                        Key.DirectionRight -> { player.seekTo(player.currentPosition + Store(ctx).seekSec("fwd_bar") * 1000L); showUi = true; true }
+                        Key.DirectionLeft -> { player.seekTo((player.currentPosition - Store(ctx).seekSec("back_bar") * 1000L).coerceAtLeast(0)); showUi = true; true }
                         Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause -> {
                             player.playWhenReady = !player.playWhenReady
                             showUi = true
@@ -764,7 +764,7 @@ fun PlayerScreen(vm: MainVm) {
                 }
                 CenterControl(IconRewind, "Reculer de 15 s", modifier = Modifier.focusRequester(transportFirst)) {
                     poke()
-                    if (player.isCurrentMediaItemSeekable) player.seekTo((player.currentPosition - 15_000).coerceAtLeast(0L))
+                    if (player.isCurrentMediaItemSeekable) player.seekTo((player.currentPosition - Store(ctx).seekSec("rw") * 1000L).coerceAtLeast(0L))
                     else hud = "Retour en arrière impossible sur ce flux (pause possible)"
                 }
                 CenterControl(if (playing) IconPause else Icons.Default.PlayArrow, if (playing) "Pause" else "Lecture") {
@@ -778,7 +778,7 @@ fun PlayerScreen(vm: MainVm) {
                     poke()
                     if (dvrOn) goLive()
                     else if (liveOffsetMs > 8_000 && player.isCurrentMediaItemSeekable) player.seekToDefaultPosition()
-                    else if (player.isCurrentMediaItemSeekable) player.seekTo(player.currentPosition + 15_000)
+                    else if (player.isCurrentMediaItemSeekable) player.seekTo(player.currentPosition + Store(ctx).seekSec("ff") * 1000L)
                     else hud = "Déjà au direct"
                 }
                 if (ch.kind == "live") CenterControl(IconSkipNext, "Chaîne suivante") {

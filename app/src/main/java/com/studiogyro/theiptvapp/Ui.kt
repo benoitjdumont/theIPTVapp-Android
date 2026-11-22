@@ -1400,6 +1400,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page == "terms" || page == "privacy" -> page = "about"
             page == "afr" -> page = "player"
             page == "buffer" -> page = "player"
+            page == "seek" -> page = "player"
             page == "look_color_bg" || page == "look_hilite" || page == "look_seltext" -> page = "look_color"
             page == "logos" || page == "langue" || page == "textsize" -> page = "look"
             page.startsWith("look_") -> page = "look"
@@ -1431,6 +1432,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "privacy" -> "Politique de confidentialité"
         page == "afr" -> "Fréquence d'images automatique"
         page == "buffer" -> "Mémoire tampon"
+        page == "seek" -> "Sauts dans le temps"
         page == "rename" -> "Renommer des chaînes"
         page == "epg" -> "EPG (guide des programmes TV)"
         page == "backup" -> "Sauvegarde"
@@ -1677,6 +1679,12 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Afficher les propriétés du média", trailing = { PanelSwitch(vm.opt("ip_media", false)) }) { vm.setOpt("ip_media", !vm.opt("ip_media", false)) }
                             PanelItem("Afficher la résolution vidéo au lieu des étiquettes", trailing = { PanelSwitch(vm.opt("ip_res", false)) }) { vm.setOpt("ip_res", !vm.opt("ip_res", false)) }
                         }
+                        page == "seek" -> {
+                            SeekRow("back_bar", "Saut dans la barre de progression (en arrière)")
+                            SeekRow("fwd_bar", "Saut dans la barre de progression (en avant)")
+                            SeekRow("rw", "Saut dans le temps avec le bouton RW")
+                            SeekRow("ff", "Saut dans le temps avec le bouton FF")
+                        }
                         page == "buffer" -> {
                             val ctxBu = androidx.compose.ui.platform.LocalContext.current
                             var buf by remember { mutableStateOf(Store(ctxBu).bufferSize()) }
@@ -1741,7 +1749,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 Store(ctxTun).saveTunnel(tunnel)
                             }
                             PanelItem("Utiliser un lecteur externe", "Non") { }
-                            PanelItem("Sauts dans le temps", "Bientôt disponible") { }
+                            PanelItem("Sauts dans le temps", "Barre de progression, RW et FF") { page = "seek" }
                             PanelLabel("Touches")
                             PanelItem("Touches de la télécommande", "OK, Retour, Gauche, Droite, Haut, Bas et plus") { page = "keys" }
                         }
@@ -2003,6 +2011,26 @@ private fun NetworkPage(vm: MainVm) {
  * gauche/droite changent la valeur, OK ajoute une unité. Haut/Bas passent à la ligne voisine.
  */
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun SeekRow(key: String, title: String) {
+    val ctxSk = androidx.compose.ui.platform.LocalContext.current
+    val steps = Store(ctxSk).seekSteps
+    var v by remember(key) { mutableStateOf(Store(ctxSk).seekSec(key)) }
+    fun label(s: Int) = if (s < 60) "$s sec" else "${s / 60} min"
+    val idx = steps.indexOf(v).coerceAtLeast(0)
+    fun setIdx(i: Int) {
+        v = steps[i.coerceIn(0, steps.size - 1)]
+        Store(ctxSk).saveSeekSec(key, v)
+    }
+    PanelStepper(
+        title = title,
+        value = label(v),
+        fraction = idx.toFloat() / (steps.size - 1),
+        onMinus = { setIdx(idx - 1) },
+        onPlus = { setIdx(idx + 1) }
+    )
+}
+
 @Composable
 private fun PanelStepper(title: String, value: String, fraction: Float, onMinus: () -> Unit, onPlus: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
