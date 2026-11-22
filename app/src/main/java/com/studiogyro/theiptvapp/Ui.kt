@@ -1558,12 +1558,12 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             PanelItem("Lecteur", "Bientôt disponible") { }
                             PanelLabel("Options de recherche")
                             // interrupteurs affichés avec leur valeur de référence ; pas encore enregistrés
-                            PanelItem("Utiliser RW/FF/Pause pour se déplacer/mettre en pause pendant la lecture d'un Replay", "Bientôt disponible", first = true, trailing = { PanelSwitch(true) }) { }
-                            PanelItem("Utiliser RW pour rembobiner le flux d'une chaîne direct avec Replay", "Bientôt disponible", trailing = { PanelSwitch(false) }) { }
-                            PanelItem("Utiliser Gauche/Droite pour se déplacer pendant la lecture d'un Replay", "Bientôt disponible", trailing = { PanelSwitch(false) }) { }
-                            PanelItem("Utiliser Gauche pour rembobiner le flux d'une chaîne direct avec Replay", "Bientôt disponible", trailing = { PanelSwitch(false) }) { }
-                            PanelItem("Utilisez Bas/Haut pour rechercher tout en regardant le replay", "Bientôt disponible", trailing = { PanelSwitch(false) }) { }
-                            PanelItem("Utilisez Bas pour rembobiner la diffusion en direct avec le replay", "Bientôt disponible", trailing = { PanelSwitch(false) }) { }
+                            PanelItem("Utiliser RW/FF/Pause pour se déplacer/mettre en pause pendant la lecture d'un Replay", first = true, trailing = { PanelSwitch(vm.opt("rm_rwff", true)) }) { vm.setOpt("rm_rwff", !vm.opt("rm_rwff", true)) }
+                            PanelItem("Utiliser RW pour rembobiner le flux d'une chaîne direct avec Replay", trailing = { PanelSwitch(vm.opt("rm_rw_live", false)) }) { vm.setOpt("rm_rw_live", !vm.opt("rm_rw_live", false)) }
+                            PanelItem("Utiliser Gauche/Droite pour se déplacer pendant la lecture d'un Replay", trailing = { PanelSwitch(vm.opt("rm_lr_seek", false)) }) { vm.setOpt("rm_lr_seek", !vm.opt("rm_lr_seek", false)) }
+                            PanelItem("Utiliser Gauche pour rembobiner le flux d'une chaîne direct avec Replay", trailing = { PanelSwitch(vm.opt("rm_left_live", false)) }) { vm.setOpt("rm_left_live", !vm.opt("rm_left_live", false)) }
+                            PanelItem("Utilisez Bas/Haut pour rechercher tout en regardant le replay", trailing = { PanelSwitch(vm.opt("rm_ud_seek", false)) }) { vm.setOpt("rm_ud_seek", !vm.opt("rm_ud_seek", false)) }
+                            PanelItem("Utilisez Bas pour rembobiner la diffusion en direct avec le replay", trailing = { PanelSwitch(vm.opt("rm_down_live", false)) }) { vm.setOpt("rm_down_live", !vm.opt("rm_down_live", false)) }
                         }
                         page == "menu" -> {
                             PanelItem("Réorganiser les boutons", "Bientôt disponible", first = true) { }
@@ -1695,8 +1695,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         }
                         page == "update" -> Column(Modifier.padding(horizontal = 12.dp)) { UpdateSection(vm) }
                         else -> {
-                            PanelItem("Mise à jour automatique de l'application", "Bientôt disponible", first = true) { }
-                            PanelItem("Participer au bêta-test", "Bientôt disponible") { }
+                            PanelItem("Mise à jour automatique de l'application", first = true, trailing = { PanelSwitch(vm.opt("upd_auto", true)) }) { vm.setOpt("upd_auto", !vm.opt("upd_auto", true)) }
+                            PanelItem("Participer au bêta-test", trailing = { PanelSwitch(vm.opt("beta", false)) }) { vm.setOpt("beta", !vm.opt("beta", false)) }
                             PanelItem("Rechercher des mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
                             PanelItem("Conditions d'utilisation", "Bientôt disponible") { }
                             PanelItem("Politique de confidentialité", "Bientôt disponible") { }
