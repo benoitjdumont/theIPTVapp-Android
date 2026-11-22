@@ -1731,9 +1731,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         }
                         page == "update" -> Column(Modifier.padding(horizontal = 12.dp)) { UpdateSection(vm) }
                         else -> {
-                            PanelItem("Mise à jour automatique de l'application", first = true, trailing = { PanelSwitch(vm.opt("upd_auto", true)) }) { vm.setOpt("upd_auto", !vm.opt("upd_auto", true)) }
-                            PanelItem("Participer au bêta-test", trailing = { PanelSwitch(vm.opt("beta", false)) }) { vm.setOpt("beta", !vm.opt("beta", false)) }
-                            PanelItem("Rechercher des mises à jour", "Version ${BuildConfig.VERSION_NAME}") { page = "update" }
+                            PanelItem("Rechercher des mises à jour", "Version ${BuildConfig.VERSION_NAME}", first = true) { page = "update" }
                             PanelItem("Conditions d'utilisation", "Ce que tu acceptes au premier lancement") { page = "terms" }
                             PanelItem("Politique de confidentialité", "Ce qui est enregistré, et où") { page = "privacy" }
                             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
