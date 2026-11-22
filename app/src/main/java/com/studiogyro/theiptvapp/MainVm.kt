@@ -160,6 +160,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         Accent = ACCENTS[store.accent().coerceIn(0, ACCENTS.lastIndex)].second
         UiAlpha = TRANSPS[store.transp().coerceIn(0, TRANSPS.lastIndex)].second
         GlassState.transp = store.glassPct() / 100f
+        HiliteState.bg = store.hiliteIdx().let { if (it < 0) null else ACCENTS.getOrNull(it)?.second }
+        HiliteState.text = store.seltextIdx().let { if (it < 0) null else ACCENTS.getOrNull(it)?.second }
         reload()
         checkUpdate(silent = true)
         guideTimer()
@@ -287,6 +289,10 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     /** chaîne en aperçu sur l'accueil (premier clic) ; un second clic ouvre le plein écran */
     var preview by mutableStateOf<Channel?>(null)
     var accentIdx by mutableStateOf(store.accent().coerceIn(0, ACCENTS.lastIndex)); private set
+    var hiliteIdx by mutableStateOf(store.hiliteIdx()); private set
+    var seltextIdx by mutableStateOf(store.seltextIdx()); private set
+    fun changeHilite(i: Int) { hiliteIdx = i; HiliteState.bg = ACCENTS.getOrNull(i)?.second; store.saveHiliteIdx(i) }
+    fun changeSeltext(i: Int) { seltextIdx = i; HiliteState.text = ACCENTS.getOrNull(i)?.second; store.saveSeltextIdx(i) }
 
     fun changeAccent(i: Int) { accentIdx = i; Accent = ACCENTS[i].second; store.saveAccent(i) }
     private var resumed = false

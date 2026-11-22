@@ -142,6 +142,12 @@ class Store(ctx: Context) {
     fun surroundDefault(): Boolean = sp.getBoolean("surround_default", true)
     fun saveSurroundDefault(b: Boolean) = sp.edit().putBoolean("surround_default", b).apply()
 
+    // ---- apparence : couleur de surbrillance et couleur du texte sélectionné (index dans ACCENTS, -1 = défaut)
+    fun hiliteIdx(): Int = sp.getInt("hilite", -1)
+    fun saveHiliteIdx(i: Int) = sp.edit().putInt("hilite", i).apply()
+    fun seltextIdx(): Int = sp.getInt("seltext", -1)
+    fun saveSeltextIdx(i: Int) = sp.edit().putInt("seltext", i).apply()
+
     // ---- télécommande : action choisie pour chaque touche configurable (vide = action par défaut)
     fun keyChoice(i: Int): String? = sp.getString("key_$i", null)
     fun saveKeyChoice(i: Int, s: String) = sp.edit().putString("key_$i", s).apply()

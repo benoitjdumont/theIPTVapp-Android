@@ -327,6 +327,8 @@ fun darker(c: Color, f: Float): Color = androidx.compose.ui.graphics.lerp(c, Col
 val AccentDark get() = darker(Accent, 0.4f)
 /** transparence des colonnes et des préférences (réglée dans Apparence) : 0 = opaque, 1 = transparent */
 object GlassState { var transp by mutableStateOf(0f) }
+/** couleurs choisies dans Apparence ; null = valeur par défaut */
+object HiliteState { var bg by mutableStateOf<Color?>(null); var text by mutableStateOf<Color?>(null) }
 /** vrai quand le panneau Préférences est ouvert : les autres « Retour » ne doivent pas le court-circuiter */
 object Nav { var settingsOpen by mutableStateOf(false) }
 fun glass(c: Color): Color = c.copy(alpha = 1f - GlassState.transp)
@@ -1330,7 +1332,7 @@ private fun PanelItem(
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 1.dp)
             .clip(shape)
-            .background(if (focused) AccentDark else if (selected) Color.White.copy(alpha = 0.22f) else Color.Transparent)
+            .background(if (focused) (HiliteState.bg ?: AccentDark) else if (selected) Color.White.copy(alpha = 0.22f) else Color.Transparent)
             .then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1343,7 +1345,7 @@ private fun PanelItem(
                 .onFocusChanged { focused = it.isFocused }
                 .combinedClickable(onClick = onClick, onLongClick = onLong),
         ) {
-            Text(title, color = Color.White, fontSize = 14.sp)
+            Text(title, color = if (focused) (HiliteState.text ?: Color.White) else Color.White, fontSize = 14.sp)
             if (!sub.isNullOrBlank()) Text(sub, color = Color(0xFFB8C4EE), fontSize = 11.sp)
         }
         if (trailing != null) trailing()
@@ -1379,7 +1381,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
             page.startsWith("edit:") -> page = "lists"
             page.startsWith("src:") || (page == "add" && canClose) -> page = "lists"
             page == "rename" -> page = "look_guide"
-            page == "look_color_bg" -> page = "look_color"
+            page == "look_color_bg" || page == "look_hilite" || page == "look_seltext" -> page = "look_color"
             page == "logos" || page == "langue" || page == "textsize" -> page = "look"
             page.startsWith("look_") -> page = "look"
             // Retour dans Enregistrements : ferme tout le panneau (les enregistrements restent dans la liste)
@@ -1422,6 +1424,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
         page == "remote" -> "Télécommande"
         page == "look_color" -> "Couleurs du thème"
         page == "look_color_bg" -> "Couleur d'arrière-plan"
+        page == "look_hilite" -> "Couleur de surbrillance"
+        page == "look_seltext" -> "Couleur du texte sélectionné"
         page == "logos" -> "Logos"
         page == "langue" -> "Langue"
         page == "textsize" -> "Taille du texte"
@@ -1499,13 +1503,25 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         }
                         page == "look_color" -> {
                             PanelItem("Couleur d'arrière-plan", ACCENTS[vm.accentIdx].first, first = true) { page = "look_color_bg" }
-                            PanelItem("Couleur de surbrillance", "Bientôt disponible") { }
-                            PanelItem("Couleur du texte sélectionné", "Bientôt disponible") { }
+                            PanelItem("Couleur de surbrillance", if (vm.hiliteIdx < 0) "Par défaut" else ACCENTS[vm.hiliteIdx].first) { page = "look_hilite" }
+                            PanelItem("Couleur du texte sélectionné", if (vm.seltextIdx < 0) "Blanc" else ACCENTS[vm.seltextIdx].first) { page = "look_seltext" }
                             GlassSetting(vm)
                         }
                         page == "look_color_bg" -> {
                             ACCENTS.forEachIndexed { i, (n, c) ->
                                 PanelItem(n, first = i == 0, trailing = { if (i == vm.accentIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeAccent(i) }
+                            }
+                        }
+                        page == "look_hilite" -> {
+                            PanelItem("Par défaut", first = true, trailing = { if (vm.hiliteIdx < 0) Text("✔", color = Color.White) }) { vm.changeHilite(-1) }
+                            ACCENTS.forEachIndexed { i, (n, c) ->
+                                PanelItem(n, trailing = { if (i == vm.hiliteIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeHilite(i) }
+                            }
+                        }
+                        page == "look_seltext" -> {
+                            PanelItem("Blanc", first = true, trailing = { if (vm.seltextIdx < 0) Text("✔", color = Color.White) }) { vm.changeSeltext(-1) }
+                            ACCENTS.forEachIndexed { i, (n, c) ->
+                                PanelItem(n, trailing = { if (i == vm.seltextIdx) Text("✔", color = Color.White) else Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(c)) }) { vm.changeSeltext(i) }
                             }
                         }
                         page == "logos" -> {
