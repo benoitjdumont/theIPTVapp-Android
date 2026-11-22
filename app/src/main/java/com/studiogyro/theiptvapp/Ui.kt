@@ -1331,13 +1331,17 @@ private fun PanelItem(
             .clip(shape)
             .background(if (focused) AccentDark else if (selected) Color.White.copy(alpha = 0.22f) else Color.Transparent)
             .then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier)
-            .androidx_focusRequester(fr)
-            .onFocusChanged { focused = it.isFocused }
-            .combinedClickable(onClick = onClick, onLongClick = onLong)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
+        // le texte est la cible de focus de la ligne ; la partie droite (bulle) a son propre focus
+        Column(
+            Modifier
+                .weight(1f)
+                .androidx_focusRequester(fr)
+                .onFocusChanged { focused = it.isFocused }
+                .combinedClickable(onClick = onClick, onLongClick = onLong),
+        ) {
             Text(title, color = Color.White, fontSize = 14.sp)
             if (!sub.isNullOrBlank()) Text(sub, color = Color(0xFFB8C4EE), fontSize = 11.sp)
         }
@@ -1621,9 +1625,13 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                             val ctxHi = androidx.compose.ui.platform.LocalContext.current
                             // bulle transparente à droite : efface les chaînes récentes et l'historique de recherche
                             PanelItem("Historique / chaînes récentes", "${Store(ctxHi).recentLive().size} chaîne(s) récente(s)", trailing = {
+                                var bubbleFocus by remember { mutableStateOf(false) }
                                 Box(
                                     Modifier
-                                        .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
+                                        .padding(start = 10.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .border(if (bubbleFocus) 2.dp else 1.dp, Color.White.copy(alpha = if (bubbleFocus) 1f else 0.6f), RoundedCornerShape(50))
+                                        .onFocusChanged { bubbleFocus = it.isFocused }
                                         .clickable {
                                             Store(ctxHi).saveRecentLive(emptyList())
                                             Store(ctxHi).saveHistory(emptyList())
