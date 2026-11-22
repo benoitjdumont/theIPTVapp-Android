@@ -557,17 +557,19 @@ fun PlayerScreen(vm: MainVm) {
                                 selected = c.id == ch.id,
                                 modifier = if (idx == 0) Modifier.focusRequester(stripFirst) else Modifier,
                             ) { close(); vm.play(vm.playlist, c) }
+                        // dernière case de l'historique : « Effacer », même format que les vignettes
+                        item {
+                            Box(
+                                Modifier
+                                    .width(150.dp)
+                                    .height(84.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(2.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                                    .clickable { vm.clearRecents(); menuStage = 0 },
+                                contentAlignment = Alignment.Center,
+                            ) { Text("Effacer", color = Color.White, fontSize = 15.sp) }
                         }
                     }
-                    // bulle transparente à droite des chaînes récentes : efface l'historique
-                    Box(
-                        Modifier
-                            .padding(start = 10.dp)
-                            .clip(RoundedCornerShape(50))
-                            .border(1.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(50))
-                            .clickable { vm.clearRecents(); menuStage = 0 }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                    ) { Text("Effacer", color = Color.White, fontSize = 13.sp) }
                     }
                 }
                 // flèche : seulement sous l'historique ; elle ouvre les options
