@@ -297,7 +297,7 @@ val KEY_CHOICES = listOf(
     "Aller sur la chaîne la plus récente",
     "Lecture/Pause",
     "Arrêter la lecture",
-    "Redémarrer le programme en cours",
+    "Redémarrez le programme en cours",
     "Accéder à la diffusion en direct",
     "Rechercher",
     "Historique",
