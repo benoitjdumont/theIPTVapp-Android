@@ -730,6 +730,8 @@ class MainVm(app: Application) : AndroidViewModel(app) {
     /** derniers canaux regardés (10 au maximum, les plus anciens sont retirés) */
     var recentIds by mutableStateOf(store.recentLive()); private set
     fun recentChannels(): List<Channel> = recentIds.mapNotNull { id -> live.items.firstOrNull { it.id == id } }
+    /** efface les chaînes récentes (bulle « Effacer » du lecteur) */
+    fun clearRecents() { recentIds = emptyList(); store.saveRecentLive(emptyList()) }
     private fun rememberRecent(c: Channel) {
         recentIds = (listOf(c.id) + recentIds.filter { it != c.id }).take(10)
         store.saveRecentLive(recentIds)

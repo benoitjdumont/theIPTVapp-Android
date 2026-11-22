@@ -532,10 +532,13 @@ fun PlayerScreen(vm: MainVm) {
                 val recents = vm.recentChannels()
                 if (menuStage == 1 && ch.kind == "live" && recents.isNotEmpty()) {
                     // historique : une ligne de chaînes récentes, sans fond ; glisser vers le bas ouvre les options
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = tvPad + 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                     LazyRow(
                         Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = tvPad + 8.dp, vertical = 8.dp)
+                            .weight(1f)
                             .pointerInput(Unit) {
                                 var acc = 0f
                                 detectVerticalDragGestures(
@@ -555,6 +558,16 @@ fun PlayerScreen(vm: MainVm) {
                                 modifier = if (idx == 0) Modifier.focusRequester(stripFirst) else Modifier,
                             ) { close(); vm.play(vm.playlist, c) }
                         }
+                    }
+                    // bulle transparente à droite des chaînes récentes : efface l'historique
+                    Box(
+                        Modifier
+                            .padding(start = 10.dp)
+                            .clip(RoundedCornerShape(50))
+                            .border(1.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(50))
+                            .clickable { vm.clearRecents(); menuStage = 0 }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    ) { Text("Effacer", color = Color.White, fontSize = 13.sp) }
                     }
                 }
                 // flèche : seulement sous l'historique ; elle ouvre les options
