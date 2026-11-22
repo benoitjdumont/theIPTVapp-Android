@@ -1685,7 +1685,7 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                         page == "backup" -> BackupPage(vm)
                         page == "rec" -> Column(Modifier.padding(horizontal = 12.dp)) { RecordingsSection(vm) }
                         page == "parental" -> Column(Modifier.padding(horizontal = 12.dp)) {
-                            PanelItem("Changer le code PIN", "Bientôt disponible", first = true) { }
+                            PinChangeSection(vm, first = true)
                             PanelItem("Méthode de saisie du code PIN", "Sélectionneur") { }
                             PanelItem("Ne nécessite pas de code PIN après le déverrouillage", "Toujours demander") { }
                             PanelItem("Ne nécessite pas uniquement pour les chaînes", trailing = { PanelSwitch(false) }) { }
@@ -2037,6 +2037,38 @@ fun PinDialog(vm: MainVm) {
         confirmButton = { Button(onClick = { if (!vm.tryPin(pin)) { bad = true; pin = "" } }) { Text("OK") } },
         dismissButton = { OutlinedButton(onClick = { vm.cancelPin() }) { Text("Annuler") } },
     )
+}
+
+/** Changer le code parental : l'ancien code est demandé avant le nouveau. */
+@Composable
+private fun PinChangeSection(vm: MainVm, first: Boolean = false) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    var oldPin by rememberSaveable { mutableStateOf("") }
+    var newPin by rememberSaveable { mutableStateOf("") }
+    var msg by rememberSaveable { mutableStateOf("") }
+    val active = vm.pinHash != null
+    PanelItem(
+        "Changer le code PIN",
+        when {
+            !active -> "Activez d'abord le contrôle parental"
+            open -> "Fermer"
+            else -> "Modifier"
+        },
+        first = first,
+    ) { if (active) { open = !open; msg = "" } }
+    if (open && active) {
+        TvField(oldPin, { oldPin = it.filter(Char::isDigit) }, "Code actuel", secret = true, keyboard = KeyboardType.NumberPassword)
+        TvField(newPin, { newPin = it.filter(Char::isDigit) }, "Nouveau code (4 chiffres ou plus)", secret = true, keyboard = KeyboardType.NumberPassword)
+        Button(
+            enabled = newPin.length >= 4 && oldPin.isNotEmpty(),
+            onClick = {
+                if (vm.changePin(oldPin, newPin)) { msg = "Code modifié."; open = false; oldPin = ""; newPin = "" }
+                else { msg = "Code actuel incorrect."; oldPin = "" }
+            },
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+        ) { Text("Enregistrer") }
+    }
+    if (msg.isNotBlank()) Text(msg, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 18.dp))
 }
 
 @Composable

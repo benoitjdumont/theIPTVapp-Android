@@ -726,6 +726,14 @@ class MainVm(app: Application) : AndroidViewModel(app) {
         unlocked = false
     }
 
+    /** change le code : il faut connaître l'ancien. Renvoie false si l'ancien est faux. */
+    fun changePin(oldPin: String, newPin: String): Boolean {
+        if (pinHash == null || hashPin(oldPin) != pinHash) return false
+        pinHash = hashPin(newPin)
+        store.saveParental(pinHash, keywords)
+        return true
+    }
+
     fun disableParental() {
         pinHash = null
         keywords = emptyList()
