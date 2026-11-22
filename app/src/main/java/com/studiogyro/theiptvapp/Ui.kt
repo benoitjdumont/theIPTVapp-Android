@@ -1676,13 +1676,8 @@ fun SettingsScreen(vm: MainVm, docked: Boolean = false, back: () -> Unit) {
                                 panelSec = options[(options.indexOf(panelSec) + 1).mod(options.size)]
                                 Store(ctxPt).savePanelTimeout(panelSec)
                             }
-                            val ctxBuf = androidx.compose.ui.platform.LocalContext.current
-                            var bufIdx by remember { mutableStateOf(Store(ctxBuf).bufferSize()) }
-                            val bufNames = listOf("Petite", "Moyenne", "Grande")
-                            PanelItem("Mémoire tampon", bufNames[bufIdx] + " · à la prochaine lecture") {
-                                bufIdx = (bufIdx + 1) % bufNames.size
-                                Store(ctxBuf).saveBufferSize(bufIdx)
-                            }
+                            // comme sur la référence : seule la valeur Grande existe
+                            PanelItem("Mémoire tampon", "Grande") { }
                             PanelItem("Décodeur audio", "Matériel") { }
                             PanelItem("Décodeur vidéo", "Matériel") { }
                             PanelItem("Fréquence d'images automatique (AFR)", "Bientôt disponible") { }
