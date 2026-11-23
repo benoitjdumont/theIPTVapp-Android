@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.studiogyro.theiptvapp"
-        minSdk = 23
+        minSdk = 21
         targetSdk = 35
         // le numéro de version vient de la compilation en ligne (-PvCode=<numéro>) : il augmente à chaque version
         val vCode = (project.findProperty("vCode") as String?)?.toIntOrNull() ?: 1
